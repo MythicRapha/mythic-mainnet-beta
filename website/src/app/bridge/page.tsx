@@ -3,7 +3,7 @@ import BridgeCard from '@/components/BridgeCard'
 
 export const metadata: Metadata = {
   title: 'Bridge — Mythic',
-  description: 'Bridge $MYTH from PumpFun / Solana L1 to Mythic L2. Move your liquidity to the AI-native chain.',
+  description: 'Bridge SOL from Solana L1 to Mythic L2. Deposited SOL is credited as MYTH on L2 — the native gas currency. Fast finality, low fees.',
 }
 
 export default function BridgePage() {
@@ -22,12 +22,12 @@ export default function BridgePage() {
             Mythic Bridge
           </h1>
           <p className="text-mythic-text text-[0.95rem] max-w-[480px] mx-auto mb-6">
-            Bridge $MYTH from Solana L1 to Mythic L2. Buy on PumpFun, then bridge to access the full Mythic ecosystem.
+            Bridge SOL between Solana L1 and Mythic L2. Deposited SOL is credited as MYTH on L2 — the native gas currency. Withdrawals have a 7-day challenge period.
           </p>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-[#39FF14]/30 bg-[#39FF14]/5">
-            <span className="w-1.5 h-1.5 bg-[#39FF14] animate-pulse" />
-            <span className="font-mono text-[0.55rem] tracking-[0.1em] uppercase text-[#39FF14]">
-              Currently supporting $MYTH only — SOL &amp; USDC coming soon
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-mythic-violet/30 bg-mythic-violet/5">
+            <span className="w-1.5 h-1.5 bg-mythic-violet animate-pulse" />
+            <span className="font-mono text-[0.55rem] tracking-[0.1em] uppercase text-mythic-violet">
+              0.1% bridge fee &mdash; SOL deposits live
             </span>
           </div>
         </div>

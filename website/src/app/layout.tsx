@@ -3,7 +3,6 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import { WalletProvider } from '@/providers/WalletProvider'
-import TokenWarningPopup from '@/components/TokenWarningPopup'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://mythic.sh'),
@@ -91,7 +90,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-mythic-bg text-white antialiased font-sans">
         <WalletProvider>
-          <TokenWarningPopup />
           <Navbar />
           <main className="min-h-[calc(100vh-4rem)]">
             {children}

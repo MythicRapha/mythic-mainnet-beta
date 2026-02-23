@@ -9,6 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@solana/spl-token": "^0.3.11",
+    "@solana/web3.js": "^1.98.4",
+    "borsh": "^0.7.0",
+    "bs58": "^5.0.0",
+    "buffer": "^6.0.3",
     "next": "14.2.21",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

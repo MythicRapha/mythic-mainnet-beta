@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" style="fill-rule:evenodd;clip-rule:evenodd;">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#020406"/>
+      <stop offset="0.5" stop-color="#050810"/>
+      <stop offset="1" stop-color="#020406"/>
+    </linearGradient>
+    <radialGradient id="g1" cx="0.5" cy="0.38" r="0.55">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.12"/>
+      <stop offset="0.3" stop-color="#39FF14" stop-opacity="0.04"/>
+      <stop offset="0.6" stop-color="#39FF14" stop-opacity="0.01"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="0.2" cy="0.65" r="0.4">
+      <stop offset="0" stop-color="#7B2FFF" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g3" cx="0.82" cy="0.55" r="0.35">
+      <stop offset="0" stop-color="#00E5FF" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="pulse" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.35"/>
+      <stop offset="0.15" stop-color="#39FF14" stop-opacity="0.18"/>
+      <stop offset="0.4" stop-color="#39FF14" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hl" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#39FF14" stop-opacity="0.15"/>
+      <stop offset="0.5" stop-color="#39FF14" stop-opacity="0.22"/>
+      <stop offset="0.7" stop-color="#39FF14" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="vl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#39FF14" stop-opacity="0.04"/>
+      <stop offset="0.7" stop-color="#39FF14" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1600" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="0.15" stop-color="#39FF14" stop-opacity="0.85"/>
+      <stop offset="0.30" stop-color="#FF9500" stop-opacity="0.85"/>
+      <stop offset="0.45" stop-color="#00E5FF" stop-opacity="0.85"/>
+      <stop offset="0.55" stop-color="#7B2FFF" stop-opacity="0.85"/>
+      <stop offset="0.70" stop-color="#FF2D78" stop-opacity="0.85"/>
+      <stop offset="0.85" stop-color="#FFFFFF" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="timer-bg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="0.1" stop-color="#39FF14" stop-opacity="0.04"/>
+      <stop offset="0.5" stop-color="#39FF14" stop-opacity="0.06"/>
+      <stop offset="0.9" stop-color="#39FF14" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#g1)"/>
+  <rect width="1600" height="900" fill="url(#g2)"/>
+  <rect width="1600" height="900" fill="url(#g3)"/>
+
+  <!-- Grid system -->
+  <line x1="400" y1="0" x2="400" y2="900" stroke="url(#vl)" stroke-width="0.4"/>
+  <line x1="800" y1="0" x2="800" y2="900" stroke="url(#vl)" stroke-width="0.5"/>
+  <line x1="1200" y1="0" x2="1200" y2="900" stroke="url(#vl)" stroke-width="0.4"/>
+  <line x1="0" y1="225" x2="1600" y2="225" stroke="#39FF14" stroke-opacity="0.02" stroke-width="0.3"/>
+  <line x1="0" y1="450" x2="1600" y2="450" stroke="#39FF14" stroke-opacity="0.025" stroke-width="0.3"/>
+  <line x1="0" y1="675" x2="1600" y2="675" stroke="#39FF14" stroke-opacity="0.02" stroke-width="0.3"/>
+
+  <!-- Converging data lines toward center -->
+  <line x1="0" y1="200" x2="800" y2="350" stroke="#39FF14" stroke-opacity="0.018" stroke-width="0.3"/>
+  <line x1="1600" y1="200" x2="800" y2="350" stroke="#39FF14" stroke-opacity="0.018" stroke-width="0.3"/>
+  <line x1="0" y1="700" x2="800" y2="350" stroke="#39FF14" stroke-opacity="0.012" stroke-width="0.3"/>
+  <line x1="1600" y1="700" x2="800" y2="350" stroke="#39FF14" stroke-opacity="0.012" stroke-width="0.3"/>
+
+  <!-- Particles -->
+  <rect x="140" y="120" width="1.5" height="1.5" fill="#39FF14" opacity="0.15"/>
+  <rect x="380" y="280" width="1" height="1" fill="#39FF14" opacity="0.1"/>
+  <rect x="650" y="95" width="1.5" height="1.5" fill="#39FF14" opacity="0.12"/>
+  <rect x="1050" y="130" width="1" height="1" fill="#39FF14" opacity="0.1"/>
+  <rect x="1400" y="300" width="1.5" height="1.5" fill="#39FF14" opacity="0.08"/>
+  <rect x="200" y="550" width="1" height="1" fill="#39FF14" opacity="0.06"/>
+  <rect x="1350" y="480" width="1" height="1" fill="#39FF14" opacity="0.06"/>
+  <rect x="300" y="700" width="1" height="1" fill="#7B2FFF" opacity="0.06"/>
+  <rect x="1250" y="600" width="1" height="1" fill="#00E5FF" opacity="0.05"/>
+  <rect x="500" y="150" width="1" height="1" fill="#39FF14" opacity="0.04"/>
+  <rect x="1100" y="200" width="1" height="1" fill="#39FF14" opacity="0.04"/>
+  <rect x="900" y="80" width="1" height="1" fill="#39FF14" opacity="0.08"/>
+
+  <!-- Corner brackets -->
+  <line x1="36" y1="36" x2="100" y2="36" stroke="#39FF14" stroke-opacity="0.4" stroke-width="1.2"/>
+  <line x1="36" y1="36" x2="36" y2="100" stroke="#39FF14" stroke-opacity="0.4" stroke-width="1.2"/>
+  <line x1="1564" y1="36" x2="1500" y2="36" stroke="#39FF14" stroke-opacity="0.4" stroke-width="1.2"/>
+  <line x1="1564" y1="36" x2="1564" y2="100" stroke="#39FF14" stroke-opacity="0.4" stroke-width="1.2"/>
+  <line x1="36" y1="864" x2="100" y2="864" stroke="#39FF14" stroke-opacity="0.3" stroke-width="1.2"/>
+  <line x1="36" y1="864" x2="36" y2="800" stroke="#39FF14" stroke-opacity="0.3" stroke-width="1.2"/>
+  <line x1="1564" y1="864" x2="1500" y2="864" stroke="#39FF14" stroke-opacity="0.3" stroke-width="1.2"/>
+  <line x1="1564" y1="864" x2="1564" y2="800" stroke="#39FF14" stroke-opacity="0.3" stroke-width="1.2"/>
+
+  <!-- HUD corner labels -->
+  <text x="52" y="28" font-family="Menlo, monospace" font-size="9" fill="#39FF14" opacity="0.45">SYS::ARMED</text>
+  <text x="1548" y="28" text-anchor="end" font-family="Menlo, monospace" font-size="9" fill="#39FF14" opacity="0.45">PUMP.FUN</text>
+  <text x="52" y="890" font-family="Menlo, monospace" font-size="9" fill="#39FF14" opacity="0.35">MYTHIC.SH</text>
+  <text x="1548" y="890" text-anchor="end" font-family="Menlo, monospace" font-size="9" fill="#39FF14" opacity="0.35">FEB.23.2026</text>
+
+  <!-- ====== COUNTDOWN BADGE ====== -->
+  <rect x="590" y="60" width="420" height="42" fill="#39FF14" opacity="0.04"/>
+  <rect x="590" y="60" width="420" height="42" fill="none" stroke="#39FF14" stroke-width="1" opacity="0.5"/>
+  <!-- Blinking dot -->
+  <circle cx="620" cy="81" r="5" fill="#39FF14" opacity="0.9"/>
+  <circle cx="620" cy="81" r="9" fill="#39FF14" opacity="0.12"/>
+  <text x="800" y="88" text-anchor="middle" font-family="Menlo, monospace" font-size="16" font-weight="bold" fill="#39FF14" letter-spacing="6">T-MINUS 45 MINUTES</text>
+
+  <!-- Pulse glow behind prism -->
+  <circle cx="800" cy="300" r="120" fill="url(#pulse)"/>
+
+  <!-- ====== CONVERGENCE PRISM ====== -->
+  <g transform="translate(710, 200)">
+    <!-- Subtle outer glow polygons -->
+    <polygon points="90,0 15,75 90,100" fill="#39FF14" opacity="0.03"/>
+    <polygon points="90,0 165,75 90,100" fill="#6FFF4F" opacity="0.02"/>
+    <polygon points="15,75 90,100 165,75 90,185" fill="#2ACC10" opacity="0.025"/>
+    <!-- Main prism -->
+    <polygon points="90,0 15,75 90,100" fill="#39FF14" opacity="0.9"/>
+    <polygon points="90,0 165,75 90,100" fill="#6FFF4F" opacity="0.75"/>
+    <polygon points="15,75 90,100 165,75 90,185" fill="#2ACC10" opacity="0.85"/>
+    <!-- Edge highlights -->
+    <line x1="90" y1="0" x2="90" y2="185" stroke="white" stroke-opacity="0.15" stroke-width="0.6"/>
+    <line x1="90" y1="0" x2="15" y2="75" stroke="white" stroke-opacity="0.06" stroke-width="0.3"/>
+    <line x1="90" y1="0" x2="165" y2="75" stroke="white" stroke-opacity="0.04" stroke-width="0.3"/>
+    <line x1="90" y1="100" x2="15" y2="75" stroke="white" stroke-opacity="0.04" stroke-width="0.3"/>
+    <line x1="90" y1="100" x2="165" y2="75" stroke="white" stroke-opacity="0.03" stroke-width="0.3"/>
+  </g>
+
+  <!-- Emphasis line -->
+  <line x1="0" y1="430" x2="1600" y2="430" stroke="url(#hl)" stroke-width="0.6"/>
+
+  <!-- ====== MAIN COPY ====== -->
+  <text x="800" y="505" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="900" font-size="110" fill="#39FF14" letter-spacing="8">$MYTH</text>
+  <!-- Subtle text glow -->
+  <text x="800" y="505" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="900" font-size="110" fill="#39FF14" letter-spacing="8" opacity="0.08" filter="url(#blur)"/>
+
+  <text x="800" y="555" text-anchor="middle" font-family="Menlo, monospace" font-size="24" fill="white" letter-spacing="18" opacity="0.85">LAUNCHING SOON</text>
+
+  <!-- Sub info -->
+  <text x="800" y="600" text-anchor="middle" font-family="Menlo, monospace" font-size="14" fill="#39FF14" letter-spacing="5" opacity="0.5">THE CHAIN THAT THINKS</text>
+
+  <!-- Timer background -->
+  <rect x="450" y="625" width="700" height="70" fill="url(#timer-bg)"/>
+  <rect x="450" y="625" width="700" height="70" fill="none" stroke="#39FF14" stroke-opacity="0.12" stroke-width="0.5"/>
+
+  <!-- Large countdown display -->
+  <text x="560" y="670" font-family="Menlo, monospace" font-size="42" font-weight="bold" fill="#39FF14" letter-spacing="2">00</text>
+  <text x="615" y="670" font-family="Menlo, monospace" font-size="42" fill="#39FF14" opacity="0.5">:</text>
+  <text x="640" y="670" font-family="Menlo, monospace" font-size="42" font-weight="bold" fill="#39FF14" letter-spacing="2">45</text>
+  <text x="695" y="670" font-family="Menlo, monospace" font-size="42" fill="#39FF14" opacity="0.5">:</text>
+  <text x="720" y="670" font-family="Menlo, monospace" font-size="42" font-weight="bold" fill="#39FF14" letter-spacing="2">00</text>
+  <!-- Labels -->
+  <text x="570" y="688" font-family="Menlo, monospace" font-size="8" fill="#686878" letter-spacing="2">HRS</text>
+  <text x="650" y="688" font-family="Menlo, monospace" font-size="8" fill="#686878" letter-spacing="2">MIN</text>
+  <text x="730" y="688" font-family="Menlo, monospace" font-size="8" fill="#686878" letter-spacing="2">SEC</text>
+
+  <!-- Separator -->
+  <text x="820" y="665" font-family="Menlo, monospace" font-size="12" fill="#39FF14" opacity="0.25">│</text>
+
+  <!-- Target info -->
+  <text x="920" y="653" font-family="Menlo, monospace" font-size="11" fill="#686878" letter-spacing="2">TARGET</text>
+  <text x="920" y="672" font-family="Menlo, monospace" font-size="16" font-weight="bold" fill="#39FF14" letter-spacing="1">PUMP.FUN</text>
+  <text x="920" y="688" font-family="Menlo, monospace" font-size="9" fill="#686878" letter-spacing="1">9 AM EST · FEB 23</text>
+
+  <!-- Gem bar -->
+  <rect y="720" width="1600" height="3" fill="url(#bar)"/>
+
+  <!-- ====== FEATURE ROW ====== -->
+  <text x="260" y="775" text-anchor="middle" font-family="Menlo, monospace" font-size="11" fill="#39FF14" opacity="0.7" letter-spacing="3">AI-NATIVE L2</text>
+  <text x="540" y="775" text-anchor="middle" font-family="Menlo, monospace" font-size="11" fill="#39FF14" opacity="0.7" letter-spacing="3">FIREDANCER</text>
+  <text x="800" y="775" text-anchor="middle" font-family="Menlo, monospace" font-size="11" fill="#39FF14" opacity="0.7" letter-spacing="3">1M+ TPS</text>
+  <text x="1060" y="775" text-anchor="middle" font-family="Menlo, monospace" font-size="11" fill="#39FF14" opacity="0.7" letter-spacing="3">40% BURN</text>
+  <text x="1340" y="775" text-anchor="middle" font-family="Menlo, monospace" font-size="11" fill="#39FF14" opacity="0.7" letter-spacing="3">NO PRESALE</text>
+  <!-- Dots between features -->
+  <circle cx="400" cy="772" r="1.5" fill="#39FF14" opacity="0.2"/>
+  <circle cx="670" cy="772" r="1.5" fill="#39FF14" opacity="0.2"/>
+  <circle cx="930" cy="772" r="1.5" fill="#39FF14" opacity="0.2"/>
+  <circle cx="1200" cy="772" r="1.5" fill="#39FF14" opacity="0.2"/>
+
+  <!-- Bottom bar -->
+  <rect y="810" width="1600" height="90" fill="#06060A"/>
+  <rect y="810" width="1600" height="1" fill="#39FF14" opacity="0.08"/>
+  <text x="80" y="855" font-family="Menlo, monospace" font-size="15" fill="#39FF14" letter-spacing="1" opacity="0.8">mythic.sh</text>
+  <text x="800" y="855" text-anchor="middle" font-family="Menlo, monospace" font-size="13" fill="#39FF14" letter-spacing="6" opacity="0.55">SET YOUR ALARMS · LOAD YOUR WALLETS</text>
+  <text x="1520" y="855" text-anchor="end" font-family="Menlo, monospace" font-size="15" fill="#39FF14" letter-spacing="1" opacity="0.8">$MYTH</text>
+
+  <!-- Border -->
+  <rect x="0.5" y="0.5" width="1599" height="899" fill="none" stroke="#39FF14" stroke-opacity="0.12" stroke-width="0.5"/>
+</svg>

@@ -1,0 +1,275 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 32 32" style="image-rendering:pixelated;">
+  <defs>
+    <radialGradient id="bg-glow" cx="0.5" cy="0.35" r="0.5">
+      <stop offset="0" stop-color="#7B2FFF" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lens-glow" cx="0.5" cy="0.5" r="0.8">
+      <stop offset="0" stop-color="#7B2FFF" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#7B2FFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" fill="#030208"/>
+  <rect width="32" height="32" fill="url(#bg-glow)"/>
+
+  <!-- Scan lines -->
+  <rect x="0" y="0" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="2" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="4" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="6" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="8" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="10" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="12" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="14" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="16" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="18" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+  <rect x="0" y="20" width="32" height="1" fill="#7B2FFF" opacity="0.008"/>
+
+  <!-- Floating holographic particles -->
+  <rect x="4" y="3" width="1" height="1" fill="#9B5FFF" opacity="0.15"/>
+  <rect x="27" y="5" width="1" height="1" fill="#7B2FFF" opacity="0.12"/>
+  <rect x="3" y="13" width="1" height="1" fill="#7B2FFF" opacity="0.08"/>
+  <rect x="28" y="10" width="1" height="1" fill="#9B5FFF" opacity="0.1"/>
+  <rect x="5" y="20" width="1" height="1" fill="#7B2FFF" opacity="0.06"/>
+  <rect x="26" y="18" width="1" height="1" fill="#7B2FFF" opacity="0.08"/>
+  <!-- Holographic data fragments -->
+  <rect x="2" y="8" width="2" height="1" fill="#7B2FFF" opacity="0.05"/>
+  <rect x="28" y="14" width="2" height="1" fill="#7B2FFF" opacity="0.04"/>
+  <rect x="3" y="16" width="1" height="2" fill="#9B5FFF" opacity="0.04"/>
+  <rect x="28" y="7" width="1" height="2" fill="#9B5FFF" opacity="0.04"/>
+
+  <!-- ====== HAIR ====== -->
+  <!-- Undercut sides (darker) -->
+  <rect x="8" y="4" width="1" height="1" fill="#1A1028"/>
+  <rect x="23" y="4" width="1" height="1" fill="#1A1028"/>
+  <rect x="7" y="5" width="2" height="1" fill="#1A1028"/>
+  <rect x="23" y="5" width="2" height="1" fill="#1A1028"/>
+  <rect x="7" y="6" width="2" height="1" fill="#151020"/>
+  <rect x="23" y="6" width="2" height="1" fill="#151020"/>
+
+  <!-- Top hair - swept to side, violet highlights -->
+  <rect x="9" y="2" width="1" height="1" fill="#5A1FCC"/>
+  <rect x="10" y="2" width="3" height="1" fill="#7B2FFF"/>
+  <rect x="13" y="2" width="2" height="1" fill="#9B5FFF"/>
+  <rect x="15" y="2" width="3" height="1" fill="#7B2FFF"/>
+  <rect x="18" y="2" width="2" height="1" fill="#5A1FCC"/>
+  <rect x="20" y="2" width="2" height="1" fill="#3A1580"/>
+
+  <rect x="8" y="3" width="1" height="1" fill="#3A1580"/>
+  <rect x="9" y="3" width="1" height="1" fill="#5A1FCC"/>
+  <rect x="10" y="3" width="3" height="1" fill="#7B2FFF"/>
+  <rect x="13" y="3" width="3" height="1" fill="#9B5FFF"/>
+  <rect x="16" y="3" width="3" height="1" fill="#7B2FFF"/>
+  <rect x="19" y="3" width="2" height="1" fill="#5A1FCC"/>
+  <rect x="21" y="3" width="2" height="1" fill="#3A1580"/>
+
+  <rect x="9" y="4" width="2" height="1" fill="#5A1FCC"/>
+  <rect x="11" y="4" width="4" height="1" fill="#7B2FFF"/>
+  <rect x="15" y="4" width="3" height="1" fill="#9B5FFF"/>
+  <rect x="18" y="4" width="3" height="1" fill="#7B2FFF"/>
+  <rect x="21" y="4" width="2" height="1" fill="#5A1FCC"/>
+
+  <!-- Row 5: Hair to forehead transition -->
+  <rect x="9" y="5" width="1" height="1" fill="#3A1580"/>
+  <rect x="10" y="5" width="3" height="1" fill="#5A1FCC"/>
+  <rect x="13" y="5" width="2" height="1" fill="#7B2FFF"/>
+  <rect x="15" y="5" width="3" height="1" fill="#5A1FCC"/>
+  <rect x="18" y="5" width="3" height="1" fill="#3A1580"/>
+  <rect x="21" y="5" width="2" height="1" fill="#1A1028"/>
+
+  <!-- ====== FACE ====== -->
+  <!-- Row 6: Forehead -->
+  <rect x="9" y="6" width="1" height="1" fill="#222232"/>
+  <rect x="10" y="6" width="1" height="1" fill="#2E2E42"/>
+  <rect x="11" y="6" width="10" height="1" fill="#353550"/>
+  <rect x="21" y="6" width="1" height="1" fill="#2E2E42"/>
+  <rect x="22" y="6" width="1" height="1" fill="#222232"/>
+
+  <!-- Row 7: Upper face -->
+  <rect x="8" y="7" width="1" height="1" fill="#1A1A28"/>
+  <rect x="9" y="7" width="1" height="1" fill="#2E2E42"/>
+  <rect x="10" y="7" width="12" height="1" fill="#3A3A55"/>
+  <rect x="22" y="7" width="1" height="1" fill="#2E2E42"/>
+  <rect x="23" y="7" width="1" height="1" fill="#1A1A28"/>
+
+  <!-- Row 8: Brow — slight ridge -->
+  <rect x="8" y="8" width="1" height="1" fill="#1A1A28"/>
+  <rect x="9" y="8" width="1" height="1" fill="#2E2E42"/>
+  <rect x="10" y="8" width="1" height="1" fill="#3A3A55"/>
+  <rect x="11" y="8" width="3" height="1" fill="#404062"/>
+  <rect x="14" y="8" width="4" height="1" fill="#353550"/>
+  <rect x="18" y="8" width="3" height="1" fill="#404062"/>
+  <rect x="21" y="8" width="1" height="1" fill="#3A3A55"/>
+  <rect x="22" y="8" width="1" height="1" fill="#2E2E42"/>
+  <rect x="23" y="8" width="1" height="1" fill="#1A1A28"/>
+
+  <!-- ====== GLASSES / AR VISOR ====== -->
+  <!-- Glasses glow halo -->
+  <rect x="9" y="8" width="14" height="4" fill="url(#lens-glow)" opacity="0.4"/>
+
+  <!-- Row 9: Glasses frame top -->
+  <rect x="8" y="9" width="1" height="1" fill="#1A1A28"/>
+  <rect x="9" y="9" width="1" height="1" fill="#28283E"/>
+  <rect x="10" y="9" width="1" height="1" fill="#3A1580"/>
+  <rect x="11" y="9" width="3" height="1" fill="#5A1FCC"/>
+  <rect x="14" y="9" width="1" height="1" fill="#3A3A55"/>
+  <rect x="15" y="9" width="2" height="1" fill="#3A1580"/>
+  <rect x="17" y="9" width="1" height="1" fill="#3A3A55"/>
+  <rect x="18" y="9" width="3" height="1" fill="#5A1FCC"/>
+  <rect x="21" y="9" width="1" height="1" fill="#3A1580"/>
+  <rect x="22" y="9" width="1" height="1" fill="#28283E"/>
+  <rect x="23" y="9" width="1" height="1" fill="#1A1A28"/>
+
+  <!-- Row 10: Lens area — violet tinted lenses with HUD data -->
+  <rect x="8" y="10" width="1" height="1" fill="#1A1A28"/>
+  <rect x="9" y="10" width="1" height="1" fill="#28283E"/>
+  <rect x="10" y="10" width="1" height="1" fill="#5A1FCC"/>
+  <rect x="11" y="10" width="1" height="1" fill="#7B2FFF"/>
+  <rect x="12" y="10" width="1" height="1" fill="#9B5FFF"/>
+  <rect x="13" y="10" width="1" height="1" fill="#7B2FFF"/>
+  <rect x="14" y="10" width="1" height="1" fill="#353550"/>
+  <rect x="15" y="10" width="2" height="1" fill="#28283E"/>
+  <rect x="17" y="10" width="1" height="1" fill="#353550"/>
+  <rect x="18" y="10" width="1" height="1" fill="#7B2FFF"/>
+  <rect x="19" y="10" width="1" height="1" fill="#9B5FFF"/>
+  <rect x="20" y="10" width="1" height="1" fill="#7B2FFF"/>
+  <rect x="21" y="10" width="1" height="1" fill="#5A1FCC"/>
+  <rect x="22" y="10" width="1" height="1" fill="#28283E"/>
+  <rect x="23" y="10" width="1" height="1" fill="#1A1A28"/>
+  <!-- HUD pixels in lenses -->
+  <rect x="11" y="10" width="1" height="1" fill="#FFFFFF" opacity="0.2"/>
+  <rect x="19" y="10" width="1" height="1" fill="#FFFFFF" opacity="0.15"/>
+
+  <!-- Row 11: Glasses frame bottom + eyes visible behind tint -->
+  <rect x="8" y="11" width="1" height="1" fill="#1A1A28"/>
+  <rect x="9" y="11" width="1" height="1" fill="#28283E"/>
+  <rect x="10" y="11" width="1" height="1" fill="#3A1580"/>
+  <rect x="11" y="11" width="3" height="1" fill="#5A1FCC"/>
+  <rect x="14" y="11" width="1" height="1" fill="#353550"/>
+  <rect x="15" y="11" width="2" height="1" fill="#28283E"/>
+  <rect x="17" y="11" width="1" height="1" fill="#353550"/>
+  <rect x="18" y="11" width="3" height="1" fill="#5A1FCC"/>
+  <rect x="21" y="11" width="1" height="1" fill="#3A1580"/>
+  <rect x="22" y="11" width="1" height="1" fill="#28283E"/>
+  <rect x="23" y="11" width="1" height="1" fill="#1A1A28"/>
+
+  <!-- ====== LOWER FACE ====== -->
+  <!-- Row 12: Cheeks + nose -->
+  <rect x="8" y="12" width="1" height="1" fill="#1A1A28"/>
+  <rect x="9" y="12" width="1" height="1" fill="#2E2E42"/>
+  <rect x="10" y="12" width="1" height="1" fill="#353550"/>
+  <rect x="11" y="12" width="1" height="1" fill="#3A3A55"/>
+  <rect x="12" y="12" width="1" height="1" fill="#404062"/>
+  <rect x="13" y="12" width="1" height="1" fill="#3A3A55"/>
+  <rect x="14" y="12" width="1" height="1" fill="#353550"/>
+  <rect x="15" y="12" width="2" height="1" fill="#3A3A55"/>
+  <rect x="17" y="12" width="1" height="1" fill="#353550"/>
+  <rect x="18" y="12" width="1" height="1" fill="#3A3A55"/>
+  <rect x="19" y="12" width="1" height="1" fill="#404062"/>
+  <rect x="20" y="12" width="1" height="1" fill="#3A3A55"/>
+  <rect x="21" y="12" width="1" height="1" fill="#353550"/>
+  <rect x="22" y="12" width="1" height="1" fill="#2E2E42"/>
+  <rect x="23" y="12" width="1" height="1" fill="#1A1A28"/>
+
+  <!-- Row 13: Nose tip + cheeks -->
+  <rect x="9" y="13" width="1" height="1" fill="#28283E"/>
+  <rect x="10" y="13" width="1" height="1" fill="#353550"/>
+  <rect x="11" y="13" width="10" height="1" fill="#3A3A55"/>
+  <rect x="21" y="13" width="1" height="1" fill="#353550"/>
+  <rect x="22" y="13" width="1" height="1" fill="#28283E"/>
+  <!-- Nose highlight -->
+  <rect x="15" y="13" width="2" height="1" fill="#404062"/>
+
+  <!-- Row 14: Mouth area — slight smirk -->
+  <rect x="9" y="14" width="1" height="1" fill="#28283E"/>
+  <rect x="10" y="14" width="1" height="1" fill="#353550"/>
+  <rect x="11" y="14" width="1" height="1" fill="#3A3A55"/>
+  <rect x="12" y="14" width="1" height="1" fill="#353550"/>
+  <rect x="13" y="14" width="5" height="1" fill="#2A2A3E"/>
+  <rect x="18" y="14" width="1" height="1" fill="#353550"/>
+  <rect x="19" y="14" width="1" height="1" fill="#3A3A55"/>
+  <rect x="20" y="14" width="1" height="1" fill="#353550"/>
+  <rect x="21" y="14" width="1" height="1" fill="#353550"/>
+  <rect x="22" y="14" width="1" height="1" fill="#28283E"/>
+  <!-- Mouth line -->
+  <rect x="13" y="14" width="2" height="1" fill="#222232"/>
+  <rect x="16" y="14" width="2" height="1" fill="#2E2E42"/>
+
+  <!-- Row 15: Chin -->
+  <rect x="10" y="15" width="1" height="1" fill="#2E2E42"/>
+  <rect x="11" y="15" width="10" height="1" fill="#353550"/>
+  <rect x="21" y="15" width="1" height="1" fill="#2E2E42"/>
+  <!-- Jawline shadow -->
+  <rect x="10" y="15" width="1" height="1" fill="#222232"/>
+  <rect x="21" y="15" width="1" height="1" fill="#222232"/>
+
+  <!-- Row 16: Jawline -->
+  <rect x="11" y="16" width="10" height="1" fill="#2E2E42"/>
+  <rect x="12" y="16" width="8" height="1" fill="#353550"/>
+
+  <!-- ====== NECK + COLLAR ====== -->
+  <!-- Row 17: Neck -->
+  <rect x="13" y="17" width="6" height="1" fill="#222232"/>
+  <rect x="14" y="17" width="4" height="1" fill="#28283E"/>
+
+  <!-- Row 18: High collar jacket -->
+  <rect x="9" y="18" width="14" height="1" fill="#0C0C14"/>
+  <rect x="10" y="18" width="12" height="1" fill="#101020"/>
+  <!-- Collar glow accent -->
+  <rect x="10" y="18" width="1" height="1" fill="#7B2FFF" opacity="0.4"/>
+  <rect x="15" y="18" width="2" height="1" fill="#7B2FFF" opacity="0.15"/>
+  <rect x="21" y="18" width="1" height="1" fill="#7B2FFF" opacity="0.4"/>
+
+  <!-- Row 19: Jacket collar detail -->
+  <rect x="8" y="19" width="16" height="1" fill="#0A0A12"/>
+  <rect x="9" y="19" width="14" height="1" fill="#0E0E18"/>
+  <!-- Collar piping -->
+  <rect x="9" y="19" width="1" height="1" fill="#5A1FCC" opacity="0.5"/>
+  <rect x="22" y="19" width="1" height="1" fill="#5A1FCC" opacity="0.5"/>
+  <!-- V-neck line -->
+  <rect x="15" y="19" width="1" height="1" fill="#7B2FFF" opacity="0.2"/>
+  <rect x="16" y="19" width="1" height="1" fill="#7B2FFF" opacity="0.2"/>
+
+  <!-- Row 20: Shoulders begin -->
+  <rect x="6" y="20" width="20" height="1" fill="#08080E"/>
+  <rect x="8" y="20" width="16" height="1" fill="#0C0C14"/>
+  <!-- Shoulder seam -->
+  <rect x="8" y="20" width="1" height="1" fill="#5A1FCC" opacity="0.2"/>
+  <rect x="23" y="20" width="1" height="1" fill="#5A1FCC" opacity="0.2"/>
+
+  <!-- Row 21-22: Full shoulders -->
+  <rect x="4" y="21" width="24" height="1" fill="#06060C"/>
+  <rect x="6" y="21" width="20" height="1" fill="#0A0A10"/>
+  <rect x="3" y="22" width="26" height="1" fill="#06060C"/>
+  <rect x="5" y="22" width="22" height="1" fill="#08080E"/>
+
+  <!-- Row 23-24: Chest/jacket -->
+  <rect x="2" y="23" width="28" height="1" fill="#050508"/>
+  <rect x="4" y="23" width="24" height="1" fill="#08080E"/>
+  <rect x="2" y="24" width="28" height="1" fill="#040406"/>
+
+  <!-- Row 25: Fade -->
+  <rect x="0" y="25" width="32" height="1" fill="#030305"/>
+
+  <!-- Row 26 -->
+  <rect x="0" y="26" width="32" height="1" fill="#020204"/>
+
+  <!-- ====== NFT LABEL ====== -->
+  <rect x="1" y="27" width="30" height="4" fill="#06060C"/>
+  <rect x="1" y="27" width="30" height="1" fill="#7B2FFF" opacity="0.1"/>
+  <text x="16" y="29.8" text-anchor="middle" font-family="'Courier New', monospace" font-weight="bold" font-size="2.4" fill="#9B5FFF" letter-spacing="0.08">#002 ARCHITECT</text>
+
+  <!-- ====== FRAME ====== -->
+  <line x1="0.4" y1="0.4" x2="3" y2="0.4" stroke="#7B2FFF" stroke-opacity="0.5" stroke-width="0.15"/>
+  <line x1="0.4" y1="0.4" x2="0.4" y2="3" stroke="#7B2FFF" stroke-opacity="0.5" stroke-width="0.15"/>
+  <line x1="31.6" y1="0.4" x2="29" y2="0.4" stroke="#7B2FFF" stroke-opacity="0.5" stroke-width="0.15"/>
+  <line x1="31.6" y1="0.4" x2="31.6" y2="3" stroke="#7B2FFF" stroke-opacity="0.5" stroke-width="0.15"/>
+  <line x1="0.4" y1="31.6" x2="3" y2="31.6" stroke="#7B2FFF" stroke-opacity="0.35" stroke-width="0.15"/>
+  <line x1="0.4" y1="31.6" x2="0.4" y2="29" stroke="#7B2FFF" stroke-opacity="0.35" stroke-width="0.15"/>
+  <line x1="31.6" y1="31.6" x2="29" y2="31.6" stroke="#7B2FFF" stroke-opacity="0.35" stroke-width="0.15"/>
+  <line x1="31.6" y1="31.6" x2="31.6" y2="29" stroke="#7B2FFF" stroke-opacity="0.35" stroke-width="0.15"/>
+
+  <rect x="0.1" y="0.1" width="31.8" height="31.8" fill="none" stroke="#7B2FFF" stroke-opacity="0.15" stroke-width="0.1"/>
+</svg>

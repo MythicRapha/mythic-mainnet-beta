@@ -72,7 +72,7 @@ function OverviewSection() {
           'AI-native precompiles for inference, model verification, and logit validation',
           'Decentralized compute marketplace for GPU, CPU, and storage',
           'Native bridge to Solana L1 with optimistic fraud proofs',
-          '$MYTH token with deflationary burn mechanism on every transaction',
+          '$MYTH as native L2 gas currency with deflationary burn on every transaction',
         ].map((item) => (
           <li key={item} className="flex items-start gap-3 text-[0.82rem] text-mythic-text">
             <svg className="w-4 h-4 text-mythic-violet mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,7 +84,7 @@ function OverviewSection() {
       </ul>
 
       <InfoBox title="Network Status">
-        Mythic L2 is currently in active development. Testnet is coming soon. Follow <a href="https://twitter.com/MythicL2" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:underline">@MythicL2</a> for updates.
+        Mythic L2 is currently in active development. Testnet is coming soon. Follow <a href="https://x.com/Mythic_L2" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:underline">@Mythic_L2</a> for updates.
       </InfoBox>
     </section>
   )
@@ -156,16 +156,20 @@ function TokenomicsSection() {
     <section>
       <SectionHeading id="tokenomics">$MYTH Token</SectionHeading>
       <Paragraph>
-        $MYTH is the native token of the Mythic L2 network. It has a fixed total supply of 1,000,000,000 tokens with no inflation mechanism. Every transaction on Mythic burns a portion of the fee, making the token deflationary over time.
+        $MYTH is the <strong className="text-white">native currency</strong> of the Mythic L2 blockchain — similar to how ETH is native to Ethereum. It is minted at genesis with a fixed supply of 1,000,000,000 tokens, 9 decimal places, and zero inflation. Every transaction on Mythic L2 pays gas fees in $MYTH, and a portion of each fee is permanently burned.
       </Paragraph>
+
+      <InfoBox title="Native L2 Currency vs. PumpFun Token">
+        <strong className="text-white">Mythic L2 $MYTH</strong> is the native gas currency of the Mythic L2 chain, created at genesis and used for all on-chain operations (gas, staking, governance, compute payments). It is <em>separate</em> from the $MYTH SPL token traded on PumpFun/Raydium on Solana L1. The PumpFun token represents community access and speculative interest, while the native L2 $MYTH powers the actual blockchain. Users can bridge assets between L1 and L2 — L1 SOL deposits are credited as MYTH on L2, and native L2 $MYTH is used for all transaction fees.
+      </InfoBox>
 
       <SubHeading>Token Details</SubHeading>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Total Supply', value: '1,000,000,000' },
-          { label: 'Token Type', value: 'SPL (Solana)' },
-          { label: 'Launch', value: 'PumpFun Fair Launch' },
-          { label: 'VC Allocation', value: '0%' },
+          { label: 'Token Type', value: 'Native L2 Currency' },
+          { label: 'Decimals', value: '9' },
+          { label: 'Inflation', value: '0% — Fixed Supply' },
         ].map((item) => (
           <div key={item.label} className="bg-[#08080C] border border-white/[0.06] p-4">
             <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">{item.label}</div>
@@ -174,9 +178,27 @@ function TokenomicsSection() {
         ))}
       </div>
 
+      <SubHeading>Token Utility</SubHeading>
+      <ul className="space-y-2 mb-8">
+        {[
+          'Gas fees — every transaction on Mythic L2 is paid in native $MYTH',
+          'Validator staking — validators stake $MYTH to participate in block production',
+          'AI compute payments — pay for inference and model verification in $MYTH',
+          'Governance voting — stake-weighted governance proposals and votes',
+          'Compute marketplace — settlement currency for GPU/CPU/storage listings',
+        ].map((item) => (
+          <li key={item} className="flex items-start gap-3 text-[0.82rem] text-mythic-text">
+            <svg className="w-4 h-4 text-mythic-violet mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {item}
+          </li>
+        ))}
+      </ul>
+
       <SubHeading>Fee Distribution</SubHeading>
       <Paragraph>
-        All fees on Mythic L2 are paid in $MYTH. Each fee type distributes across three destinations: validators (who run the network), the foundation (which funds development), and the burn address (removing tokens from circulation permanently).
+        All fees on Mythic L2 are paid in native $MYTH. Each fee type distributes across three destinations: validators (who run the network), the foundation (which funds development), and the burn address (removing tokens from circulation permanently).
       </Paragraph>
 
       <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden mb-8">
@@ -185,11 +207,11 @@ function TokenomicsSection() {
 
       <SubHeading>Staking</SubHeading>
       <Paragraph>
-        Validators must stake a minimum amount of $MYTH to participate in block production and AI verification. Staked $MYTH earns rewards from transaction fees. The staking APY is dynamic, based on the total amount staked and network activity.
+        Validators must stake a minimum amount of native $MYTH to participate in block production and AI verification. Staked $MYTH earns rewards from transaction fees. The staking APY is dynamic, based on the total amount staked and network activity.
       </Paragraph>
 
       <InfoBox title="Deflationary Model">
-        With 30-40% of all fees burned, the circulating supply of $MYTH decreases with every transaction. As network usage grows, the burn rate accelerates. There are no token unlocks, no team vesting, and no inflationary rewards.
+        With 30-40% of all fees burned, the circulating supply of native $MYTH decreases with every transaction. As network usage grows, the burn rate accelerates. There are no token unlocks, no team vesting, and no inflationary rewards.
       </InfoBox>
     </section>
   )
@@ -200,7 +222,7 @@ function BridgeDocsSection() {
     <section>
       <SectionHeading id="bridge">Bridge</SectionHeading>
       <Paragraph>
-        The Mythic Bridge allows users to move assets between Solana L1 and Mythic L2. It supports $MYTH, SOL, and USDC with more assets coming soon.
+        The Mythic Bridge allows users to move assets between Solana L1 and Mythic L2. It supports SOL, $MYTH, and USDC with more assets coming soon. Deposited SOL is credited as MYTH on L2.
       </Paragraph>
 
       <SubHeading>Depositing (L1 to L2)</SubHeading>

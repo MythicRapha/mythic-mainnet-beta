@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" style="fill-rule:evenodd;clip-rule:evenodd;">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#030308"/>
+      <stop offset="0.5" stop-color="#06060E"/>
+      <stop offset="1" stop-color="#030308"/>
+    </linearGradient>
+    <radialGradient id="g1" cx="0.5" cy="0.35" r="0.6">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.12"/>
+      <stop offset="0.4" stop-color="#39FF14" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g2" cx="0.3" cy="0.6" r="0.5">
+      <stop offset="0" stop-color="#7B2FFF" stop-opacity="0.06"/>
+      <stop offset="0.6" stop-color="#7B2FFF" stop-opacity="0.01"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="g3" cx="0.75" cy="0.5" r="0.4">
+      <stop offset="0" stop-color="#00E5FF" stop-opacity="0.04"/>
+      <stop offset="0.6" stop-color="#00E5FF" stop-opacity="0.01"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.2"/>
+      <stop offset="0.35" stop-color="#39FF14" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="vl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#39FF14" stop-opacity="0.05"/>
+      <stop offset="0.7" stop-color="#39FF14" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="hl" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="0.3" stop-color="#39FF14" stop-opacity="0.12"/>
+      <stop offset="0.5" stop-color="#39FF14" stop-opacity="0.2"/>
+      <stop offset="0.7" stop-color="#39FF14" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1280" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="0.15" stop-color="#39FF14" stop-opacity="0.9"/>
+      <stop offset="0.3" stop-color="#FF9500" stop-opacity="0.9"/>
+      <stop offset="0.45" stop-color="#00E5FF" stop-opacity="0.9"/>
+      <stop offset="0.55" stop-color="#7B2FFF" stop-opacity="0.9"/>
+      <stop offset="0.7" stop-color="#FF2D78" stop-opacity="0.9"/>
+      <stop offset="0.85" stop-color="#FFFFFF" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background layers -->
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect width="1280" height="720" fill="url(#g1)"/>
+  <rect width="1280" height="720" fill="url(#g2)"/>
+  <rect width="1280" height="720" fill="url(#g3)"/>
+
+  <!-- Grid -->
+  <line x1="320" y1="0" x2="320" y2="720" stroke="url(#vl)" stroke-width="0.5"/>
+  <line x1="640" y1="0" x2="640" y2="720" stroke="url(#vl)" stroke-width="0.5"/>
+  <line x1="960" y1="0" x2="960" y2="720" stroke="url(#vl)" stroke-width="0.5"/>
+  <line x1="0" y1="180" x2="1280" y2="180" stroke="#39FF14" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="360" x2="1280" y2="360" stroke="#39FF14" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="540" x2="1280" y2="540" stroke="#39FF14" stroke-opacity="0.03" stroke-width="0.3"/>
+
+  <!-- Data flow lines -->
+  <line x1="100" y1="0" x2="500" y2="720" stroke="#39FF14" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="1180" y1="0" x2="780" y2="720" stroke="#39FF14" stroke-opacity="0.03" stroke-width="0.3"/>
+
+  <!-- Corner brackets -->
+  <line x1="30" y1="30" x2="80" y2="30" stroke="#39FF14" stroke-opacity="0.35" stroke-width="1.2"/>
+  <line x1="30" y1="30" x2="30" y2="80" stroke="#39FF14" stroke-opacity="0.35" stroke-width="1.2"/>
+  <line x1="1250" y1="30" x2="1200" y2="30" stroke="#39FF14" stroke-opacity="0.35" stroke-width="1.2"/>
+  <line x1="1250" y1="30" x2="1250" y2="80" stroke="#39FF14" stroke-opacity="0.35" stroke-width="1.2"/>
+  <line x1="30" y1="690" x2="80" y2="690" stroke="#39FF14" stroke-opacity="0.35" stroke-width="1.2"/>
+  <line x1="30" y1="690" x2="30" y2="640" stroke="#39FF14" stroke-opacity="0.35" stroke-width="1.2"/>
+  <line x1="1250" y1="690" x2="1200" y2="690" stroke="#39FF14" stroke-opacity="0.35" stroke-width="1.2"/>
+  <line x1="1250" y1="690" x2="1250" y2="640" stroke="#39FF14" stroke-opacity="0.35" stroke-width="1.2"/>
+
+  <!-- Particles -->
+  <rect x="150" y="120" width="1.5" height="1.5" fill="#39FF14" opacity="0.15"/>
+  <rect x="340" y="200" width="1" height="1" fill="#39FF14" opacity="0.1"/>
+  <rect x="900" y="150" width="1.5" height="1.5" fill="#39FF14" opacity="0.12"/>
+  <rect x="1100" y="400" width="1" height="1" fill="#39FF14" opacity="0.08"/>
+  <rect x="200" y="550" width="1" height="1" fill="#7B2FFF" opacity="0.1"/>
+  <rect x="1050" y="250" width="1" height="1" fill="#00E5FF" opacity="0.08"/>
+
+  <!-- HUD labels -->
+  <text x="45" y="22" font-family="Menlo, monospace" font-size="8" fill="#39FF14" opacity="0.6">LIVE::NOW</text>
+  <text x="1235" y="22" text-anchor="end" font-family="Menlo, monospace" font-size="8" fill="#39FF14" opacity="0.6">PUMP.FUN</text>
+
+  <!-- LIVE badge -->
+  <rect x="540" y="85" width="200" height="32" fill="#39FF14" opacity="0.08" rx="0"/>
+  <rect x="540" y="85" width="200" height="32" fill="none" stroke="#39FF14" stroke-width="1" opacity="0.5"/>
+  <circle cx="564" cy="101" r="4" fill="#39FF14" opacity="0.9"/>
+  <text x="640" y="106" text-anchor="middle" font-family="Menlo, monospace" font-size="14" font-weight="bold" fill="#39FF14" letter-spacing="3">LIVE NOW</text>
+
+  <!-- Prism halo -->
+  <circle cx="640" cy="240" r="110" fill="url(#halo)"/>
+
+  <!-- Convergence prism (green) -->
+  <g transform="translate(555, 150)">
+    <polygon points="85,0 15,72 85,95" fill="#39FF14" opacity="0.92"/>
+    <polygon points="85,0 155,72 85,95" fill="#6FFF4F" opacity="0.78"/>
+    <polygon points="15,72 85,95 155,72 85,175" fill="#2ACC10" opacity="0.88"/>
+    <line x1="85" y1="0" x2="85" y2="175" stroke="white" stroke-opacity="0.15" stroke-width="0.6"/>
+    <line x1="85" y1="0" x2="15" y2="72" stroke="white" stroke-opacity="0.06" stroke-width="0.3"/>
+    <line x1="85" y1="0" x2="155" y2="72" stroke="white" stroke-opacity="0.04" stroke-width="0.3"/>
+  </g>
+
+  <!-- Horizontal emphasis line -->
+  <line x1="0" y1="370" x2="1280" y2="370" stroke="url(#hl)" stroke-width="0.8"/>
+
+  <!-- $MYTH -->
+  <text x="640" y="420" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="800" font-size="72" fill="#39FF14" letter-spacing="8">$MYTH</text>
+
+  <!-- MYTHIC subtitle -->
+  <text x="640" y="460" text-anchor="middle" font-family="Menlo, monospace" font-size="16" fill="white" letter-spacing="12" opacity="0.9">MYTHIC</text>
+
+  <!-- Tagline -->
+  <text x="640" y="498" text-anchor="middle" font-family="Menlo, monospace" font-size="13" fill="#39FF14" letter-spacing="4" opacity="0.7">THE CHAIN THAT THINKS</text>
+
+  <!-- Gem accent bar -->
+  <rect y="530" width="1280" height="3" fill="url(#bar)"/>
+
+  <!-- Info columns -->
+  <text x="180" y="575" text-anchor="middle" font-family="Menlo, monospace" font-size="28" font-weight="bold" fill="#39FF14">1M+</text>
+  <text x="180" y="595" text-anchor="middle" font-family="Menlo, monospace" font-size="10" fill="#686878" letter-spacing="2">TPS</text>
+
+  <text x="440" y="575" text-anchor="middle" font-family="Menlo, monospace" font-size="28" font-weight="bold" fill="#39FF14">AI</text>
+  <text x="440" y="595" text-anchor="middle" font-family="Menlo, monospace" font-size="10" fill="#686878" letter-spacing="2">NATIVE</text>
+
+  <text x="640" y="575" text-anchor="middle" font-family="Menlo, monospace" font-size="28" font-weight="bold" fill="#39FF14">SVM</text>
+  <text x="640" y="595" text-anchor="middle" font-family="Menlo, monospace" font-size="10" fill="#686878" letter-spacing="2">SOLANA L2</text>
+
+  <text x="840" y="575" text-anchor="middle" font-family="Menlo, monospace" font-size="28" font-weight="bold" fill="#39FF14">40%</text>
+  <text x="840" y="595" text-anchor="middle" font-family="Menlo, monospace" font-size="10" fill="#686878" letter-spacing="2">FEE BURN</text>
+
+  <text x="1100" y="575" text-anchor="middle" font-family="Menlo, monospace" font-size="22" font-weight="bold" fill="#39FF14">FIREDANCER</text>
+  <text x="1100" y="595" text-anchor="middle" font-family="Menlo, monospace" font-size="10" fill="#686878" letter-spacing="2">CORE</text>
+
+  <!-- Bottom bar -->
+  <rect y="630" width="1280" height="90" fill="#08080C"/>
+  <text x="60" y="670" font-family="Menlo, monospace" font-size="13" fill="#39FF14" letter-spacing="1">mythic.sh</text>
+  <text x="640" y="670" text-anchor="middle" font-family="Menlo, monospace" font-size="12" fill="#39FF14" letter-spacing="3" opacity="0.7">LIVE ON PUMP.FUN · 9 AM EST · FEB 23 2026</text>
+  <text x="1220" y="670" text-anchor="end" font-family="Menlo, monospace" font-size="13" fill="#39FF14" letter-spacing="1">$MYTH</text>
+
+  <!-- Border -->
+  <rect x="0.5" y="0.5" width="1279" height="719" fill="none" stroke="#39FF14" stroke-opacity="0.15" stroke-width="0.5"/>
+</svg>

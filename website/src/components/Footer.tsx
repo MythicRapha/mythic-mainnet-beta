@@ -35,6 +35,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <a href="https://wallet.mythic.sh" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:text-mythic-violet-bright transition-colors text-[0.82rem]">
+                  Mythic Wallet ↗
+                </a>
+              </li>
+              <li>
                 <a href="https://mythicswap.app" target="_blank" rel="noopener noreferrer" className="text-[#FF9500] hover:text-[#FFB347] transition-colors text-[0.82rem]">
                   MythicSwap ↗
                 </a>
@@ -42,16 +47,6 @@ export default function Footer() {
               <li>
                 <a href="https://mythic.money" target="_blank" rel="noopener noreferrer" className="text-[#00E5FF] hover:text-[#66EFFF] transition-colors text-[0.82rem]">
                   mythic.money ↗
-                </a>
-              </li>
-              <li>
-                <Link href="/docs" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
-                  Documentation
-                </Link>
-              </li>
-              <li>
-                <a href="https://explorer.mythic.sh" target="_blank" rel="noopener noreferrer" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
-                  Explorer
                 </a>
               </li>
               <li>
@@ -90,7 +85,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="https://github.com/MythicL2"
+                  href="https://github.com/MythicFoundation"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-mythic-text hover:text-white transition-colors text-[0.82rem]"
@@ -108,6 +103,21 @@ export default function Footer() {
             </h3>
             <ul className="space-y-3">
               <li>
+                <Link href="/docs" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
+                  Documentation
+                </Link>
+              </li>
+              <li>
+                <a href="https://explorer.mythic.sh" target="_blank" rel="noopener noreferrer" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
+                  Block Explorer
+                </a>
+              </li>
+              <li>
+                <a href="/mythic-whitepaper.pdf" target="_blank" rel="noopener noreferrer" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
+                  Whitepaper
+                </a>
+              </li>
+              <li>
                 <Link href="/docs#tokenomics" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
                   Tokenomics
                 </Link>
@@ -115,11 +125,6 @@ export default function Footer() {
               <li>
                 <Link href="/docs#roadmap" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
                   Roadmap
-                </Link>
-              </li>
-              <li>
-                <Link href="/docs#architecture" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
-                  Architecture
                 </Link>
               </li>
               <li>
@@ -139,7 +144,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-16 pt-8 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="font-mono text-[0.6rem] tracking-[0.1em] uppercase text-mythic-text-muted">
-            Built by Mythic Labs. All rights reserved.
+            Built by <a href="https://mythiclabs.io" target="_blank" rel="noopener noreferrer" className="text-mythic-text hover:text-white transition-colors">Mythic Labs</a>. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
             <a
@@ -154,7 +159,7 @@ export default function Footer() {
               </svg>
             </a>
             <a
-              href="https://github.com/MythicL2"
+              href="https://github.com/MythicFoundation"
               target="_blank"
               rel="noopener noreferrer"
               className="text-mythic-text-dim hover:text-white transition-colors"

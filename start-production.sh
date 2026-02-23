@@ -10,6 +10,7 @@ export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
 LEDGER_DIR="/mnt/data/mythic-l2/production-ledger"
 DEPLOY_DIR="/mnt/data/mythic-l2/target/deploy"
 SWAP_SO="/mnt/data/mythic-swap/target/deploy/mythic_swap.so"
+TOKEN_2022_SO="$HOME/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-program-test-2.0.25/src/programs/spl_token_2022-5.0.2.so"
 KEYS_DIR="/mnt/data/mythic-l2/keys"
 
 # Key addresses
@@ -48,6 +49,9 @@ ARGS=(
 
     # Faucet allocation (for development/testing)
     --faucet-sol 1000000
+
+    # Override Token-2022 with working SO that supports metadata realloc
+    --upgradeable-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb "$TOKEN_2022_SO" none
 
     # Load all BPF programs at genesis (only applies on first run)
     --bpf-program "$BRIDGE_ID" "$DEPLOY_DIR/mythic_bridge.so"

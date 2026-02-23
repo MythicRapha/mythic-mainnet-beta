@@ -1,0 +1,190 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Deep layered background -->
+    <radialGradient id="bg-core" cx="0.5" cy="0.40" r="0.55">
+      <stop offset="0" stop-color="#0C1E0A"/>
+      <stop offset="0.3" stop-color="#060E05"/>
+      <stop offset="0.6" stop-color="#030804"/>
+      <stop offset="1" stop-color="#000000"/>
+    </radialGradient>
+
+    <!-- Secondary color atmospherics — adds depth without competing -->
+    <radialGradient id="atm-violet" cx="0.18" cy="0.72" r="0.35">
+      <stop offset="0" stop-color="#7B2FFF" stop-opacity="0.06"/>
+      <stop offset="0.5" stop-color="#7B2FFF" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="atm-cyan" cx="0.85" cy="0.65" r="0.3">
+      <stop offset="0" stop-color="#00E5FF" stop-opacity="0.04"/>
+      <stop offset="0.5" stop-color="#00E5FF" stop-opacity="0.015"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Outer aura — wide green atmosphere -->
+    <radialGradient id="aura-outer" cx="0.5" cy="0.38" r="0.52">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.10"/>
+      <stop offset="0.2" stop-color="#39FF14" stop-opacity="0.06"/>
+      <stop offset="0.45" stop-color="#39FF14" stop-opacity="0.025"/>
+      <stop offset="0.7" stop-color="#39FF14" stop-opacity="0.008"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Inner halo — intense concentrated light behind prism -->
+    <radialGradient id="halo" cx="0.5" cy="0.40" r="0.22">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.40"/>
+      <stop offset="0.15" stop-color="#39FF14" stop-opacity="0.25"/>
+      <stop offset="0.35" stop-color="#39FF14" stop-opacity="0.10"/>
+      <stop offset="0.6" stop-color="#39FF14" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Secondary halo layer — wider, softer -->
+    <radialGradient id="halo-wide" cx="0.5" cy="0.40" r="0.38">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.12"/>
+      <stop offset="0.3" stop-color="#39FF14" stop-opacity="0.05"/>
+      <stop offset="0.6" stop-color="#2ACC10" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Prism glow filter — multi-layer bloom -->
+    <filter id="prism-glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="16" result="b2"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="36" result="b3"/>
+      <feMerge>
+        <feMergeNode in="b3"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Text glow -->
+    <filter id="text-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Soft light ray filter -->
+    <filter id="ray-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4"/>
+    </filter>
+
+    <!-- Ring gradient -->
+    <radialGradient id="ring-glow" cx="0.5" cy="0.40" r="0.38">
+      <stop offset="0.65" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="0.8" stop-color="#39FF14" stop-opacity="0.05"/>
+      <stop offset="0.92" stop-color="#39FF14" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Circular mask for PumpFun display -->
+    <clipPath id="circle-clip">
+      <circle cx="256" cy="256" r="256"/>
+    </clipPath>
+  </defs>
+
+  <!-- Everything clipped to circle -->
+  <g clip-path="url(#circle-clip)">
+
+    <!-- Background layers -->
+    <rect width="512" height="512" fill="#000000"/>
+    <rect width="512" height="512" fill="url(#bg-core)"/>
+    <rect width="512" height="512" fill="url(#atm-violet)"/>
+    <rect width="512" height="512" fill="url(#atm-cyan)"/>
+    <rect width="512" height="512" fill="url(#aura-outer)"/>
+
+    <!-- Subtle light rays emanating from prism center -->
+    <g filter="url(#ray-blur)" opacity="0.5">
+      <line x1="256" y1="210" x2="60" y2="50" stroke="#39FF14" stroke-opacity="0.04" stroke-width="1.5"/>
+      <line x1="256" y1="210" x2="452" y2="50" stroke="#39FF14" stroke-opacity="0.035" stroke-width="1.5"/>
+      <line x1="256" y1="210" x2="40" y2="300" stroke="#39FF14" stroke-opacity="0.025" stroke-width="1"/>
+      <line x1="256" y1="210" x2="472" y2="300" stroke="#39FF14" stroke-opacity="0.025" stroke-width="1"/>
+      <line x1="256" y1="210" x2="100" y2="480" stroke="#39FF14" stroke-opacity="0.015" stroke-width="0.8"/>
+      <line x1="256" y1="210" x2="412" y2="480" stroke="#39FF14" stroke-opacity="0.015" stroke-width="0.8"/>
+    </g>
+
+    <!-- Concentric orbit rings -->
+    <circle cx="256" cy="210" r="170" fill="none" stroke="#39FF14" stroke-opacity="0.035" stroke-width="0.6"/>
+    <circle cx="256" cy="210" r="140" fill="none" stroke="#39FF14" stroke-opacity="0.025" stroke-width="0.4"/>
+    <circle cx="256" cy="210" r="105" fill="none" stroke="#39FF14" stroke-opacity="0.04" stroke-width="0.5"/>
+
+    <!-- Data particles — multi-layer depth field -->
+    <!-- Near particles (brighter, larger) -->
+    <rect x="95" y="85" width="2.5" height="2.5" fill="#39FF14" opacity="0.18"/>
+    <rect x="405" y="105" width="2" height="2" fill="#39FF14" opacity="0.15"/>
+    <rect x="130" y="190" width="2" height="2" fill="#6FFF4F" opacity="0.12"/>
+    <rect x="380" y="175" width="2" height="2" fill="#39FF14" opacity="0.1"/>
+    <!-- Mid particles -->
+    <rect x="75" y="290" width="1.5" height="1.5" fill="#39FF14" opacity="0.09"/>
+    <rect x="430" y="260" width="1.5" height="1.5" fill="#39FF14" opacity="0.08"/>
+    <rect x="170" y="130" width="1.5" height="1.5" fill="#6FFF4F" opacity="0.08"/>
+    <rect x="350" y="100" width="1.5" height="1.5" fill="#6FFF4F" opacity="0.07"/>
+    <rect x="60" y="170" width="1.5" height="1.5" fill="#39FF14" opacity="0.06"/>
+    <rect x="445" y="200" width="1.5" height="1.5" fill="#39FF14" opacity="0.06"/>
+    <!-- Far particles (dimmer, scattered) -->
+    <rect x="200" y="75" width="1" height="1" fill="#39FF14" opacity="0.05"/>
+    <rect x="320" y="65" width="1" height="1" fill="#39FF14" opacity="0.05"/>
+    <rect x="90" y="370" width="1" height="1" fill="#39FF14" opacity="0.04"/>
+    <rect x="415" y="340" width="1" height="1" fill="#39FF14" opacity="0.04"/>
+    <rect x="155" y="310" width="1" height="1" fill="#2ACC10" opacity="0.04"/>
+    <rect x="360" y="290" width="1" height="1" fill="#2ACC10" opacity="0.04"/>
+    <!-- Accent color particles (very subtle) -->
+    <rect x="70" y="350" width="1.5" height="1.5" fill="#7B2FFF" opacity="0.06"/>
+    <rect x="440" y="310" width="1.5" height="1.5" fill="#00E5FF" opacity="0.05"/>
+    <rect x="120" y="400" width="1" height="1" fill="#FF9500" opacity="0.03"/>
+    <rect x="400" y="380" width="1" height="1" fill="#FF2D78" opacity="0.03"/>
+
+    <!-- Wide halo layer -->
+    <circle cx="256" cy="210" r="165" fill="url(#halo-wide)"/>
+
+    <!-- Core halo behind prism -->
+    <circle cx="256" cy="210" r="120" fill="url(#halo)"/>
+
+    <!-- ====== CONVERGENCE PRISM — exact same gem ====== -->
+    <g filter="url(#prism-glow)">
+      <g transform="translate(256, 215)">
+        <!-- Left face — primary green -->
+        <polygon points="0,-118 -72,-10 0,18" fill="#39FF14" opacity="0.92"/>
+        <!-- Right face — bright highlight -->
+        <polygon points="0,-118 72,-10 0,18" fill="#6FFF4F" opacity="0.78"/>
+        <!-- Bottom face — deep green -->
+        <polygon points="-72,-10 0,18 72,-10 0,115" fill="#2ACC10" opacity="0.88"/>
+
+        <!-- Edge highlights for depth -->
+        <line x1="0" y1="-118" x2="0" y2="115" stroke="white" stroke-opacity="0.18" stroke-width="1"/>
+        <line x1="0" y1="-118" x2="-72" y2="-10" stroke="white" stroke-opacity="0.08" stroke-width="0.5"/>
+        <line x1="0" y1="-118" x2="72" y2="-10" stroke="white" stroke-opacity="0.06" stroke-width="0.5"/>
+        <line x1="0" y1="18" x2="-72" y2="-10" stroke="white" stroke-opacity="0.06" stroke-width="0.4"/>
+        <line x1="0" y1="18" x2="72" y2="-10" stroke="white" stroke-opacity="0.04" stroke-width="0.4"/>
+        <line x1="-72" y1="-10" x2="0" y2="115" stroke="white" stroke-opacity="0.03" stroke-width="0.3"/>
+        <line x1="72" y1="-10" x2="0" y2="115" stroke="white" stroke-opacity="0.03" stroke-width="0.3"/>
+
+        <!-- Apex highlight -->
+        <circle cx="0" cy="-115" r="3" fill="white" opacity="0.35"/>
+        <circle cx="0" cy="-115" r="8" fill="white" opacity="0.08"/>
+      </g>
+    </g>
+
+    <!-- Ambient ring glow -->
+    <circle cx="256" cy="210" r="185" fill="url(#ring-glow)"/>
+
+    <!-- ====== $MYTH TEXT ====== -->
+    <g filter="url(#text-glow)">
+      <text x="256" y="418" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-weight="800" font-size="52" fill="#39FF14" letter-spacing="5">$MYTH</text>
+    </g>
+
+    <!-- Tagline -->
+    <text x="256" y="448" text-anchor="middle" font-family="Menlo, Courier New, monospace" font-size="12.5" fill="#39FF14" letter-spacing="4" opacity="0.35">THE CHAIN THAT THINKS</text>
+
+    <!-- Outer circle border -->
+    <circle cx="256" cy="256" r="253" fill="none" stroke="#39FF14" stroke-opacity="0.12" stroke-width="0.8"/>
+
+    <!-- Inner accent ring -->
+    <circle cx="256" cy="256" r="248" fill="none" stroke="#39FF14" stroke-opacity="0.04" stroke-width="0.4"/>
+
+  </g>
+</svg>

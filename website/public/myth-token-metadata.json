@@ -1,0 +1,10 @@
+{
+  "name": "Mythic",
+  "symbol": "MYTH",
+  "description": "AI-native Solana L2 blockchain built on Firedancer. Validators run inference. Every fee burns $MYTH. 1M+ TPS. 7 live programs. Open source. Fully deployed.",
+  "image": "https://mythic.sh/myth-token-icon.png",
+  "showName": true,
+  "twitter": "https://x.com/Mythic_L2",
+  "telegram": "https://t.me/MythicL2",
+  "website": "https://mythic.sh"
+}

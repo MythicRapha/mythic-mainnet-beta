@@ -4,6 +4,7 @@ import FeatureCard from '@/components/FeatureCard'
 import StatsBar from '@/components/StatsBar'
 import TokenomicsTable from '@/components/TokenomicsTable'
 import ExplorerSearch from '@/components/ExplorerSearch'
+import NetworkProof from '@/components/NetworkProof'
 
 export default function HomePage() {
   return (
@@ -70,6 +71,24 @@ export default function HomePage() {
             </Link>
           </div>
 
+          {/* Whitepaper link */}
+          <div className="mt-6">
+            <a
+              href="/mythic-whitepaper.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 font-mono text-[0.7rem] tracking-[0.08em] text-mythic-violet hover:text-mythic-violet-bright transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+              Read the Whitepaper
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </a>
+          </div>
+
           {/* Explorer Search */}
           <ExplorerSearch />
         </div>
@@ -77,6 +96,9 @@ export default function HomePage() {
 
       {/* ===== STATS ===== */}
       <StatsBar />
+
+      {/* ===== NETWORK PROOF ===== */}
+      <NetworkProof />
 
       {/* ===== FEATURES ===== */}
       <section className="py-[100px] sm:py-[120px]">

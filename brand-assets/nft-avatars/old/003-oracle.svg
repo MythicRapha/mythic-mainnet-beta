@@ -1,0 +1,237 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 24 24" style="image-rendering:pixelated;">
+  <defs>
+    <radialGradient id="glow" cx="0.5" cy="0.4" r="0.55">
+      <stop offset="0" stop-color="#00E5FF" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="24" height="24" fill="#060A0E"/>
+  <rect width="24" height="24" fill="url(#glow)"/>
+
+  <!-- Grid -->
+  <line x1="0" y1="6" x2="24" y2="6" stroke="#00E5FF" stroke-opacity="0.04" stroke-width="0.1"/>
+  <line x1="0" y1="12" x2="24" y2="12" stroke="#00E5FF" stroke-opacity="0.04" stroke-width="0.1"/>
+  <line x1="0" y1="18" x2="24" y2="18" stroke="#00E5FF" stroke-opacity="0.04" stroke-width="0.1"/>
+  <line x1="6" y1="0" x2="6" y2="24" stroke="#00E5FF" stroke-opacity="0.04" stroke-width="0.1"/>
+  <line x1="12" y1="0" x2="12" y2="24" stroke="#00E5FF" stroke-opacity="0.04" stroke-width="0.1"/>
+  <line x1="18" y1="0" x2="18" y2="24" stroke="#00E5FF" stroke-opacity="0.04" stroke-width="0.1"/>
+
+  <!-- === THE ORACLE === -->
+  <!-- Floating energy crown -->
+  <rect x="9" y="1" width="1" height="1" fill="#00E5FF" opacity="0.5"/>
+  <rect x="11" y="0" width="1" height="1" fill="#00E5FF" opacity="0.7"/>
+  <rect x="13" y="1" width="1" height="1" fill="#00E5FF" opacity="0.5"/>
+
+  <rect x="10" y="2" width="1" height="1" fill="#00E5FF" opacity="0.3"/>
+  <rect x="11" y="2" width="1" height="1" fill="#00E5FF" opacity="0.4"/>
+  <rect x="12" y="2" width="1" height="1" fill="#00E5FF" opacity="0.3"/>
+
+  <!-- Head - smooth/bald cybernetic -->
+  <rect x="9" y="3" width="1" height="1" fill="#2A2A35"/>
+  <rect x="10" y="3" width="1" height="1" fill="#3A3A48"/>
+  <rect x="11" y="3" width="1" height="1" fill="#4A4A58"/>
+  <rect x="12" y="3" width="1" height="1" fill="#4A4A58"/>
+  <rect x="13" y="3" width="1" height="1" fill="#3A3A48"/>
+  <rect x="14" y="3" width="1" height="1" fill="#2A2A35"/>
+
+  <rect x="8" y="4" width="1" height="1" fill="#2A2A35"/>
+  <rect x="9" y="4" width="1" height="1" fill="#3A3A48"/>
+  <rect x="10" y="4" width="1" height="1" fill="#4A4A58"/>
+  <rect x="11" y="4" width="1" height="1" fill="#555568"/>
+  <rect x="12" y="4" width="1" height="1" fill="#555568"/>
+  <rect x="13" y="4" width="1" height="1" fill="#4A4A58"/>
+  <rect x="14" y="4" width="1" height="1" fill="#3A3A48"/>
+  <rect x="15" y="4" width="1" height="1" fill="#2A2A35"/>
+
+  <!-- Face with cyan eyes -->
+  <rect x="7" y="5" width="1" height="1" fill="#2A2A35"/>
+  <rect x="8" y="5" width="1" height="1" fill="#3A3A48"/>
+  <rect x="9" y="5" width="1" height="1" fill="#4A4A58"/>
+  <rect x="10" y="5" width="1" height="1" fill="#00E5FF"/> <!-- Left eye -->
+  <rect x="11" y="5" width="1" height="1" fill="#4A4A58"/>
+  <rect x="12" y="5" width="1" height="1" fill="#4A4A58"/>
+  <rect x="13" y="5" width="1" height="1" fill="#00E5FF"/> <!-- Right eye -->
+  <rect x="14" y="5" width="1" height="1" fill="#4A4A58"/>
+  <rect x="15" y="5" width="1" height="1" fill="#3A3A48"/>
+  <rect x="16" y="5" width="1" height="1" fill="#2A2A35"/>
+
+  <!-- Eye glow -->
+  <rect x="10" y="5" width="1" height="1" fill="#00E5FF" opacity="0.5"/>
+  <rect x="13" y="5" width="1" height="1" fill="#00E5FF" opacity="0.5"/>
+  <!-- Cyber line under eyes -->
+  <rect x="9" y="6" width="1" height="1" fill="#00E5FF" opacity="0.25"/>
+  <rect x="14" y="6" width="1" height="1" fill="#00E5FF" opacity="0.25"/>
+
+  <!-- Mid face -->
+  <rect x="7" y="6" width="1" height="1" fill="#2A2A35"/>
+  <rect x="8" y="6" width="1" height="1" fill="#4A4A58"/>
+  <rect x="10" y="6" width="1" height="1" fill="#4A4A58"/>
+  <rect x="11" y="6" width="1" height="1" fill="#4A4A58"/>
+  <rect x="12" y="6" width="1" height="1" fill="#4A4A58"/>
+  <rect x="13" y="6" width="1" height="1" fill="#4A4A58"/>
+  <rect x="15" y="6" width="1" height="1" fill="#4A4A58"/>
+  <rect x="16" y="6" width="1" height="1" fill="#2A2A35"/>
+
+  <!-- Jaw -->
+  <rect x="8" y="7" width="1" height="1" fill="#3A3A48"/>
+  <rect x="9" y="7" width="1" height="1" fill="#4A4A58"/>
+  <rect x="10" y="7" width="1" height="1" fill="#4A4A58"/>
+  <rect x="11" y="7" width="1" height="1" fill="#555568"/>
+  <rect x="12" y="7" width="1" height="1" fill="#555568"/>
+  <rect x="13" y="7" width="1" height="1" fill="#4A4A58"/>
+  <rect x="14" y="7" width="1" height="1" fill="#4A4A58"/>
+  <rect x="15" y="7" width="1" height="1" fill="#3A3A48"/>
+
+  <!-- Chin with cyan data strip -->
+  <rect x="9" y="8" width="1" height="1" fill="#3A3A48"/>
+  <rect x="10" y="8" width="1" height="1" fill="#4A4A58"/>
+  <rect x="11" y="8" width="1" height="1" fill="#00B8CC" opacity="0.6"/> <!-- Data mouth -->
+  <rect x="12" y="8" width="1" height="1" fill="#00B8CC" opacity="0.6"/>
+  <rect x="13" y="8" width="1" height="1" fill="#4A4A58"/>
+  <rect x="14" y="8" width="1" height="1" fill="#3A3A48"/>
+
+  <!-- Neck with circuitry -->
+  <rect x="10" y="9" width="1" height="1" fill="#3A3A48"/>
+  <rect x="11" y="9" width="1" height="1" fill="#00E5FF" opacity="0.3"/>
+  <rect x="12" y="9" width="1" height="1" fill="#00E5FF" opacity="0.3"/>
+  <rect x="13" y="9" width="1" height="1" fill="#3A3A48"/>
+
+  <!-- Flowing cloak / robe - dark with cyan energy lines -->
+  <rect x="6" y="10" width="1" height="1" fill="#00B8CC"/>
+  <rect x="7" y="10" width="1" height="1" fill="#0F0F15"/>
+  <rect x="8" y="10" width="1" height="1" fill="#16161F"/>
+  <rect x="9" y="10" width="1" height="1" fill="#16161F"/>
+  <rect x="10" y="10" width="1" height="1" fill="#16161F"/>
+  <rect x="11" y="10" width="1" height="1" fill="#00E5FF"/> <!-- Collar glow -->
+  <rect x="12" y="10" width="1" height="1" fill="#00E5FF"/>
+  <rect x="13" y="10" width="1" height="1" fill="#16161F"/>
+  <rect x="14" y="10" width="1" height="1" fill="#16161F"/>
+  <rect x="15" y="10" width="1" height="1" fill="#16161F"/>
+  <rect x="16" y="10" width="1" height="1" fill="#0F0F15"/>
+  <rect x="17" y="10" width="1" height="1" fill="#00B8CC"/>
+
+  <rect x="5" y="11" width="1" height="1" fill="#00B8CC"/>
+  <rect x="6" y="11" width="1" height="1" fill="#0F0F15"/>
+  <rect x="7" y="11" width="1" height="1" fill="#16161F"/>
+  <rect x="8" y="11" width="1" height="1" fill="#16161F"/>
+  <rect x="9" y="11" width="1" height="1" fill="#00E5FF" opacity="0.2"/>
+  <rect x="10" y="11" width="1" height="1" fill="#16161F"/>
+  <rect x="11" y="11" width="1" height="1" fill="#16161F"/>
+  <rect x="12" y="11" width="1" height="1" fill="#16161F"/>
+  <rect x="13" y="11" width="1" height="1" fill="#16161F"/>
+  <rect x="14" y="11" width="1" height="1" fill="#00E5FF" opacity="0.2"/>
+  <rect x="15" y="11" width="1" height="1" fill="#16161F"/>
+  <rect x="16" y="11" width="1" height="1" fill="#16161F"/>
+  <rect x="17" y="11" width="1" height="1" fill="#0F0F15"/>
+  <rect x="18" y="11" width="1" height="1" fill="#00B8CC"/>
+
+  <!-- Torso with cyan prism emblem -->
+  <rect x="5" y="12" width="1" height="1" fill="#0F0F15"/>
+  <rect x="6" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="7" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="8" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="9" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="10" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="11" y="12" width="1" height="1" fill="#00E5FF" opacity="0.9"/> <!-- Prism -->
+  <rect x="12" y="12" width="1" height="1" fill="#40EDFF" opacity="0.7"/>
+  <rect x="13" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="14" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="15" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="16" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="17" y="12" width="1" height="1" fill="#16161F"/>
+  <rect x="18" y="12" width="1" height="1" fill="#0F0F15"/>
+
+  <rect x="11" y="13" width="1" height="1" fill="#00B8CC" opacity="0.85"/>
+  <rect x="12" y="13" width="1" height="1" fill="#00B8CC" opacity="0.85"/>
+
+  <!-- Floating orbs / data around figure -->
+  <rect x="3" y="9" width="1" height="1" fill="#00E5FF" opacity="0.5"/>
+  <rect x="4" y="8" width="1" height="1" fill="#00E5FF" opacity="0.3"/>
+  <rect x="2" y="12" width="1" height="1" fill="#00E5FF" opacity="0.2"/>
+  <rect x="20" y="9" width="1" height="1" fill="#00E5FF" opacity="0.5"/>
+  <rect x="19" y="8" width="1" height="1" fill="#00E5FF" opacity="0.3"/>
+  <rect x="21" y="12" width="1" height="1" fill="#00E5FF" opacity="0.2"/>
+  <rect x="5" y="6" width="1" height="1" fill="#39FF14" opacity="0.2"/>
+  <rect x="18" y="7" width="1" height="1" fill="#7B2FFF" opacity="0.2"/>
+  <rect x="3" y="14" width="1" height="1" fill="#FF9500" opacity="0.15"/>
+  <rect x="20" y="14" width="1" height="1" fill="#FF2D78" opacity="0.15"/>
+
+  <!-- Energy flowing cloak bottom -->
+  <rect x="6" y="13" width="1" height="1" fill="#0F0F15"/>
+  <rect x="7" y="13" width="1" height="1" fill="#16161F"/>
+  <rect x="8" y="13" width="1" height="1" fill="#00E5FF" opacity="0.15"/>
+  <rect x="9" y="13" width="1" height="1" fill="#16161F"/>
+  <rect x="10" y="13" width="1" height="1" fill="#16161F"/>
+  <rect x="13" y="13" width="1" height="1" fill="#16161F"/>
+  <rect x="14" y="13" width="1" height="1" fill="#16161F"/>
+  <rect x="15" y="13" width="1" height="1" fill="#00E5FF" opacity="0.15"/>
+  <rect x="16" y="13" width="1" height="1" fill="#16161F"/>
+  <rect x="17" y="13" width="1" height="1" fill="#0F0F15"/>
+
+  <!-- Robe flows down -->
+  <rect x="7" y="14" width="1" height="1" fill="#0F0F15"/>
+  <rect x="8" y="14" width="1" height="1" fill="#16161F"/>
+  <rect x="9" y="14" width="1" height="1" fill="#16161F"/>
+  <rect x="10" y="14" width="1" height="1" fill="#16161F"/>
+  <rect x="11" y="14" width="1" height="1" fill="#16161F"/>
+  <rect x="12" y="14" width="1" height="1" fill="#16161F"/>
+  <rect x="13" y="14" width="1" height="1" fill="#16161F"/>
+  <rect x="14" y="14" width="1" height="1" fill="#16161F"/>
+  <rect x="15" y="14" width="1" height="1" fill="#16161F"/>
+  <rect x="16" y="14" width="1" height="1" fill="#0F0F15"/>
+
+  <rect x="7" y="15" width="1" height="1" fill="#0F0F15"/>
+  <rect x="8" y="15" width="1" height="1" fill="#16161F"/>
+  <rect x="9" y="15" width="1" height="1" fill="#00E5FF" opacity="0.12"/>
+  <rect x="10" y="15" width="1" height="1" fill="#16161F"/>
+  <rect x="11" y="15" width="1" height="1" fill="#16161F"/>
+  <rect x="12" y="15" width="1" height="1" fill="#16161F"/>
+  <rect x="13" y="15" width="1" height="1" fill="#16161F"/>
+  <rect x="14" y="15" width="1" height="1" fill="#00E5FF" opacity="0.12"/>
+  <rect x="15" y="15" width="1" height="1" fill="#16161F"/>
+  <rect x="16" y="15" width="1" height="1" fill="#0F0F15"/>
+
+  <rect x="7" y="16" width="1" height="1" fill="#0F0F15"/>
+  <rect x="8" y="16" width="1" height="1" fill="#0F0F15"/>
+  <rect x="9" y="16" width="1" height="1" fill="#16161F"/>
+  <rect x="10" y="16" width="1" height="1" fill="#16161F"/>
+  <rect x="11" y="16" width="1" height="1" fill="#0F0F15"/>
+  <rect x="12" y="16" width="1" height="1" fill="#0F0F15"/>
+  <rect x="13" y="16" width="1" height="1" fill="#16161F"/>
+  <rect x="14" y="16" width="1" height="1" fill="#16161F"/>
+  <rect x="15" y="16" width="1" height="1" fill="#0F0F15"/>
+  <rect x="16" y="16" width="1" height="1" fill="#0F0F15"/>
+
+  <!-- Boots with cyan energy base -->
+  <rect x="8" y="17" width="1" height="1" fill="#00B8CC"/>
+  <rect x="9" y="17" width="1" height="1" fill="#0F0F15"/>
+  <rect x="10" y="17" width="1" height="1" fill="#0F0F15"/>
+  <rect x="13" y="17" width="1" height="1" fill="#0F0F15"/>
+  <rect x="14" y="17" width="1" height="1" fill="#0F0F15"/>
+  <rect x="15" y="17" width="1" height="1" fill="#00B8CC"/>
+
+  <!-- Ground glow -->
+  <rect x="7" y="18" width="1" height="1" fill="#00E5FF" opacity="0.06"/>
+  <rect x="8" y="18" width="1" height="1" fill="#00E5FF" opacity="0.1"/>
+  <rect x="9" y="18" width="1" height="1" fill="#00E5FF" opacity="0.15"/>
+  <rect x="10" y="18" width="1" height="1" fill="#00E5FF" opacity="0.1"/>
+  <rect x="13" y="18" width="1" height="1" fill="#00E5FF" opacity="0.1"/>
+  <rect x="14" y="18" width="1" height="1" fill="#00E5FF" opacity="0.15"/>
+  <rect x="15" y="18" width="1" height="1" fill="#00E5FF" opacity="0.1"/>
+  <rect x="16" y="18" width="1" height="1" fill="#00E5FF" opacity="0.06"/>
+
+  <!-- NFT label -->
+  <rect x="1" y="20" width="22" height="3" fill="#08080C"/>
+  <text x="12" y="22" text-anchor="middle" font-family="monospace" font-size="1.8" fill="#00E5FF" letter-spacing="0.15">#003 ORACLE</text>
+
+  <!-- Corner accents -->
+  <line x1="0.5" y1="0.5" x2="2.5" y2="0.5" stroke="#00E5FF" stroke-opacity="0.4" stroke-width="0.15"/>
+  <line x1="0.5" y1="0.5" x2="0.5" y2="2.5" stroke="#00E5FF" stroke-opacity="0.4" stroke-width="0.15"/>
+  <line x1="23.5" y1="0.5" x2="21.5" y2="0.5" stroke="#00E5FF" stroke-opacity="0.4" stroke-width="0.15"/>
+  <line x1="23.5" y1="0.5" x2="23.5" y2="2.5" stroke="#00E5FF" stroke-opacity="0.4" stroke-width="0.15"/>
+
+  <!-- Border -->
+  <rect x="0.1" y="0.1" width="23.8" height="23.8" fill="none" stroke="#00E5FF" stroke-opacity="0.2" stroke-width="0.1"/>
+</svg>

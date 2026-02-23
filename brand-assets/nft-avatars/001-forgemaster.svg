@@ -1,0 +1,294 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 32 32" style="image-rendering:pixelated;">
+  <defs>
+    <radialGradient id="bg-glow" cx="0.5" cy="0.35" r="0.5">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="eye-glow-l" cx="0.5" cy="0.5" r="1">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="eye-glow-r" cx="0.5" cy="0.5" r="1">
+      <stop offset="0" stop-color="#39FF14" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#39FF14" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" fill="#020503"/>
+  <rect width="32" height="32" fill="url(#bg-glow)"/>
+
+  <!-- Scan lines -->
+  <rect x="0" y="0" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="2" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="4" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="6" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="8" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="10" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="12" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="14" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="16" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="18" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+  <rect x="0" y="20" width="32" height="1" fill="#39FF14" opacity="0.008"/>
+
+  <!-- Floating particles -->
+  <rect x="3" y="2" width="1" height="1" fill="#39FF14" opacity="0.18"/>
+  <rect x="28" y="4" width="1" height="1" fill="#39FF14" opacity="0.12"/>
+  <rect x="5" y="14" width="1" height="1" fill="#39FF14" opacity="0.1"/>
+  <rect x="27" y="11" width="1" height="1" fill="#39FF14" opacity="0.14"/>
+  <rect x="2" y="20" width="1" height="1" fill="#39FF14" opacity="0.08"/>
+  <rect x="29" y="17" width="1" height="1" fill="#39FF14" opacity="0.1"/>
+  <rect x="4" y="7" width="1" height="1" fill="#39FF14" opacity="0.06"/>
+  <rect x="26" y="22" width="1" height="1" fill="#39FF14" opacity="0.06"/>
+  <rect x="1" y="12" width="1" height="1" fill="#66FF44" opacity="0.04"/>
+  <rect x="30" y="8" width="1" height="1" fill="#66FF44" opacity="0.04"/>
+
+  <!-- ====== HOOD ====== -->
+  <!-- Row 2: Hood tip -->
+  <rect x="15" y="2" width="2" height="1" fill="#0E220E"/>
+
+  <!-- Row 3: Hood tip wider -->
+  <rect x="13" y="3" width="1" height="1" fill="#071508"/>
+  <rect x="14" y="3" width="4" height="1" fill="#0E220E"/>
+  <rect x="18" y="3" width="1" height="1" fill="#071508"/>
+
+  <!-- Row 4 -->
+  <rect x="11" y="4" width="2" height="1" fill="#071508"/>
+  <rect x="13" y="4" width="6" height="1" fill="#0E220E"/>
+  <rect x="19" y="4" width="2" height="1" fill="#071508"/>
+
+  <!-- Row 5 -->
+  <rect x="9" y="5" width="2" height="1" fill="#071508"/>
+  <rect x="11" y="5" width="2" height="1" fill="#0E220E"/>
+  <rect x="13" y="5" width="6" height="1" fill="#163216"/>
+  <rect x="19" y="5" width="2" height="1" fill="#0E220E"/>
+  <rect x="21" y="5" width="2" height="1" fill="#071508"/>
+
+  <!-- Row 6 -->
+  <rect x="8" y="6" width="1" height="1" fill="#071508"/>
+  <rect x="9" y="6" width="2" height="1" fill="#0E220E"/>
+  <rect x="11" y="6" width="10" height="1" fill="#163216"/>
+  <rect x="21" y="6" width="2" height="1" fill="#0E220E"/>
+  <rect x="23" y="6" width="1" height="1" fill="#071508"/>
+  <!-- Hood seam -->
+  <rect x="16" y="6" width="1" height="1" fill="#1A3A16" opacity="0.5"/>
+
+  <!-- Row 7 -->
+  <rect x="7" y="7" width="1" height="1" fill="#071508"/>
+  <rect x="8" y="7" width="2" height="1" fill="#0E220E"/>
+  <rect x="10" y="7" width="12" height="1" fill="#163216"/>
+  <rect x="22" y="7" width="2" height="1" fill="#0E220E"/>
+  <rect x="24" y="7" width="1" height="1" fill="#071508"/>
+  <!-- Hood seam -->
+  <rect x="16" y="7" width="1" height="1" fill="#1A3A16" opacity="0.4"/>
+
+  <!-- ====== ROW 8: Hood + face shadow starts ====== -->
+  <rect x="6" y="8" width="1" height="1" fill="#071508"/>
+  <rect x="7" y="8" width="1" height="1" fill="#0E220E"/>
+  <rect x="8" y="8" width="1" height="1" fill="#163216"/>
+  <rect x="9" y="8" width="1" height="1" fill="#1F4A1C"/>
+  <!-- Face shadow -->
+  <rect x="10" y="8" width="12" height="1" fill="#060808"/>
+  <!-- Hood right -->
+  <rect x="22" y="8" width="1" height="1" fill="#1F4A1C"/>
+  <rect x="23" y="8" width="1" height="1" fill="#163216"/>
+  <rect x="24" y="8" width="1" height="1" fill="#0E220E"/>
+  <rect x="25" y="8" width="1" height="1" fill="#071508"/>
+
+  <!-- Row 9: Forehead area in deep shadow -->
+  <rect x="6" y="9" width="1" height="1" fill="#071508"/>
+  <rect x="7" y="9" width="1" height="1" fill="#0E220E"/>
+  <rect x="8" y="9" width="1" height="1" fill="#163216"/>
+  <rect x="9" y="9" width="1" height="1" fill="#1F4A1C"/>
+  <!-- Face forehead -->
+  <rect x="10" y="9" width="1" height="1" fill="#0A0C0A"/>
+  <rect x="11" y="9" width="10" height="1" fill="#121218"/>
+  <rect x="21" y="9" width="1" height="1" fill="#0A0C0A"/>
+  <!-- Hood right -->
+  <rect x="22" y="9" width="1" height="1" fill="#1F4A1C"/>
+  <rect x="23" y="9" width="1" height="1" fill="#163216"/>
+  <rect x="24" y="9" width="1" height="1" fill="#0E220E"/>
+  <rect x="25" y="9" width="1" height="1" fill="#071508"/>
+
+  <!-- Row 10: Brow area -->
+  <rect x="6" y="10" width="1" height="1" fill="#071508"/>
+  <rect x="7" y="10" width="1" height="1" fill="#0E220E"/>
+  <rect x="8" y="10" width="1" height="1" fill="#163216"/>
+  <rect x="9" y="10" width="1" height="1" fill="#1F4A1C"/>
+  <rect x="10" y="10" width="1" height="1" fill="#0A0C0A"/>
+  <rect x="11" y="10" width="1" height="1" fill="#18181E"/>
+  <rect x="12" y="10" width="2" height="1" fill="#1E1E28"/>
+  <rect x="14" y="10" width="1" height="1" fill="#18181E"/>
+  <rect x="15" y="10" width="2" height="1" fill="#121218"/>
+  <rect x="17" y="10" width="1" height="1" fill="#18181E"/>
+  <rect x="18" y="10" width="2" height="1" fill="#1E1E28"/>
+  <rect x="20" y="10" width="1" height="1" fill="#18181E"/>
+  <rect x="21" y="10" width="1" height="1" fill="#0A0C0A"/>
+  <rect x="22" y="10" width="1" height="1" fill="#1F4A1C"/>
+  <rect x="23" y="10" width="1" height="1" fill="#163216"/>
+  <rect x="24" y="10" width="1" height="1" fill="#0E220E"/>
+  <rect x="25" y="10" width="1" height="1" fill="#071508"/>
+
+  <!-- ====== ROW 11: EYES — the focal point ====== -->
+  <!-- Eye glow halos (behind pixels) -->
+  <rect x="11" y="10" width="4" height="3" fill="url(#eye-glow-l)" opacity="0.6"/>
+  <rect x="17" y="10" width="4" height="3" fill="url(#eye-glow-r)" opacity="0.6"/>
+
+  <rect x="6" y="11" width="1" height="1" fill="#071508"/>
+  <rect x="7" y="11" width="1" height="1" fill="#0E220E"/>
+  <rect x="8" y="11" width="1" height="1" fill="#163216"/>
+  <rect x="9" y="11" width="1" height="1" fill="#1F4A1C"/>
+  <rect x="10" y="11" width="1" height="1" fill="#0A0C0A"/>
+  <rect x="11" y="11" width="1" height="1" fill="#1A1A24"/>
+  <!-- LEFT EYE -->
+  <rect x="12" y="11" width="1" height="1" fill="#2ACC10"/>
+  <rect x="13" y="11" width="2" height="1" fill="#39FF14"/>
+  <rect x="15" y="11" width="1" height="1" fill="#18181E"/>
+  <rect x="16" y="11" width="1" height="1" fill="#121218"/>
+  <!-- RIGHT EYE -->
+  <rect x="17" y="11" width="2" height="1" fill="#39FF14"/>
+  <rect x="19" y="11" width="1" height="1" fill="#2ACC10"/>
+  <rect x="20" y="11" width="1" height="1" fill="#1A1A24"/>
+  <rect x="21" y="11" width="1" height="1" fill="#0A0C0A"/>
+  <rect x="22" y="11" width="1" height="1" fill="#1F4A1C"/>
+  <rect x="23" y="11" width="1" height="1" fill="#163216"/>
+  <rect x="24" y="11" width="1" height="1" fill="#0E220E"/>
+  <rect x="25" y="11" width="1" height="1" fill="#071508"/>
+
+  <!-- Row 12: Below eyes -->
+  <rect x="7" y="12" width="1" height="1" fill="#071508"/>
+  <rect x="8" y="12" width="1" height="1" fill="#0E220E"/>
+  <rect x="9" y="12" width="1" height="1" fill="#1F4A1C"/>
+  <rect x="10" y="12" width="1" height="1" fill="#0A0C0A"/>
+  <rect x="11" y="12" width="1" height="1" fill="#18181E"/>
+  <rect x="12" y="12" width="1" height="1" fill="#1E1E28"/>
+  <rect x="13" y="12" width="1" height="1" fill="#222232"/>
+  <rect x="14" y="12" width="1" height="1" fill="#1E1E28"/>
+  <rect x="15" y="12" width="2" height="1" fill="#1A1A24"/>
+  <rect x="17" y="12" width="1" height="1" fill="#1E1E28"/>
+  <rect x="18" y="12" width="1" height="1" fill="#222232"/>
+  <rect x="19" y="12" width="1" height="1" fill="#1E1E28"/>
+  <rect x="20" y="12" width="1" height="1" fill="#18181E"/>
+  <rect x="21" y="12" width="1" height="1" fill="#0A0C0A"/>
+  <rect x="22" y="12" width="1" height="1" fill="#1F4A1C"/>
+  <rect x="23" y="12" width="1" height="1" fill="#0E220E"/>
+  <rect x="24" y="12" width="1" height="1" fill="#071508"/>
+
+  <!-- ====== MASK / RESPIRATOR ====== -->
+  <!-- Row 13: Mask top edge -->
+  <rect x="8" y="13" width="1" height="1" fill="#0E220E"/>
+  <rect x="9" y="13" width="1" height="1" fill="#163216"/>
+  <rect x="10" y="13" width="1" height="1" fill="#0C0C12"/>
+  <rect x="11" y="13" width="10" height="1" fill="#0E0E14"/>
+  <rect x="21" y="13" width="1" height="1" fill="#0C0C12"/>
+  <rect x="22" y="13" width="1" height="1" fill="#163216"/>
+  <rect x="23" y="13" width="1" height="1" fill="#0E220E"/>
+  <!-- Mask top accent line -->
+  <rect x="11" y="13" width="10" height="1" fill="#39FF14" opacity="0.2"/>
+
+  <!-- Row 14: LED Strip 1 -->
+  <rect x="8" y="14" width="1" height="1" fill="#0E220E"/>
+  <rect x="9" y="14" width="1" height="1" fill="#0C0C12"/>
+  <rect x="10" y="14" width="1" height="1" fill="#0A0A0F"/>
+  <rect x="11" y="14" width="10" height="1" fill="#39FF14" opacity="0.7"/>
+  <rect x="21" y="14" width="1" height="1" fill="#0A0A0F"/>
+  <rect x="22" y="14" width="1" height="1" fill="#0C0C12"/>
+  <rect x="23" y="14" width="1" height="1" fill="#0E220E"/>
+  <!-- LED strip glow -->
+  <rect x="10" y="14" width="12" height="1" fill="#39FF14" opacity="0.08"/>
+
+  <!-- Row 15: Mask vent -->
+  <rect x="9" y="15" width="1" height="1" fill="#0C0C12"/>
+  <rect x="10" y="15" width="1" height="1" fill="#0A0A0F"/>
+  <rect x="11" y="15" width="1" height="1" fill="#08080C"/>
+  <rect x="12" y="15" width="1" height="1" fill="#0E0E14"/>
+  <rect x="13" y="15" width="1" height="1" fill="#08080C"/>
+  <rect x="14" y="15" width="1" height="1" fill="#0E0E14"/>
+  <rect x="15" y="15" width="2" height="1" fill="#08080C"/>
+  <rect x="17" y="15" width="1" height="1" fill="#0E0E14"/>
+  <rect x="18" y="15" width="1" height="1" fill="#08080C"/>
+  <rect x="19" y="15" width="1" height="1" fill="#0E0E14"/>
+  <rect x="20" y="15" width="1" height="1" fill="#08080C"/>
+  <rect x="21" y="15" width="1" height="1" fill="#0A0A0F"/>
+  <rect x="22" y="15" width="1" height="1" fill="#0C0C12"/>
+
+  <!-- Row 16: LED Strip 2 -->
+  <rect x="9" y="16" width="1" height="1" fill="#0C0C12"/>
+  <rect x="10" y="16" width="1" height="1" fill="#0A0A0F"/>
+  <rect x="11" y="16" width="10" height="1" fill="#39FF14" opacity="0.5"/>
+  <rect x="21" y="16" width="1" height="1" fill="#0A0A0F"/>
+  <rect x="22" y="16" width="1" height="1" fill="#0C0C12"/>
+
+  <!-- Row 17: LED Strip 3 (dimmer) -->
+  <rect x="10" y="17" width="1" height="1" fill="#0A0A0F"/>
+  <rect x="11" y="17" width="10" height="1" fill="#39FF14" opacity="0.3"/>
+  <rect x="21" y="17" width="1" height="1" fill="#0A0A0F"/>
+
+  <!-- Row 18: Mask bottom / chin -->
+  <rect x="11" y="18" width="10" height="1" fill="#0A0A0F"/>
+  <rect x="12" y="18" width="8" height="1" fill="#0C0C12"/>
+
+  <!-- ====== NECK + COLLAR ====== -->
+  <!-- Row 19: Neck -->
+  <rect x="13" y="19" width="6" height="1" fill="#0A0A10"/>
+  <rect x="14" y="19" width="4" height="1" fill="#0E0E15"/>
+
+  <!-- Row 20: High collar -->
+  <rect x="9" y="20" width="1" height="1" fill="#08080E"/>
+  <rect x="10" y="20" width="12" height="1" fill="#0C0C14"/>
+  <rect x="22" y="20" width="1" height="1" fill="#08080E"/>
+  <!-- Collar accent -->
+  <rect x="10" y="20" width="1" height="1" fill="#39FF14" opacity="0.3"/>
+  <rect x="21" y="20" width="1" height="1" fill="#39FF14" opacity="0.3"/>
+
+  <!-- Row 21: Upper shoulders -->
+  <rect x="7" y="21" width="1" height="1" fill="#060608"/>
+  <rect x="8" y="21" width="16" height="1" fill="#0A0A10"/>
+  <rect x="24" y="21" width="1" height="1" fill="#060608"/>
+  <!-- Collar V -->
+  <rect x="15" y="21" width="2" height="1" fill="#39FF14" opacity="0.15"/>
+
+  <!-- Row 22: Shoulders -->
+  <rect x="5" y="22" width="1" height="1" fill="#050508"/>
+  <rect x="6" y="22" width="20" height="1" fill="#08080E"/>
+  <rect x="26" y="22" width="1" height="1" fill="#050508"/>
+  <!-- Shoulder seam accents -->
+  <rect x="8" y="22" width="1" height="1" fill="#39FF14" opacity="0.12"/>
+  <rect x="23" y="22" width="1" height="1" fill="#39FF14" opacity="0.12"/>
+
+  <!-- Row 23 -->
+  <rect x="4" y="23" width="24" height="1" fill="#08080E"/>
+  <rect x="6" y="23" width="20" height="1" fill="#0A0A10"/>
+  <!-- Circuit trace on jacket -->
+  <rect x="8" y="23" width="3" height="1" fill="#39FF14" opacity="0.06"/>
+  <rect x="21" y="23" width="3" height="1" fill="#39FF14" opacity="0.06"/>
+
+  <!-- Row 24 -->
+  <rect x="3" y="24" width="26" height="1" fill="#06060A"/>
+  <rect x="5" y="24" width="22" height="1" fill="#08080E"/>
+
+  <!-- Row 25: Fade -->
+  <rect x="2" y="25" width="28" height="1" fill="#050508"/>
+
+  <!-- Row 26: Transition to label -->
+  <rect x="0" y="26" width="32" height="1" fill="#030305"/>
+
+  <!-- ====== NFT LABEL ====== -->
+  <rect x="1" y="27" width="30" height="4" fill="#06060A"/>
+  <rect x="1" y="27" width="30" height="1" fill="#39FF14" opacity="0.08"/>
+  <text x="16" y="29.8" text-anchor="middle" font-family="'Courier New', monospace" font-weight="bold" font-size="2.2" fill="#39FF14" letter-spacing="0.08">#001 FORGEMASTER</text>
+
+  <!-- ====== FRAME ====== -->
+  <!-- Corner brackets -->
+  <line x1="0.4" y1="0.4" x2="3" y2="0.4" stroke="#39FF14" stroke-opacity="0.5" stroke-width="0.15"/>
+  <line x1="0.4" y1="0.4" x2="0.4" y2="3" stroke="#39FF14" stroke-opacity="0.5" stroke-width="0.15"/>
+  <line x1="31.6" y1="0.4" x2="29" y2="0.4" stroke="#39FF14" stroke-opacity="0.5" stroke-width="0.15"/>
+  <line x1="31.6" y1="0.4" x2="31.6" y2="3" stroke="#39FF14" stroke-opacity="0.5" stroke-width="0.15"/>
+  <line x1="0.4" y1="31.6" x2="3" y2="31.6" stroke="#39FF14" stroke-opacity="0.35" stroke-width="0.15"/>
+  <line x1="0.4" y1="31.6" x2="0.4" y2="29" stroke="#39FF14" stroke-opacity="0.35" stroke-width="0.15"/>
+  <line x1="31.6" y1="31.6" x2="29" y2="31.6" stroke="#39FF14" stroke-opacity="0.35" stroke-width="0.15"/>
+  <line x1="31.6" y1="31.6" x2="31.6" y2="29" stroke="#39FF14" stroke-opacity="0.35" stroke-width="0.15"/>
+
+  <!-- Outer border -->
+  <rect x="0.1" y="0.1" width="31.8" height="31.8" fill="none" stroke="#39FF14" stroke-opacity="0.15" stroke-width="0.1"/>
+</svg>

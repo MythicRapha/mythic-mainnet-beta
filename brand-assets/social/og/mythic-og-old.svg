@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#7B2FFF" stop-opacity="0.12"/>
+      <stop offset="40%" stop-color="#7B2FFF" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1200" y2="0">
+      <stop offset="0%" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="15%" stop-color="#39FF14" stop-opacity="0.8"/>
+      <stop offset="30%" stop-color="#FF9500" stop-opacity="0.8"/>
+      <stop offset="45%" stop-color="#00E5FF" stop-opacity="0.8"/>
+      <stop offset="55%" stop-color="#7B2FFF" stop-opacity="0.9"/>
+      <stop offset="70%" stop-color="#FF2D78" stop-opacity="0.8"/>
+      <stop offset="85%" stop-color="#FFFFFF" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="vline" x1="0" y1="0" x2="0" y2="630">
+      <stop offset="0%" stop-color="#7B2FFF" stop-opacity="0"/>
+      <stop offset="30%" stop-color="#7B2FFF" stop-opacity="0.08"/>
+      <stop offset="70%" stop-color="#7B2FFF" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#7B2FFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#000000"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Architectural grid -->
+  <line x1="300" y1="0" x2="300" y2="630" stroke="url(#vline)" stroke-width="0.5"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="url(#vline)" stroke-width="0.5"/>
+  <line x1="900" y1="0" x2="900" y2="630" stroke="url(#vline)" stroke-width="0.5"/>
+  <line x1="0" y1="210" x2="1200" y2="210" stroke="#7B2FFF" stroke-width="0.3" opacity="0.06"/>
+  <line x1="0" y1="420" x2="1200" y2="420" stroke="#7B2FFF" stroke-width="0.3" opacity="0.06"/>
+
+  <!-- Large centered convergence prism with glow -->
+  <g transform="translate(510, 80)">
+    <!-- Outer glow layer -->
+    <polygon points="90,10 27,78 90,100" fill="#7B2FFF" opacity="0.08"/>
+    <polygon points="90,10 153,78 90,100" fill="#9B5FFF" opacity="0.06"/>
+    <polygon points="27,78 90,100 153,78 90,170" fill="#5A1FCC" opacity="0.06"/>
+    <!-- Main prism -->
+    <polygon points="90,10 27,78 90,100" fill="#7B2FFF" opacity="0.92"/>
+    <polygon points="90,10 153,78 90,100" fill="#9B5FFF" opacity="0.78"/>
+    <polygon points="27,78 90,100 153,78 90,170" fill="#5A1FCC" opacity="0.88"/>
+    <!-- Highlight edge -->
+    <line x1="90" y1="10" x2="90" y2="170" stroke="#FFFFFF" stroke-width="0.6" opacity="0.15"/>
+  </g>
+
+  <!-- MYTHIC wordmark -->
+  <text x="600" y="340" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="72" letter-spacing="18" fill="#FFFFFF">MYTHIC</text>
+
+  <!-- Tagline -->
+  <text x="600" y="390" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="16" letter-spacing="6" fill="#686878">THE CHAIN THAT THINKS</text>
+
+  <!-- Gem color accent bar -->
+  <rect y="430" width="1200" height="3" fill="url(#accent)"/>
+
+  <!-- Seven gem prisms — Mythic Network (Green) -->
+  <g transform="translate(486, 448)">
+    <polygon points="6,0 0,5 6,7" fill="#39FF14" opacity="0.92"/>
+    <polygon points="6,0 12,5 6,7" fill="#6FFF4F" opacity="0.78"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#2ACC10" opacity="0.88"/>
+  </g>
+  <!-- MythicSwap (Amber) -->
+  <g transform="translate(522, 448)">
+    <polygon points="6,0 0,5 6,7" fill="#FF9500" opacity="0.92"/>
+    <polygon points="6,0 12,5 6,7" fill="#FFB340" opacity="0.78"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#CC7700" opacity="0.88"/>
+  </g>
+  <!-- mythic.money (Cyan) -->
+  <g transform="translate(558, 448)">
+    <polygon points="6,0 0,5 6,7" fill="#00E5FF" opacity="0.92"/>
+    <polygon points="6,0 12,5 6,7" fill="#40EDFF" opacity="0.78"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#00B8CC" opacity="0.88"/>
+  </g>
+  <!-- mythic.foundation (Purple) -->
+  <g transform="translate(594, 448)">
+    <polygon points="6,0 0,5 6,7" fill="#7B2FFF" opacity="0.92"/>
+    <polygon points="6,0 12,5 6,7" fill="#9B5FFF" opacity="0.78"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#5A1FCC" opacity="0.88"/>
+  </g>
+  <!-- Mythic Wallet (Rose) -->
+  <g transform="translate(630, 448)">
+    <polygon points="6,0 0,5 6,7" fill="#FF2D78" opacity="0.92"/>
+    <polygon points="6,0 12,5 6,7" fill="#FF5C96" opacity="0.78"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#CC2460" opacity="0.88"/>
+  </g>
+  <!-- Mythic Labs (White) -->
+  <g transform="translate(666, 448)">
+    <polygon points="6,0 0,5 6,7" fill="#FFFFFF" opacity="0.80"/>
+    <polygon points="6,0 12,5 6,7" fill="#CCCCCC" opacity="0.60"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#999999" opacity="0.50"/>
+  </g>
+  <!-- The Forge (Green outline) -->
+  <g transform="translate(702, 448)">
+    <polygon points="6,0 0,5 6,7" fill="none" stroke="#39FF14" stroke-width="0.8" opacity="0.80"/>
+    <polygon points="6,0 12,5 6,7" fill="none" stroke="#39FF14" stroke-width="0.8" opacity="0.60"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="none" stroke="#39FF14" stroke-width="0.8" opacity="0.50"/>
+  </g>
+
+  <!-- Sub-brand labels -->
+  <text x="492" y="478" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="#404050">Network</text>
+  <text x="528" y="478" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="#404050">Swap</text>
+  <text x="564" y="478" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="#404050">Money</text>
+  <text x="600" y="478" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="#404050">Found.</text>
+  <text x="636" y="478" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="#404050">Wallet</text>
+  <text x="672" y="478" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="#404050">Labs</text>
+  <text x="708" y="478" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="#404050">Forge</text>
+
+  <!-- Bottom bar -->
+  <rect y="580" width="1200" height="50" fill="#08080C"/>
+  <text x="60" y="612" font-family="'JetBrains Mono', monospace" font-size="12" letter-spacing="2" fill="#404050">mythic.sh</text>
+  <text x="600" y="612" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" letter-spacing="3" fill="#404050">AI-NATIVE SVM L2 · BUILT ON FIREDANCER</text>
+  <text x="1140" y="612" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="12" letter-spacing="2" fill="#7B2FFF" opacity="0.6">$MYTH</text>
+
+  <!-- Border -->
+  <rect x="0.5" y="0.5" width="1199" height="629" fill="none" stroke="#1E1E2A" stroke-width="1"/>
+</svg>

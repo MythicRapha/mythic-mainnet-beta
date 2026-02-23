@@ -10,7 +10,7 @@ interface StatItem {
 const stats: StatItem[] = [
   { label: 'TPS', value: '1,000,000+' },
   { label: 'Block Time', value: '400ms' },
-  { label: 'AI Validators', value: 'Coming Soon' },
+  { label: 'AI Validators', value: 'Soon' },
   { label: 'Token', value: '$MYTH' },
 ]
 
@@ -23,23 +23,23 @@ export default function StatsBar() {
   }, [])
 
   return (
-    <div className="w-full border-y border-mythic-border/50 bg-mythic-card/50 backdrop-blur-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+    <div className="w-full border-y border-white/[0.06]">
+      <div className="max-w-[1280px] mx-auto px-5 sm:px-10">
+        <div className="grid grid-cols-2 md:grid-cols-4">
           {stats.map((stat, i) => (
             <div
               key={stat.label}
-              className={`text-center transition-all duration-700 ${
+              className={`py-8 text-center border-r border-white/[0.06] last:border-r-0 transition-all duration-700 ${
                 visible
                   ? 'opacity-100 translate-y-0'
                   : 'opacity-0 translate-y-4'
               }`}
               style={{ transitionDelay: `${i * 100}ms` }}
             >
-              <div className="text-xl sm:text-2xl font-bold gradient-text mb-1">
+              <div className="font-display text-[2rem] font-bold text-white mb-1">
                 {stat.value}
               </div>
-              <div className="text-mythic-text text-xs sm:text-sm uppercase tracking-wider">
+              <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted">
                 {stat.label}
               </div>
             </div>

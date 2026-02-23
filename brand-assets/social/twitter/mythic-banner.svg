@@ -1,0 +1,254 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="500" viewBox="0 0 1500 500" fill="none">
+  <defs>
+    <!-- Primary green glow -->
+    <radialGradient id="glow-g" cx="50%" cy="42%" r="45%">
+      <stop offset="0%" stop-color="#39FF14" stop-opacity="0.10"/>
+      <stop offset="35%" stop-color="#39FF14" stop-opacity="0.04"/>
+      <stop offset="70%" stop-color="#39FF14" stop-opacity="0.01"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Secondary violet atmospheric glow -->
+    <radialGradient id="glow-v" cx="30%" cy="60%" r="40%">
+      <stop offset="0%" stop-color="#7B2FFF" stop-opacity="0.06"/>
+      <stop offset="50%" stop-color="#7B2FFF" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Right-side cyan atmospheric -->
+    <radialGradient id="glow-c" cx="75%" cy="55%" r="30%">
+      <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.03"/>
+      <stop offset="60%" stop-color="#00E5FF" stop-opacity="0.01"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Prism halo glow -->
+    <radialGradient id="prism-halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#39FF14" stop-opacity="0.15"/>
+      <stop offset="40%" stop-color="#39FF14" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#39FF14" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Background vertical fade -->
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="500">
+      <stop offset="0%" stop-color="#030308"/>
+      <stop offset="40%" stop-color="#06060E"/>
+      <stop offset="100%" stop-color="#030308"/>
+    </linearGradient>
+    <!-- Gem rainbow accent bar (green-dominant) -->
+    <linearGradient id="accent" x1="0" y1="0" x2="1500" y2="0">
+      <stop offset="0%" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="8%" stop-color="#39FF14" stop-opacity="0.9"/>
+      <stop offset="20%" stop-color="#6FFF4F" stop-opacity="0.7"/>
+      <stop offset="32%" stop-color="#FF9500" stop-opacity="0.6"/>
+      <stop offset="44%" stop-color="#00E5FF" stop-opacity="0.6"/>
+      <stop offset="55%" stop-color="#7B2FFF" stop-opacity="0.5"/>
+      <stop offset="67%" stop-color="#FF2D78" stop-opacity="0.5"/>
+      <stop offset="80%" stop-color="#39FF14" stop-opacity="0.7"/>
+      <stop offset="92%" stop-color="#39FF14" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Green accent line -->
+    <linearGradient id="scanline" x1="0" y1="0" x2="1500" y2="0">
+      <stop offset="0%" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="20%" stop-color="#39FF14" stop-opacity="0.08"/>
+      <stop offset="50%" stop-color="#39FF14" stop-opacity="0.15"/>
+      <stop offset="80%" stop-color="#39FF14" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Vertical grid fade -->
+    <linearGradient id="vgrid" x1="0" y1="0" x2="0" y2="500">
+      <stop offset="0%" stop-color="#39FF14" stop-opacity="0"/>
+      <stop offset="25%" stop-color="#39FF14" stop-opacity="0.06"/>
+      <stop offset="50%" stop-color="#39FF14" stop-opacity="0.04"/>
+      <stop offset="75%" stop-color="#39FF14" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#39FF14" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Corner bracket gradient -->
+    <linearGradient id="corner-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#39FF14" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#39FF14" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ===== BACKGROUND LAYERS ===== -->
+  <rect width="1500" height="500" fill="url(#fade)"/>
+  <rect width="1500" height="500" fill="url(#glow-g)"/>
+  <rect width="1500" height="500" fill="url(#glow-v)"/>
+  <rect width="1500" height="500" fill="url(#glow-c)"/>
+
+  <!-- ===== SCAN LINES (horizontal depth) ===== -->
+  <line x1="0" y1="50" x2="1500" y2="50" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+  <line x1="0" y1="100" x2="1500" y2="100" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+  <line x1="0" y1="150" x2="1500" y2="150" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+  <line x1="0" y1="200" x2="1500" y2="200" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+  <line x1="0" y1="250" x2="1500" y2="250" stroke="#39FF14" stroke-width="0.3" opacity="0.03"/>
+  <line x1="0" y1="300" x2="1500" y2="300" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+  <line x1="0" y1="350" x2="1500" y2="350" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+  <line x1="0" y1="400" x2="1500" y2="400" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+  <line x1="0" y1="450" x2="1500" y2="450" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+
+  <!-- ===== ARCHITECTURAL GRID ===== -->
+  <!-- Primary verticals -->
+  <line x1="375" y1="0" x2="375" y2="500" stroke="url(#vgrid)" stroke-width="0.5"/>
+  <line x1="750" y1="0" x2="750" y2="500" stroke="url(#vgrid)" stroke-width="0.5"/>
+  <line x1="1125" y1="0" x2="1125" y2="500" stroke="url(#vgrid)" stroke-width="0.5"/>
+  <!-- Secondary verticals -->
+  <line x1="187" y1="0" x2="187" y2="500" stroke="#39FF14" stroke-width="0.3" opacity="0.02"/>
+  <line x1="562" y1="0" x2="562" y2="500" stroke="#39FF14" stroke-width="0.3" opacity="0.02"/>
+  <line x1="937" y1="0" x2="937" y2="500" stroke="#39FF14" stroke-width="0.3" opacity="0.02"/>
+  <line x1="1312" y1="0" x2="1312" y2="500" stroke="#39FF14" stroke-width="0.3" opacity="0.02"/>
+  <!-- Primary horizontals (brighter) -->
+  <line x1="0" y1="166" x2="1500" y2="166" stroke="url(#scanline)" stroke-width="0.5"/>
+  <line x1="0" y1="333" x2="1500" y2="333" stroke="url(#scanline)" stroke-width="0.5"/>
+
+  <!-- ===== DATA FLOW PATHS ===== -->
+  <!-- Left data stream -->
+  <line x1="80" y1="0" x2="320" y2="250" stroke="#39FF14" stroke-width="0.4" opacity="0.04"/>
+  <line x1="80" y1="0" x2="420" y2="500" stroke="#39FF14" stroke-width="0.3" opacity="0.03"/>
+  <!-- Right data stream -->
+  <line x1="1420" y1="0" x2="1180" y2="250" stroke="#39FF14" stroke-width="0.4" opacity="0.04"/>
+  <line x1="1420" y1="0" x2="1080" y2="500" stroke="#39FF14" stroke-width="0.3" opacity="0.03"/>
+  <!-- Cross data paths -->
+  <line x1="200" y1="500" x2="750" y2="180" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+  <line x1="1300" y1="500" x2="750" y2="180" stroke="#39FF14" stroke-width="0.3" opacity="0.025"/>
+
+  <!-- ===== PARTICLE FIELD ===== -->
+  <!-- Scattered micro-dots for network/data feel -->
+  <rect x="120" y="80" width="1.5" height="1.5" fill="#39FF14" opacity="0.15"/>
+  <rect x="245" y="140" width="1" height="1" fill="#39FF14" opacity="0.12"/>
+  <rect x="380" y="60" width="1.5" height="1.5" fill="#39FF14" opacity="0.10"/>
+  <rect x="430" y="310" width="1" height="1" fill="#39FF14" opacity="0.08"/>
+  <rect x="520" y="440" width="1.5" height="1.5" fill="#39FF14" opacity="0.10"/>
+  <rect x="640" y="90" width="1" height="1" fill="#39FF14" opacity="0.12"/>
+  <rect x="850" y="70" width="1.5" height="1.5" fill="#39FF14" opacity="0.10"/>
+  <rect x="920" y="430" width="1" height="1" fill="#39FF14" opacity="0.12"/>
+  <rect x="1050" y="120" width="1.5" height="1.5" fill="#39FF14" opacity="0.10"/>
+  <rect x="1150" y="350" width="1" height="1" fill="#39FF14" opacity="0.08"/>
+  <rect x="1280" y="90" width="1.5" height="1.5" fill="#39FF14" opacity="0.12"/>
+  <rect x="1350" y="280" width="1" height="1" fill="#39FF14" opacity="0.10"/>
+  <rect x="170" y="380" width="1" height="1" fill="#7B2FFF" opacity="0.12"/>
+  <rect x="310" y="420" width="1" height="1" fill="#7B2FFF" opacity="0.10"/>
+  <rect x="1200" y="160" width="1" height="1" fill="#00E5FF" opacity="0.10"/>
+  <rect x="1380" y="400" width="1" height="1" fill="#00E5FF" opacity="0.08"/>
+  <rect x="700" y="460" width="1" height="1" fill="#FF9500" opacity="0.08"/>
+  <rect x="480" y="180" width="1" height="1" fill="#FF2D78" opacity="0.06"/>
+
+  <!-- ===== CORNER BRACKETS ===== -->
+  <!-- Top-left -->
+  <line x1="24" y1="24" x2="60" y2="24" stroke="#39FF14" stroke-width="1" opacity="0.3"/>
+  <line x1="24" y1="24" x2="24" y2="60" stroke="#39FF14" stroke-width="1" opacity="0.3"/>
+  <!-- Top-right -->
+  <line x1="1476" y1="24" x2="1440" y2="24" stroke="#39FF14" stroke-width="1" opacity="0.3"/>
+  <line x1="1476" y1="24" x2="1476" y2="60" stroke="#39FF14" stroke-width="1" opacity="0.3"/>
+  <!-- Bottom-left -->
+  <line x1="24" y1="476" x2="60" y2="476" stroke="#39FF14" stroke-width="1" opacity="0.3"/>
+  <line x1="24" y1="476" x2="24" y2="440" stroke="#39FF14" stroke-width="1" opacity="0.3"/>
+  <!-- Bottom-right -->
+  <line x1="1476" y1="476" x2="1440" y2="476" stroke="#39FF14" stroke-width="1" opacity="0.3"/>
+  <line x1="1476" y1="476" x2="1476" y2="440" stroke="#39FF14" stroke-width="1" opacity="0.3"/>
+
+  <!-- ===== HUD READOUTS ===== -->
+  <!-- Top-left system status -->
+  <text x="40" y="18" font-family="'JetBrains Mono', monospace" font-size="7" letter-spacing="2" fill="#39FF14" opacity="0.20">SYS::ONLINE</text>
+  <!-- Top-right coordinates -->
+  <text x="1460" y="18" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="7" letter-spacing="2" fill="#39FF14" opacity="0.20">L2::MAINNET</text>
+  <!-- Left metrics -->
+  <text x="40" y="250" font-family="'JetBrains Mono', monospace" font-size="8" fill="#39FF14" opacity="0.12">1M+ TPS</text>
+  <text x="40" y="264" font-family="'JetBrains Mono', monospace" font-size="7" fill="#39FF14" opacity="0.08">FIREDANCER CORE</text>
+  <!-- Right metrics -->
+  <text x="1460" y="250" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="8" fill="#39FF14" opacity="0.12">AI-NATIVE</text>
+  <text x="1460" y="264" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="7" fill="#39FF14" opacity="0.08">SOLANA SVM</text>
+
+  <!-- ===== CONVERGENCE PRISM (GREEN PRIMARY) ===== -->
+  <!-- Outer halo -->
+  <circle cx="750" cy="175" r="120" fill="url(#prism-halo)"/>
+  <!-- Large prism -->
+  <g transform="translate(650, 70)">
+    <!-- Deep shadow layer -->
+    <polygon points="100,0 20,85 100,112" fill="#39FF14" opacity="0.04"/>
+    <polygon points="100,0 180,85 100,112" fill="#6FFF4F" opacity="0.03"/>
+    <polygon points="20,85 100,112 180,85 100,195" fill="#2ACC10" opacity="0.03"/>
+    <!-- Main prism faces -->
+    <polygon points="100,0 20,85 100,112" fill="#39FF14" opacity="0.92"/>
+    <polygon points="100,0 180,85 100,112" fill="#6FFF4F" opacity="0.78"/>
+    <polygon points="20,85 100,112 180,85 100,195" fill="#2ACC10" opacity="0.88"/>
+    <!-- Edge highlights -->
+    <line x1="100" y1="0" x2="100" y2="195" stroke="#FFFFFF" stroke-width="0.6" opacity="0.18"/>
+    <line x1="100" y1="0" x2="20" y2="85" stroke="#FFFFFF" stroke-width="0.3" opacity="0.08"/>
+    <line x1="100" y1="0" x2="180" y2="85" stroke="#FFFFFF" stroke-width="0.3" opacity="0.06"/>
+    <!-- Inner refraction line -->
+    <line x1="100" y1="112" x2="20" y2="85" stroke="#FFFFFF" stroke-width="0.3" opacity="0.06"/>
+    <line x1="100" y1="112" x2="180" y2="85" stroke="#FFFFFF" stroke-width="0.3" opacity="0.04"/>
+  </g>
+
+  <!-- ===== MYTHIC WORDMARK ===== -->
+  <text x="750" y="340" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="56" letter-spacing="16" fill="#FFFFFF">MYTHIC</text>
+  <!-- Subtle green glow behind text -->
+  <text x="750" y="340" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="56" letter-spacing="16" fill="#39FF14" opacity="0.06">MYTHIC</text>
+
+  <!-- ===== TAGLINE ===== -->
+  <text x="750" y="374" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="13" letter-spacing="6" fill="#39FF14" opacity="0.45">THE CHAIN THAT THINKS</text>
+
+  <!-- ===== GEM ACCENT BAR ===== -->
+  <rect y="400" width="1500" height="3" fill="url(#accent)"/>
+  <!-- Secondary thin line -->
+  <rect y="405" width="1500" height="0.5" fill="#39FF14" opacity="0.06"/>
+
+  <!-- ===== SEVEN GEM PRISMS ===== -->
+  <!-- Mythic Network (Green) — primary, slightly larger -->
+  <g transform="translate(604, 418)">
+    <polygon points="8,0 0,6.5 8,9" fill="#39FF14" opacity="0.95"/>
+    <polygon points="8,0 16,6.5 8,9" fill="#6FFF4F" opacity="0.80"/>
+    <polygon points="0,6.5 8,9 16,6.5 8,18" fill="#2ACC10" opacity="0.90"/>
+  </g>
+  <!-- MythicSwap (Amber) -->
+  <g transform="translate(644, 420)">
+    <polygon points="6,0 0,5 6,7" fill="#FF9500" opacity="0.92"/>
+    <polygon points="6,0 12,5 6,7" fill="#FFB340" opacity="0.78"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#CC7700" opacity="0.88"/>
+  </g>
+  <!-- mythic.money (Cyan) -->
+  <g transform="translate(679, 420)">
+    <polygon points="6,0 0,5 6,7" fill="#00E5FF" opacity="0.92"/>
+    <polygon points="6,0 12,5 6,7" fill="#40EDFF" opacity="0.78"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#00B8CC" opacity="0.88"/>
+  </g>
+  <!-- mythic.foundation (Purple) -->
+  <g transform="translate(714, 420)">
+    <polygon points="6,0 0,5 6,7" fill="#7B2FFF" opacity="0.92"/>
+    <polygon points="6,0 12,5 6,7" fill="#9B5FFF" opacity="0.78"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#5A1FCC" opacity="0.88"/>
+  </g>
+  <!-- Mythic Wallet (Rose) -->
+  <g transform="translate(749, 420)">
+    <polygon points="6,0 0,5 6,7" fill="#FF2D78" opacity="0.92"/>
+    <polygon points="6,0 12,5 6,7" fill="#FF5C96" opacity="0.78"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#CC2460" opacity="0.88"/>
+  </g>
+  <!-- Mythic Labs (White) -->
+  <g transform="translate(784, 420)">
+    <polygon points="6,0 0,5 6,7" fill="#FFFFFF" opacity="0.80"/>
+    <polygon points="6,0 12,5 6,7" fill="#CCCCCC" opacity="0.60"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="#999999" opacity="0.50"/>
+  </g>
+  <!-- The Forge (Green outline) -->
+  <g transform="translate(819, 420)">
+    <polygon points="6,0 0,5 6,7" fill="none" stroke="#39FF14" stroke-width="0.8" opacity="0.80"/>
+    <polygon points="6,0 12,5 6,7" fill="none" stroke="#39FF14" stroke-width="0.8" opacity="0.60"/>
+    <polygon points="0,5 6,7 12,5 6,14" fill="none" stroke="#39FF14" stroke-width="0.8" opacity="0.50"/>
+  </g>
+
+  <!-- ===== SUB-BRAND LABELS ===== -->
+  <text x="612" y="450" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" letter-spacing="1" fill="#39FF14" opacity="0.30">NETWORK</text>
+  <text x="650" y="448" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="6" fill="#404050">SWAP</text>
+  <text x="685" y="448" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="6" fill="#404050">MONEY</text>
+  <text x="720" y="448" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="6" fill="#404050">FOUND.</text>
+  <text x="755" y="448" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="6" fill="#404050">WALLET</text>
+  <text x="790" y="448" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="6" fill="#404050">LABS</text>
+  <text x="825" y="448" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="6" fill="#404050">FORGE</text>
+
+  <!-- ===== BOTTOM ZONE ===== -->
+  <text x="60" y="480" font-family="'JetBrains Mono', monospace" font-size="12" letter-spacing="3" fill="#39FF14" opacity="0.35">mythic.sh</text>
+  <text x="750" y="480" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" letter-spacing="4" fill="#39FF14" opacity="0.15">DECENTRALIZED AI · 1M+ TPS · SOLANA SVM L2</text>
+  <text x="1440" y="480" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="12" letter-spacing="3" fill="#39FF14" opacity="0.35">$MYTH</text>
+
+  <!-- ===== BORDER ===== -->
+  <rect x="0.5" y="0.5" width="1499" height="499" fill="none" stroke="#39FF14" stroke-width="0.5" opacity="0.15"/>
+</svg>

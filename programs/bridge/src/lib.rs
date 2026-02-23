@@ -16,7 +16,7 @@ use solana_program::{
 use spl_token;
 use thiserror::Error;
 
-declare_id!("MythBrdg11111111111111111111111111111111111");
+declare_id!("oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ");
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -35,6 +35,9 @@ const IX_INITIATE_WITHDRAWAL: u8 = 3;
 const IX_CHALLENGE_WITHDRAWAL: u8 = 4;
 const IX_FINALIZE_WITHDRAWAL: u8 = 5;
 const IX_UPDATE_CONFIG: u8 = 6;
+const IX_PAUSE_BRIDGE: u8 = 7;
+const IX_UNPAUSE_BRIDGE: u8 = 8;
+const IX_SET_LIMITS: u8 = 9;
 
 // ── Error Codes ──────────────────────────────────────────────────────────────
 
@@ -68,6 +71,13 @@ impl From<BridgeError> for ProgramError {
     }
 }
 
+// Custom error codes for bridge operations
+pub const ERROR_BRIDGE_PAUSED: u32 = 100;
+pub const ERROR_AMOUNT_TOO_LOW: u32 = 101;
+pub const ERROR_AMOUNT_TOO_HIGH: u32 = 102;
+pub const ERROR_DAILY_LIMIT: u32 = 103;
+pub const ERROR_OVERFLOW: u32 = 104;
+
 // ── State ────────────────────────────────────────────────────────────────────
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
@@ -78,10 +88,17 @@ pub struct BridgeConfig {
     pub deposit_nonce: u64,
     pub is_initialized: bool,
     pub bump: u8,
+    pub paused: bool,
+    pub min_deposit_lamports: u64,
+    pub max_deposit_lamports: u64,
+    pub daily_limit_lamports: u64,
+    pub daily_volume: u64,
+    pub last_reset_slot: u64,
 }
 
 impl BridgeConfig {
-    pub const LEN: usize = 32 + 32 + 8 + 8 + 1 + 1; // 82
+    // 32 + 32 + 8 + 8 + 1 + 1 + 1 + 8 + 8 + 8 + 8 + 8 = 123
+    pub const LEN: usize = 32 + 32 + 8 + 8 + 1 + 1 + 1 + 8 + 8 + 8 + 8 + 8;
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq)]
@@ -154,6 +171,13 @@ pub struct UpdateConfigParams {
     pub new_challenge_period: Option<i64>,
 }
 
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct SetLimitsParams {
+    pub min_deposit_lamports: u64,
+    pub max_deposit_lamports: u64,
+    pub daily_limit_lamports: u64,
+}
+
 // ── Entrypoint ───────────────────────────────────────────────────────────────
 
 entrypoint!(process_instruction);
@@ -177,6 +201,9 @@ pub fn process_instruction(
         IX_CHALLENGE_WITHDRAWAL => process_challenge_withdrawal(program_id, accounts, data),
         IX_FINALIZE_WITHDRAWAL => process_finalize_withdrawal(program_id, accounts, data),
         IX_UPDATE_CONFIG => process_update_config(program_id, accounts, data),
+        IX_PAUSE_BRIDGE => process_pause_bridge(program_id, accounts),
+        IX_UNPAUSE_BRIDGE => process_unpause_bridge(program_id, accounts),
+        IX_SET_LIMITS => process_set_limits(program_id, accounts, data),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
@@ -246,6 +273,12 @@ fn process_initialize(
         deposit_nonce: 0,
         is_initialized: true,
         bump,
+        paused: false,
+        min_deposit_lamports: 10_000_000,           // 0.01 SOL
+        max_deposit_lamports: 1_000_000_000_000,     // 1000 SOL
+        daily_limit_lamports: 10_000_000_000_000,    // 10,000 SOL
+        daily_volume: 0,
+        last_reset_slot: 0,
     };
 
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
@@ -294,10 +327,17 @@ fn process_deposit(
     if config_pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
+    // Verify account ownership
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
 
     let mut config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(BridgeError::UninitializedAccount.into());
+    }
+    if config.paused {
+        return Err(ProgramError::Custom(ERROR_BRIDGE_PAUSED));
     }
 
     // Validate vault PDA
@@ -305,6 +345,11 @@ fn process_deposit(
         Pubkey::find_program_address(&[VAULT_SEED, token_mint.key.as_ref()], program_id);
     if vault_pda != *vault_token.key {
         return Err(ProgramError::InvalidSeeds);
+    }
+
+    // Validate token_program is the SPL Token program
+    if *token_program.key != spl_token::ID {
+        return Err(ProgramError::IncorrectProgramId);
     }
 
     // Transfer tokens from depositor to vault
@@ -373,10 +418,37 @@ fn process_deposit_sol(
     if config_pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
 
     let mut config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(BridgeError::UninitializedAccount.into());
+    }
+    if config.paused {
+        return Err(ProgramError::Custom(ERROR_BRIDGE_PAUSED));
+    }
+
+    // Check deposit limits
+    let clock = Clock::get()?;
+    let current_slot = clock.slot;
+    if params.amount < config.min_deposit_lamports {
+        return Err(ProgramError::Custom(ERROR_AMOUNT_TOO_LOW));
+    }
+    if params.amount > config.max_deposit_lamports {
+        return Err(ProgramError::Custom(ERROR_AMOUNT_TOO_HIGH));
+    }
+    // Reset daily volume if >216000 slots have passed (~24hrs at 400ms/slot)
+    if current_slot.saturating_sub(config.last_reset_slot) > 216_000 {
+        config.daily_volume = 0;
+        config.last_reset_slot = current_slot;
+    }
+    config.daily_volume = config.daily_volume
+        .checked_add(params.amount)
+        .ok_or(ProgramError::Custom(ERROR_OVERFLOW))?;
+    if config.daily_volume > config.daily_limit_lamports {
+        return Err(ProgramError::Custom(ERROR_DAILY_LIMIT));
     }
 
     // Validate SOL vault PDA
@@ -441,6 +513,9 @@ fn process_initiate_withdrawal(
     let (config_pda, _) = Pubkey::find_program_address(&[BRIDGE_CONFIG_SEED], program_id);
     if config_pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
     }
     let config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
@@ -541,6 +616,9 @@ fn process_challenge_withdrawal(
     if config_pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
     let config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(BridgeError::UninitializedAccount.into());
@@ -552,6 +630,9 @@ fn process_challenge_withdrawal(
         Pubkey::find_program_address(&[WITHDRAWAL_SEED, &nonce_bytes], program_id);
     if withdrawal_pda != *withdrawal_account.key {
         return Err(ProgramError::InvalidSeeds);
+    }
+    if withdrawal_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
     }
 
     let mut withdrawal =
@@ -622,9 +703,20 @@ fn process_finalize_withdrawal(
     if config_pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
     let config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(BridgeError::UninitializedAccount.into());
+    }
+    if config.paused {
+        return Err(ProgramError::Custom(ERROR_BRIDGE_PAUSED));
+    }
+
+    // Validate token_program
+    if *token_program.key != spl_token::ID {
+        return Err(ProgramError::IncorrectProgramId);
     }
 
     // Validate withdrawal PDA
@@ -634,17 +726,25 @@ fn process_finalize_withdrawal(
     if withdrawal_pda != *withdrawal_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
+    if withdrawal_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
 
     let mut withdrawal =
         WithdrawalRequest::try_from_slice(&withdrawal_account.data.borrow())?;
 
-    if withdrawal.status == WithdrawalStatus::Finalized {
+    if withdrawal.status != WithdrawalStatus::Pending {
         return Err(BridgeError::WithdrawalAlreadyFinalized.into());
     }
-    if withdrawal.status == WithdrawalStatus::Challenged
-        || withdrawal.status == WithdrawalStatus::Cancelled
-    {
-        return Err(BridgeError::WithdrawalAlreadyFinalized.into());
+
+    // Validate withdrawal amount > 0
+    if withdrawal.amount == 0 {
+        return Err(BridgeError::InsufficientFunds.into());
+    }
+
+    // Validate the token_mint matches the withdrawal request
+    if *token_mint.key != withdrawal.token_mint {
+        return Err(ProgramError::InvalidAccountData);
     }
 
     let clock = Clock::get()?;
@@ -728,6 +828,9 @@ fn process_update_config(
         config.sequencer = new_seq;
     }
     if let Some(new_period) = params.new_challenge_period {
+        if new_period < 3600 {
+            return Err(ProgramError::InvalidArgument);
+        }
         config.challenge_period = new_period;
     }
 
@@ -736,6 +839,145 @@ fn process_update_config(
     msg!(
         "EVENT:UpdateConfig:{{\"sequencer\":\"{}\",\"challenge_period\":{}}}",
         config.sequencer, config.challenge_period
+    );
+
+    Ok(())
+}
+
+// ── Pause Bridge ─────────────────────────────────────────────────────────────
+// Accounts:
+//   0. [signer] admin
+//   1. [writable] bridge_config PDA
+
+fn process_pause_bridge(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let admin = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+
+    if !admin.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !config_account.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let (config_pda, _) = Pubkey::find_program_address(&[BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let mut config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeError::UninitializedAccount.into());
+    }
+    if *admin.key != config.admin {
+        return Err(BridgeError::InvalidAuthority.into());
+    }
+
+    config.paused = true;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:PauseBridge:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ── Unpause Bridge ───────────────────────────────────────────────────────────
+// Accounts:
+//   0. [signer] admin
+//   1. [writable] bridge_config PDA
+
+fn process_unpause_bridge(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let admin = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+
+    if !admin.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !config_account.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let (config_pda, _) = Pubkey::find_program_address(&[BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let mut config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeError::UninitializedAccount.into());
+    }
+    if *admin.key != config.admin {
+        return Err(BridgeError::InvalidAuthority.into());
+    }
+
+    config.paused = false;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:UnpauseBridge:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ── Set Limits ───────────────────────────────────────────────────────────────
+// Accounts:
+//   0. [signer] admin
+//   1. [writable] bridge_config PDA
+
+fn process_set_limits(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let admin = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+
+    if !admin.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !config_account.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let (config_pda, _) = Pubkey::find_program_address(&[BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let mut config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeError::UninitializedAccount.into());
+    }
+    if *admin.key != config.admin {
+        return Err(BridgeError::InvalidAuthority.into());
+    }
+
+    let params = SetLimitsParams::try_from_slice(data)?;
+
+    config.min_deposit_lamports = params.min_deposit_lamports;
+    config.max_deposit_lamports = params.max_deposit_lamports;
+    config.daily_limit_lamports = params.daily_limit_lamports;
+
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:SetLimits:{{\"min_deposit\":{},\"max_deposit\":{},\"daily_limit\":{}}}",
+        params.min_deposit_lamports, params.max_deposit_lamports, params.daily_limit_lamports
     );
 
     Ok(())

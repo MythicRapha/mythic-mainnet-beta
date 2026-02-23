@@ -22,7 +22,7 @@ use solana_program::{
 // Program ID
 // ---------------------------------------------------------------------------
 
-solana_program::declare_id!("CT1yUSX8n5uid5PyrPYnoG5H6Pp2GoqYGEKmMehq3uWJ");
+solana_program::declare_id!("Bs3NHs5ya2QDKtjKUqNoNjn1ggkJCxkccgbyPuRB1RQ2");
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -35,7 +35,8 @@ const MAX_STORAGE_URI: usize = 256;
 const MAX_GPU_MODEL: usize = 32;
 const MAX_SUPPORTED_MODELS: usize = 16;
 const MAX_INPUT_DATA: usize = 10_240; // 10 KB
-const LOGIT_TOLERANCE: f32 = 0.01;
+/// Logit tolerance in basis points (100 = 1%). Integer to avoid f32 non-determinism.
+const LOGIT_TOLERANCE_BPS: u64 = 100;
 const CHALLENGE_WINDOW_SLOTS: u64 = 100;
 
 // Fee split (of escrowed amount)
@@ -65,6 +66,8 @@ pub enum AiInstruction {
     SubmitResult = 4,
     VerifyLogits = 5,
     ClaimInferenceFee = 6,
+    Pause = 7,
+    Unpause = 8,
 }
 
 impl TryFrom<u8> for AiInstruction {
@@ -78,6 +81,8 @@ impl TryFrom<u8> for AiInstruction {
             4 => Ok(Self::SubmitResult),
             5 => Ok(Self::VerifyLogits),
             6 => Ok(Self::ClaimInferenceFee),
+            7 => Ok(Self::Pause),
+            8 => Ok(Self::Unpause),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }
@@ -96,12 +101,13 @@ pub struct AIConfig {
     pub request_nonce: u64,
     pub burn_address: Pubkey,
     pub foundation: Pubkey,
+    pub is_paused: bool,
     pub bump: u8,
 }
 
 impl AIConfig {
     pub const SEED: &'static [u8] = b"ai_config";
-    pub const LEN: usize = 1 + 32 + 8 + 8 + 8 + 32 + 32 + 1; // 122
+    pub const LEN: usize = 1 + 32 + 8 + 8 + 8 + 32 + 32 + 1 + 1; // 123
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
@@ -297,6 +303,8 @@ pub enum AiError {
     ValidatorNotActive,
     #[error("Arithmetic overflow")]
     Overflow,
+    #[error("Program is paused")]
+    ProgramPaused,
 }
 
 impl From<AiError> for ProgramError {
@@ -332,6 +340,8 @@ pub fn process_instruction(
         AiInstruction::ClaimInferenceFee => {
             process_claim_inference_fee(program_id, accounts, rest)
         }
+        AiInstruction::Pause => process_pause(program_id, accounts),
+        AiInstruction::Unpause => process_unpause(program_id, accounts),
     }
 }
 
@@ -450,6 +460,7 @@ fn process_initialize(
         request_nonce: 0,
         burn_address: args.burn_address,
         foundation: args.foundation,
+        is_paused: false,
         bump,
     };
 
@@ -490,6 +501,9 @@ fn process_register_model(
     let config = AIConfig::try_from_slice(&config_info.try_borrow_data()?)?;
     if !config.is_initialized {
         return Err(AiError::NotInitialized.into());
+    }
+    if config.is_paused {
+        return Err(AiError::ProgramPaused.into());
     }
 
     // Validate string lengths
@@ -673,6 +687,9 @@ fn process_request_inference(
     let mut config = AIConfig::try_from_slice(&config_info.try_borrow_data()?)?;
     if !config.is_initialized {
         return Err(AiError::NotInitialized.into());
+    }
+    if config.is_paused {
+        return Err(AiError::ProgramPaused.into());
     }
 
     if *system_prog.key != system_program::id() {
@@ -1115,4 +1132,78 @@ mod hex {
             .map(|b| format!("{:02x}", b))
             .collect()
     }
+}
+
+// ---------------------------------------------------------------------------
+// 7 — Pause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_pause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let iter = &mut accounts.iter();
+    let admin = next_account_info(iter)?;
+    let config_info = next_account_info(iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_info)?;
+    assert_owned_by(config_info, program_id)?;
+
+    let (config_pda, _) = Pubkey::find_program_address(&[AIConfig::SEED], program_id);
+    if *config_info.key != config_pda {
+        return Err(AiError::InvalidPDA.into());
+    }
+
+    let mut config = AIConfig::try_from_slice(&config_info.try_borrow_data()?)?;
+    if !config.is_initialized {
+        return Err(AiError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(AiError::Unauthorized.into());
+    }
+
+    config.is_paused = true;
+    config.serialize(&mut &mut config_info.try_borrow_mut_data()?[..])?;
+
+    msg!("EVENT:Paused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// 8 — Unpause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_unpause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let iter = &mut accounts.iter();
+    let admin = next_account_info(iter)?;
+    let config_info = next_account_info(iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_info)?;
+    assert_owned_by(config_info, program_id)?;
+
+    let (config_pda, _) = Pubkey::find_program_address(&[AIConfig::SEED], program_id);
+    if *config_info.key != config_pda {
+        return Err(AiError::InvalidPDA.into());
+    }
+
+    let mut config = AIConfig::try_from_slice(&config_info.try_borrow_data()?)?;
+    if !config.is_initialized {
+        return Err(AiError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(AiError::Unauthorized.into());
+    }
+
+    config.is_paused = false;
+    config.serialize(&mut &mut config_info.try_borrow_mut_data()?[..])?;
+
+    msg!("EVENT:Unpaused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
 }

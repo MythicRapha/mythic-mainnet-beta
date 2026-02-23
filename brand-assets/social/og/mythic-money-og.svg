@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="gem-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(0,229,255,0.15)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#060C06"/>
+  <circle cx="320" cy="280" r="220" fill="url(#gem-glow)"/>
+  <g filter="url(#glow)" transform="translate(170,130) scale(3)">
+    <polygon points="50,8 20,44 50,56" fill="#00E5FF" opacity="0.9"/>
+    <polygon points="50,8 80,44 50,56" fill="#33EEFF" opacity="0.75"/>
+    <polygon points="20,44 50,56 80,44 50,92" fill="#00B8CC" opacity="0.85"/>
+  </g>
+  <text x="600" y="260" font-family="Sora, Inter, sans-serif" font-weight="700" font-size="72" letter-spacing="10" fill="#FFFFFF">MYTHIC.MONEY</text>
+  <text x="605" y="315" font-family="JetBrains Mono, monospace" font-weight="400" font-size="18" letter-spacing="6" fill="#5A7B90">PORTFOLIO INTELLIGENCE</text>
+  <line x1="600" y1="350" x2="1000" y2="350" stroke="#00E5FF" stroke-width="1" opacity="0.15"/>
+  <text x="600" y="385" font-family="JetBrains Mono, monospace" font-weight="400" font-size="14" letter-spacing="4" fill="#4A5A4A">AI-POWERED DEFI DASHBOARD</text>
+  <text x="600" y="570" font-family="JetBrains Mono, monospace" font-weight="500" font-size="16" letter-spacing="3" fill="#00E5FF" opacity="0.5">mythic.money</text>
+</svg>

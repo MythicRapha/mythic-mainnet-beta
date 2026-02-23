@@ -1,0 +1,18 @@
+[package]
+name = "mythic-swap"
+version = "0.1.0"
+edition = "2021"
+description = "MythicSwap — Constant product AMM for Mythic L2"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+cpi = ["no-entrypoint"]
+
+[dependencies]
+solana-program = { workspace = true }
+spl-token = { workspace = true, features = ["no-entrypoint"] }
+borsh = { workspace = true }
+thiserror = { workspace = true }

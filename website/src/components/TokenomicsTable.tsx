@@ -15,19 +15,19 @@ const feeData: FeeRow[] = [
 export default function TokenomicsTable() {
   return (
     <div className="w-full overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full">
         <thead>
-          <tr className="border-b border-mythic-border">
-            <th className="text-left py-3 px-4 text-mythic-text font-medium uppercase tracking-wider text-xs">
+          <tr className="border-b border-white/[0.06]">
+            <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">
               Fee Type
             </th>
-            <th className="text-center py-3 px-4 text-mythic-text font-medium uppercase tracking-wider text-xs">
+            <th className="text-center py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">
               Validators
             </th>
-            <th className="text-center py-3 px-4 text-mythic-text font-medium uppercase tracking-wider text-xs">
+            <th className="text-center py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">
               Foundation
             </th>
-            <th className="text-center py-3 px-4 text-mythic-text font-medium uppercase tracking-wider text-xs">
+            <th className="text-center py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">
               Burned
             </th>
           </tr>
@@ -36,12 +36,12 @@ export default function TokenomicsTable() {
           {feeData.map((row) => (
             <tr
               key={row.type}
-              className="border-b border-mythic-border/50 hover:bg-mythic-purple/5 transition-colors"
+              className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
             >
-              <td className="py-3 px-4 text-white font-medium">{row.type}</td>
-              <td className="py-3 px-4 text-center text-mythic-cyan">{row.validators}</td>
-              <td className="py-3 px-4 text-center text-mythic-text">{row.foundation}</td>
-              <td className="py-3 px-4 text-center text-orange-400">{row.burned}</td>
+              <td className="py-3.5 px-4 text-white text-[0.82rem] font-medium">{row.type}</td>
+              <td className="py-3.5 px-4 text-center text-mythic-violet text-[0.82rem]">{row.validators}</td>
+              <td className="py-3.5 px-4 text-center text-mythic-text text-[0.82rem]">{row.foundation}</td>
+              <td className="py-3.5 px-4 text-center text-mythic-amber text-[0.82rem]">{row.burned}</td>
             </tr>
           ))}
         </tbody>

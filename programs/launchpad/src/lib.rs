@@ -22,7 +22,7 @@ use solana_program::{
 // Program ID
 // ---------------------------------------------------------------------------
 
-solana_program::declare_id!("MythPad111111111111111111111111111111111111");
+solana_program::declare_id!("62dVNKTPhChmGVzQu7YzK19vVtTk371Zg7iHfNzk635c");
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -68,6 +68,8 @@ pub fn process_instruction(
         4 => process_graduate(program_id, accounts, data),
         5 => process_update_config(program_id, accounts, data),
         6 => process_claim_creator_fee(program_id, accounts, data),
+        7 => process_pause(program_id, accounts),
+        8 => process_unpause(program_id, accounts),
         _ => Err(LaunchpadError::InvalidInstruction.into()),
     }
 }
@@ -122,6 +124,8 @@ pub enum LaunchpadError {
     NoCreatorFee,
     #[error("Invalid protocol fee (must be <= 1000 bps / 10%)")]
     InvalidProtocolFee,
+    #[error("Program is paused")]
+    ProgramPaused,
 }
 
 impl From<LaunchpadError> for ProgramError {
@@ -144,12 +148,13 @@ pub struct LaunchpadConfig {
     pub total_tokens_launched: u64,  // 8
     pub total_myth_collected: u64,   // 8
     pub total_graduations: u64,      // 8
+    pub is_paused: bool,             // 1
     pub bump: u8,                    // 1
 }
 
 impl LaunchpadConfig {
-    // 1 + 32 + 8 + 2 + 32 + 8 + 8 + 8 + 1 = 100
-    pub const SIZE: usize = 100;
+    // 1 + 32 + 8 + 2 + 32 + 8 + 8 + 8 + 1 + 1 = 101
+    pub const SIZE: usize = 101;
 }
 
 // ---------------------------------------------------------------------------
@@ -623,6 +628,7 @@ fn process_initialize(
         total_tokens_launched: 0,
         total_myth_collected: 0,
         total_graduations: 0,
+        is_paused: false,
         bump: config_bump,
     };
 
@@ -707,6 +713,15 @@ fn process_create_token(
     assert_writable(mint_account)?;
     assert_writable(curve_vault)?;
     assert_owned_by(config_account, program_id)?;
+
+    // Load and check config
+    let mut config = LaunchpadConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(LaunchpadError::NotInitialized.into());
+    }
+    if config.is_paused {
+        return Err(LaunchpadError::ProgramPaused.into());
+    }
 
     // Load and validate config
     let mut config = LaunchpadConfig::try_from_slice(&config_account.data.borrow())?;
@@ -995,6 +1010,11 @@ fn process_buy(
     assert_owned_by(config_account, program_id)?;
     assert_owned_by(token_launch_account, program_id)?;
 
+    // Validate token_program
+    if *token_program.key != spl_token::id() {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
     let config = LaunchpadConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(LaunchpadError::NotInitialized.into());
@@ -1181,9 +1201,17 @@ fn process_sell(
     assert_owned_by(config_account, program_id)?;
     assert_owned_by(token_launch_account, program_id)?;
 
+    // Validate token_program
+    if *token_program.key != spl_token::id() {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
     let config = LaunchpadConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(LaunchpadError::NotInitialized.into());
+    }
+    if config.is_paused {
+        return Err(LaunchpadError::ProgramPaused.into());
     }
 
     let mut launch = TokenLaunch::try_from_slice(&token_launch_account.data.borrow())?;
@@ -1628,6 +1656,82 @@ fn process_claim_creator_fee(
 }
 
 // ---------------------------------------------------------------------------
+// Instruction 7: Pause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_pause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[LAUNCHPAD_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(LaunchpadError::InvalidPDA.into());
+    }
+
+    let mut config = LaunchpadConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(LaunchpadError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(LaunchpadError::InvalidAuthority.into());
+    }
+
+    config.is_paused = true;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:Paused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction 8: Unpause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_unpause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[LAUNCHPAD_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(LaunchpadError::InvalidPDA.into());
+    }
+
+    let mut config = LaunchpadConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(LaunchpadError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(LaunchpadError::InvalidAuthority.into());
+    }
+
+    config.is_paused = false;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:Unpaused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1782,6 +1886,7 @@ mod tests {
             total_tokens_launched: 0,
             total_myth_collected: 0,
             total_graduations: 0,
+            is_paused: false,
             bump: 255,
         };
         let serialized = borsh::to_vec(&config).unwrap();

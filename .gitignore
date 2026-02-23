@@ -35,3 +35,6 @@ genesis-output/
 chat.json
 file.md
 .crush/
+production-ledger/
+testnet-ledger/
+keys/

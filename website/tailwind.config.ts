@@ -10,16 +10,48 @@ const config: Config = {
     extend: {
       colors: {
         mythic: {
-          bg: '#0a0a0f',
-          card: '#111118',
-          border: '#1a1a2e',
-          text: '#a0a0b0',
-          purple: '#8b5cf6',
-          cyan: '#06b6d4',
+          // Backgrounds
+          bg: '#000000',
+          'bg-1': '#08080C',
+          'bg-2': '#0F0F15',
+          'bg-3': '#16161F',
+          'bg-4': '#1E1E2A',
+          // Cards / surfaces
+          card: '#08080C',
+          // Borders
+          border: 'rgba(255, 255, 255, 0.06)',
+          'border-md': 'rgba(255, 255, 255, 0.1)',
+          'border-strong': 'rgba(255, 255, 255, 0.16)',
+          // Text
+          text: '#A0A0B0',
+          'text-dim': '#686878',
+          'text-muted': '#404050',
+          'text-secondary': '#E0E0E8',
+          // Primary: Electric Violet
+          violet: '#7B2FFF',
+          'violet-bright': '#9B5FFF',
+          'violet-deep': '#5A1FCC',
+          // Legacy aliases
+          purple: '#7B2FFF',
+          cyan: '#00E5FF',
+          // Gem colors (sub-brands)
+          green: '#39FF14',
+          amber: '#FF9500',
+          rose: '#FF2D78',
+          // Semantic
+          success: '#34D399',
+          warning: '#FBBF24',
+          error: '#F87171',
+          info: '#60A5FA',
         },
       },
       fontFamily: {
-        sans: ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['Sora', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      },
+      borderRadius: {
+        none: '0',
       },
       animation: {
         'gradient': 'gradient 8s ease infinite',
@@ -35,6 +67,11 @@ const config: Config = {
           '0%, 100%': { transform: 'translateY(0px)' },
           '50%': { transform: 'translateY(-20px)' },
         },
+      },
+      boxShadow: {
+        'violet': '0 0 24px rgba(123,47,255,0.15)',
+        'violet-glow': '0 0 48px rgba(123,47,255,0.08)',
+        'violet-focus': '0 0 0 3px rgba(123,47,255,0.25)',
       },
     },
   },

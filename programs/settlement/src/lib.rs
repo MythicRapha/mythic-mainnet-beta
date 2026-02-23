@@ -20,7 +20,7 @@ use solana_program::{
 // Program ID
 // ---------------------------------------------------------------------------
 
-solana_program::declare_id!("MythSett1ement11111111111111111111111111111");
+solana_program::declare_id!("4TrowzShv4CrsuqZeUdLLVMdnDDkqkmnER1MZ5NsSaav");
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -57,6 +57,8 @@ pub fn process_instruction(
         4 => process_finalize_state_root(program_id, accounts, data),
         5 => process_update_config(program_id, accounts, data),
         6 => process_get_latest_finalized(program_id, accounts),
+        7 => process_pause(program_id, accounts),
+        8 => process_unpause(program_id, accounts),
         _ => Err(SettlementError::InvalidInstruction.into()),
     }
 }
@@ -107,6 +109,8 @@ pub enum SettlementError {
     Overflow,
     #[error("State root has valid challenges and cannot be finalized")]
     HasValidChallenges,
+    #[error("Program is paused")]
+    ProgramPaused,
 }
 
 impl From<SettlementError> for ProgramError {
@@ -132,11 +136,12 @@ pub struct SettlementConfig {
     pub last_finalized_slot: u64,
     pub total_roots_posted: u64,
     pub total_challenges: u64,
+    pub is_paused: bool,
     pub bump: u8,
 }
 
 impl SettlementConfig {
-    pub const SIZE: usize = 1 + 32 + 32 + 8 + 16 + 8 + 8 + 32 + 8 + 8 + 8 + 1; // 162
+    pub const SIZE: usize = 1 + 32 + 32 + 8 + 16 + 8 + 8 + 32 + 8 + 8 + 8 + 1 + 1; // 163
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Copy, PartialEq)]
@@ -361,6 +366,7 @@ fn process_initialize(
         last_finalized_slot: 0,
         total_roots_posted: 0,
         total_challenges: 0,
+        is_paused: false,
         bump: config_bump,
     };
 
@@ -408,6 +414,9 @@ fn process_post_state_root(
     if sequencer.key != &config.sequencer {
         return Err(SettlementError::InvalidSequencer.into());
     }
+    if config.is_paused {
+        return Err(SettlementError::ProgramPaused.into());
+    }
 
     // Validate slot ordering
     if args.l2_slot <= config.last_posted_slot && config.last_posted_slot != 0 {
@@ -438,10 +447,12 @@ fn process_post_state_root(
     )?;
 
     let clock = Clock::get()?;
-    let challenge_deadline = clock
+    let deadline_slot = clock
         .slot
         .checked_add(config.challenge_period_slots)
-        .ok_or(SettlementError::Overflow)? as i64;
+        .ok_or(SettlementError::Overflow)?;
+    let challenge_deadline = i64::try_from(deadline_slot)
+        .map_err(|_| SettlementError::Overflow)?;
 
     let state_root = StateRootAccount {
         l2_slot: args.l2_slot,
@@ -513,6 +524,9 @@ fn process_challenge_state_root(
         SettlementConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(SettlementError::NotInitialized.into());
+    }
+    if config.is_paused {
+        return Err(SettlementError::ProgramPaused.into());
     }
 
     // Load state root
@@ -827,6 +841,10 @@ fn process_update_config(
         config.sequencer = sequencer;
     }
     if let Some(period) = args.challenge_period_slots {
+        if period < 900 {
+            // Minimum ~6 minutes at 400ms slots
+            return Err(ProgramError::InvalidArgument);
+        }
         config.challenge_period_slots = period;
     }
     if let Some(bond) = args.min_challenger_bond {
@@ -866,5 +884,83 @@ fn process_get_latest_finalized(
         config.total_roots_posted,
     );
 
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: Pause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_pause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[SETTLEMENT_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    let mut config =
+        SettlementConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(SettlementError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(SettlementError::Unauthorized.into());
+    }
+
+    config.is_paused = true;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:Paused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: Unpause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_unpause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[SETTLEMENT_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    let mut config =
+        SettlementConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(SettlementError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(SettlementError::Unauthorized.into());
+    }
+
+    config.is_paused = false;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:Unpaused:{{\"admin\":\"{}\"}}", admin.key);
     Ok(())
 }

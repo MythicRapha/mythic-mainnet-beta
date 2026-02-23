@@ -6,7 +6,7 @@ import TokenomicsTable from '@/components/TokenomicsTable'
 
 function SectionHeading({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h2 id={id} className="text-2xl sm:text-3xl font-bold text-white mb-6 scroll-mt-24">
+    <h2 id={id} className="font-display text-[2rem] sm:text-[2.4rem] font-bold tracking-[-0.02em] text-white mb-6 scroll-mt-24">
       {children}
     </h2>
   )
@@ -14,7 +14,7 @@ function SectionHeading({ id, children }: { id: string; children: React.ReactNod
 
 function SubHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-lg sm:text-xl font-semibold text-white mt-8 mb-4">
+    <h3 className="font-display text-[1.1rem] sm:text-[1.2rem] font-semibold text-white mt-8 mb-4">
       {children}
     </h3>
   )
@@ -22,7 +22,7 @@ function SubHeading({ children }: { children: React.ReactNode }) {
 
 function Paragraph({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-mythic-text leading-relaxed mb-4">
+    <p className="text-mythic-text text-[0.88rem] leading-relaxed mb-4">
       {children}
     </p>
   )
@@ -30,22 +30,22 @@ function Paragraph({ children }: { children: React.ReactNode }) {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="rounded-lg bg-mythic-bg border border-mythic-border p-4 overflow-x-auto mb-6">
-      <code className="text-sm text-mythic-cyan font-mono">{children}</code>
+    <pre className="bg-black border border-white/[0.06] p-4 overflow-x-auto mb-6">
+      <code className="text-[0.78rem] text-mythic-violet font-mono">{children}</code>
     </pre>
   )
 }
 
 function InfoBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg bg-mythic-purple/5 border border-mythic-purple/20 p-4 mb-6">
+    <div className="border-l-[3px] border-mythic-violet bg-mythic-violet/5 p-4 mb-6">
       <div className="flex items-center gap-2 mb-2">
-        <svg className="w-4 h-4 text-mythic-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 text-mythic-violet" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span className="text-mythic-purple font-medium text-sm">{title}</span>
+        <span className="text-mythic-violet font-mono text-[0.65rem] tracking-[0.1em] uppercase font-medium">{title}</span>
       </div>
-      <div className="text-mythic-text text-sm leading-relaxed">{children}</div>
+      <div className="text-mythic-text text-[0.82rem] leading-relaxed">{children}</div>
     </div>
   )
 }
@@ -74,8 +74,8 @@ function OverviewSection() {
           'Native bridge to Solana L1 with optimistic fraud proofs',
           '$MYTH token with deflationary burn mechanism on every transaction',
         ].map((item) => (
-          <li key={item} className="flex items-start gap-3 text-sm text-mythic-text">
-            <svg className="w-4 h-4 text-mythic-cyan mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <li key={item} className="flex items-start gap-3 text-[0.82rem] text-mythic-text">
+            <svg className="w-4 h-4 text-mythic-violet mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             {item}
@@ -84,7 +84,7 @@ function OverviewSection() {
       </ul>
 
       <InfoBox title="Network Status">
-        Mythic L2 is currently in active development. Testnet is coming soon. Follow <a href="https://twitter.com/MythicL2" target="_blank" rel="noopener noreferrer" className="text-mythic-cyan hover:underline">@MythicL2</a> for updates.
+        Mythic L2 is currently in active development. Testnet is coming soon. Follow <a href="https://twitter.com/MythicL2" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:underline">@MythicL2</a> for updates.
       </InfoBox>
     </section>
   )
@@ -99,41 +99,41 @@ function ArchitectureSection() {
       </Paragraph>
 
       <SubHeading>Transaction Lifecycle</SubHeading>
-      <div className="rounded-lg bg-mythic-card border border-mythic-border p-6 mb-6 space-y-4">
+      <div className="bg-[#08080C] border border-white/[0.06] p-6 mb-6 space-y-4">
         <div className="flex items-start gap-4">
-          <div className="w-8 h-8 rounded-full bg-mythic-purple/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <span className="text-mythic-purple text-sm font-bold">1</span>
+          <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-mythic-violet text-sm font-bold">1</span>
           </div>
           <div>
             <h4 className="text-white font-medium mb-1">Sequencer</h4>
-            <p className="text-mythic-text text-sm">Receives user transactions, orders them by priority fee, and creates transaction batches. The sequencer provides soft confirmations within 400ms.</p>
+            <p className="text-mythic-text text-[0.82rem]">Receives user transactions, orders them by priority fee, and creates transaction batches. The sequencer provides soft confirmations within 400ms.</p>
           </div>
         </div>
         <div className="flex items-start gap-4">
-          <div className="w-8 h-8 rounded-full bg-mythic-cyan/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <span className="text-mythic-cyan text-sm font-bold">2</span>
+          <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-mythic-violet text-sm font-bold">2</span>
           </div>
           <div>
             <h4 className="text-white font-medium mb-1">SVM Execution (Firedancer)</h4>
-            <p className="text-mythic-text text-sm">Batches are executed by the Firedancer-based SVM runtime. All standard Solana programs work natively. AI precompiles are available as system programs for inference and verification tasks.</p>
+            <p className="text-mythic-text text-[0.82rem]">Batches are executed by the Firedancer-based SVM runtime. All standard Solana programs work natively. AI precompiles are available as system programs for inference and verification tasks.</p>
           </div>
         </div>
         <div className="flex items-start gap-4">
-          <div className="w-8 h-8 rounded-full bg-mythic-purple/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <span className="text-mythic-purple text-sm font-bold">3</span>
+          <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-mythic-violet text-sm font-bold">3</span>
           </div>
           <div>
             <h4 className="text-white font-medium mb-1">AI Verification</h4>
-            <p className="text-mythic-text text-sm">Validators running AI inference validate the state transitions. Proof of Useful AI Work ensures that validation itself contributes compute to the network. Invalid state transitions can be challenged via fraud proofs.</p>
+            <p className="text-mythic-text text-[0.82rem]">Validators running AI inference validate the state transitions. Proof of Useful AI Work ensures that validation itself contributes compute to the network. Invalid state transitions can be challenged via fraud proofs.</p>
           </div>
         </div>
         <div className="flex items-start gap-4">
-          <div className="w-8 h-8 rounded-full bg-mythic-cyan/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <span className="text-mythic-cyan text-sm font-bold">4</span>
+          <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-mythic-violet text-sm font-bold">4</span>
           </div>
           <div>
             <h4 className="text-white font-medium mb-1">Solana L1 Settlement</h4>
-            <p className="text-mythic-text text-sm">State roots and data availability commitments are posted to Solana L1 periodically. This provides the security of Solana&apos;s validator set as the final arbiter of Mythic L2 state.</p>
+            <p className="text-mythic-text text-[0.82rem]">State roots and data availability commitments are posted to Solana L1 periodically. This provides the security of Solana&apos;s validator set as the final arbiter of Mythic L2 state.</p>
           </div>
         </div>
       </div>
@@ -167,9 +167,9 @@ function TokenomicsSection() {
           { label: 'Launch', value: 'PumpFun Fair Launch' },
           { label: 'VC Allocation', value: '0%' },
         ].map((item) => (
-          <div key={item.label} className="rounded-lg bg-mythic-card border border-mythic-border p-4">
-            <div className="text-mythic-text text-xs uppercase tracking-wider mb-1">{item.label}</div>
-            <div className="text-white font-semibold text-sm">{item.value}</div>
+          <div key={item.label} className="bg-[#08080C] border border-white/[0.06] p-4">
+            <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">{item.label}</div>
+            <div className="text-white font-semibold text-[0.82rem]">{item.value}</div>
           </div>
         ))}
       </div>
@@ -179,7 +179,7 @@ function TokenomicsSection() {
         All fees on Mythic L2 are paid in $MYTH. Each fee type distributes across three destinations: validators (who run the network), the foundation (which funds development), and the burn address (removing tokens from circulation permanently).
       </Paragraph>
 
-      <div className="rounded-xl bg-mythic-card border border-mythic-border overflow-hidden mb-8">
+      <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden mb-8">
         <TokenomicsTable />
       </div>
 
@@ -207,21 +207,21 @@ function BridgeDocsSection() {
       <Paragraph>
         Deposits are processed within seconds. When you deposit assets to Mythic L2, the bridge contract on Solana L1 locks your tokens and the Mythic sequencer credits the equivalent amount to your L2 address.
       </Paragraph>
-      <div className="rounded-lg bg-mythic-card border border-mythic-border p-5 mb-6 space-y-3">
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-purple font-mono">1.</span>
+      <div className="bg-[#08080C] border border-white/[0.06] p-5 mb-6 space-y-3">
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">1.</span>
           <span className="text-mythic-text">Connect your Solana wallet on the Bridge page</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-purple font-mono">2.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">2.</span>
           <span className="text-mythic-text">Select asset and enter amount</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-purple font-mono">3.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">3.</span>
           <span className="text-mythic-text">Confirm the deposit transaction in your wallet</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-purple font-mono">4.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">4.</span>
           <span className="text-mythic-text">Funds appear on Mythic L2 within ~10 seconds</span>
         </div>
       </div>
@@ -230,21 +230,21 @@ function BridgeDocsSection() {
       <Paragraph>
         Withdrawals use an optimistic model with a 7-day challenge period. This delay ensures that any fraudulent state transitions can be detected and challenged before funds are released on L1.
       </Paragraph>
-      <div className="rounded-lg bg-mythic-card border border-mythic-border p-5 mb-6 space-y-3">
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-cyan font-mono">1.</span>
+      <div className="bg-[#08080C] border border-white/[0.06] p-5 mb-6 space-y-3">
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">1.</span>
           <span className="text-mythic-text">Initiate withdrawal on the Bridge page</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-cyan font-mono">2.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">2.</span>
           <span className="text-mythic-text">L2 tokens are burned, withdrawal proof is generated</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-cyan font-mono">3.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">3.</span>
           <span className="text-mythic-text">Wait 7-day challenge period</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-cyan font-mono">4.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">4.</span>
           <span className="text-mythic-text">Claim tokens on Solana L1</span>
         </div>
       </div>
@@ -331,21 +331,21 @@ function ComputeMarketplaceSection() {
       <Paragraph>
         Anyone with spare compute capacity can register as a provider. The registration process involves staking $MYTH and submitting a hardware attestation.
       </Paragraph>
-      <div className="rounded-lg bg-mythic-card border border-mythic-border p-5 mb-6 space-y-3">
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-purple font-mono">1.</span>
+      <div className="bg-[#08080C] border border-white/[0.06] p-5 mb-6 space-y-3">
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">1.</span>
           <span className="text-mythic-text">Stake minimum required $MYTH as a provider bond</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-purple font-mono">2.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">2.</span>
           <span className="text-mythic-text">Submit hardware attestation (GPU model, VRAM, CPU cores, storage)</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-purple font-mono">3.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">3.</span>
           <span className="text-mythic-text">Set your pricing in $MYTH per compute unit</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-purple font-mono">4.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">4.</span>
           <span className="text-mythic-text">Receive $MYTH payments as consumers use your resources</span>
         </div>
       </div>
@@ -354,54 +354,54 @@ function ComputeMarketplaceSection() {
       <Paragraph>
         Request compute resources by specifying requirements (GPU type, VRAM, duration) and a maximum price. The marketplace matches you with the best available provider.
       </Paragraph>
-      <div className="rounded-lg bg-mythic-card border border-mythic-border p-5 mb-6 space-y-3">
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-cyan font-mono">1.</span>
+      <div className="bg-[#08080C] border border-white/[0.06] p-5 mb-6 space-y-3">
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">1.</span>
           <span className="text-mythic-text">Specify compute requirements and budget</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-cyan font-mono">2.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">2.</span>
           <span className="text-mythic-text">Marketplace matches you with a provider</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-cyan font-mono">3.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">3.</span>
           <span className="text-mythic-text">$MYTH payment is escrowed in the marketplace contract</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-mythic-cyan font-mono">4.</span>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">4.</span>
           <span className="text-mythic-text">Provider delivers compute, payment is released upon completion</span>
         </div>
       </div>
 
       <SubHeading>Pricing Comparison</SubHeading>
-      <div className="rounded-xl bg-mythic-card border border-mythic-border overflow-hidden mb-6">
-        <table className="w-full text-sm">
+      <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden mb-6">
+        <table className="w-full">
           <thead>
-            <tr className="border-b border-mythic-border">
-              <th className="text-left py-3 px-4 text-mythic-text font-medium text-xs uppercase tracking-wider">Resource</th>
-              <th className="text-center py-3 px-4 text-mythic-text font-medium text-xs uppercase tracking-wider">AWS</th>
-              <th className="text-center py-3 px-4 text-mythic-text font-medium text-xs uppercase tracking-wider">Mythic</th>
-              <th className="text-center py-3 px-4 text-mythic-text font-medium text-xs uppercase tracking-wider">Savings</th>
+            <tr className="border-b border-white/[0.06]">
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Resource</th>
+              <th className="text-center py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">AWS</th>
+              <th className="text-center py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Mythic</th>
+              <th className="text-center py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Savings</th>
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-mythic-border/50">
-              <td className="py-3 px-4 text-white">A100 80GB GPU/hr</td>
-              <td className="py-3 px-4 text-center text-mythic-text">$3.67</td>
-              <td className="py-3 px-4 text-center text-mythic-cyan">~$1.50</td>
-              <td className="py-3 px-4 text-center text-green-400">~59%</td>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">A100 80GB GPU/hr</td>
+              <td className="py-3.5 px-4 text-center text-mythic-text text-[0.82rem]">$3.67</td>
+              <td className="py-3.5 px-4 text-center text-mythic-violet text-[0.82rem]">~$1.50</td>
+              <td className="py-3.5 px-4 text-center text-green-400 text-[0.82rem]">~59%</td>
             </tr>
-            <tr className="border-b border-mythic-border/50">
-              <td className="py-3 px-4 text-white">H100 80GB GPU/hr</td>
-              <td className="py-3 px-4 text-center text-mythic-text">$8.20</td>
-              <td className="py-3 px-4 text-center text-mythic-cyan">~$3.50</td>
-              <td className="py-3 px-4 text-center text-green-400">~57%</td>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">H100 80GB GPU/hr</td>
+              <td className="py-3.5 px-4 text-center text-mythic-text text-[0.82rem]">$8.20</td>
+              <td className="py-3.5 px-4 text-center text-mythic-violet text-[0.82rem]">~$3.50</td>
+              <td className="py-3.5 px-4 text-center text-green-400 text-[0.82rem]">~57%</td>
             </tr>
             <tr>
-              <td className="py-3 px-4 text-white">1TB Storage/mo</td>
-              <td className="py-3 px-4 text-center text-mythic-text">$23.00</td>
-              <td className="py-3 px-4 text-center text-mythic-cyan">~$8.00</td>
-              <td className="py-3 px-4 text-center text-green-400">~65%</td>
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">1TB Storage/mo</td>
+              <td className="py-3.5 px-4 text-center text-mythic-text text-[0.82rem]">$23.00</td>
+              <td className="py-3.5 px-4 text-center text-mythic-violet text-[0.82rem]">~$8.00</td>
+              <td className="py-3.5 px-4 text-center text-green-400 text-[0.82rem]">~65%</td>
             </tr>
           </tbody>
         </table>
@@ -419,45 +419,45 @@ function ValidatorsSection() {
       </Paragraph>
 
       <SubHeading>Requirements</SubHeading>
-      <div className="rounded-xl bg-mythic-card border border-mythic-border overflow-hidden mb-6">
-        <table className="w-full text-sm">
+      <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden mb-6">
+        <table className="w-full">
           <thead>
-            <tr className="border-b border-mythic-border">
-              <th className="text-left py-3 px-4 text-mythic-text font-medium text-xs uppercase tracking-wider">Component</th>
-              <th className="text-left py-3 px-4 text-mythic-text font-medium text-xs uppercase tracking-wider">Minimum</th>
-              <th className="text-left py-3 px-4 text-mythic-text font-medium text-xs uppercase tracking-wider">Recommended</th>
+            <tr className="border-b border-white/[0.06]">
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Component</th>
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Minimum</th>
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Recommended</th>
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-mythic-border/50">
-              <td className="py-3 px-4 text-white">GPU</td>
-              <td className="py-3 px-4 text-mythic-text">RTX 4090 (24GB)</td>
-              <td className="py-3 px-4 text-mythic-cyan">A100 80GB</td>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">GPU</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">RTX 4090 (24GB)</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">A100 80GB</td>
             </tr>
-            <tr className="border-b border-mythic-border/50">
-              <td className="py-3 px-4 text-white">CPU</td>
-              <td className="py-3 px-4 text-mythic-text">16 cores</td>
-              <td className="py-3 px-4 text-mythic-cyan">32+ cores</td>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">CPU</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">16 cores</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">32+ cores</td>
             </tr>
-            <tr className="border-b border-mythic-border/50">
-              <td className="py-3 px-4 text-white">RAM</td>
-              <td className="py-3 px-4 text-mythic-text">64 GB</td>
-              <td className="py-3 px-4 text-mythic-cyan">128+ GB</td>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">RAM</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">64 GB</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">128+ GB</td>
             </tr>
-            <tr className="border-b border-mythic-border/50">
-              <td className="py-3 px-4 text-white">Storage</td>
-              <td className="py-3 px-4 text-mythic-text">2 TB NVMe SSD</td>
-              <td className="py-3 px-4 text-mythic-cyan">4+ TB NVMe</td>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Storage</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">2 TB NVMe SSD</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">4+ TB NVMe</td>
             </tr>
-            <tr className="border-b border-mythic-border/50">
-              <td className="py-3 px-4 text-white">Network</td>
-              <td className="py-3 px-4 text-mythic-text">1 Gbps</td>
-              <td className="py-3 px-4 text-mythic-cyan">10 Gbps</td>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Network</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">1 Gbps</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">10 Gbps</td>
             </tr>
             <tr>
-              <td className="py-3 px-4 text-white">$MYTH Stake</td>
-              <td className="py-3 px-4 text-mythic-text">TBD</td>
-              <td className="py-3 px-4 text-mythic-cyan">TBD</td>
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">$MYTH Stake</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">TBD</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">TBD</td>
             </tr>
           </tbody>
         </table>
@@ -497,14 +497,14 @@ function RoadmapSection() {
 
       <div className="space-y-6 mt-8">
         {/* Phase 1 */}
-        <div className="relative pl-8 border-l-2 border-mythic-purple/30">
-          <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-mythic-purple border-2 border-mythic-bg" />
-          <div className="rounded-xl bg-mythic-card border border-mythic-border p-6">
+        <div className="relative pl-8 border-l-2 border-mythic-violet/30">
+          <div className="absolute -left-[5px] top-0 w-2 h-2 bg-mythic-violet" />
+          <div className="bg-[#08080C] border border-white/[0.06] p-6">
             <div className="flex items-center gap-3 mb-3">
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-mythic-purple/20 text-mythic-purple">Phase 1</span>
-              <span className="text-mythic-text text-sm">Foundation</span>
+              <span className="px-2 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase font-medium bg-mythic-violet/20 text-mythic-violet">Phase 1</span>
+              <span className="text-mythic-text text-[0.82rem]">Foundation</span>
             </div>
-            <h4 className="text-white font-semibold mb-2">Network Genesis</h4>
+            <h4 className="text-white font-display font-semibold mb-2">Network Genesis</h4>
             <ul className="space-y-2">
               {[
                 '$MYTH token launch on PumpFun (fair launch, no presale)',
@@ -513,8 +513,8 @@ function RoadmapSection() {
                 'Block explorer and RPC infrastructure',
                 'Initial validator onboarding',
               ].map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-mythic-text">
-                  <span className="text-mythic-purple mt-1">--</span>
+                <li key={item} className="flex items-start gap-2 text-[0.82rem] text-mythic-text">
+                  <span className="text-mythic-violet mt-1">--</span>
                   {item}
                 </li>
               ))}
@@ -523,14 +523,14 @@ function RoadmapSection() {
         </div>
 
         {/* Phase 2 */}
-        <div className="relative pl-8 border-l-2 border-mythic-cyan/30">
-          <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-mythic-cyan border-2 border-mythic-bg" />
-          <div className="rounded-xl bg-mythic-card border border-mythic-border p-6">
+        <div className="relative pl-8 border-l-2 border-mythic-violet/30">
+          <div className="absolute -left-[5px] top-0 w-2 h-2 bg-mythic-violet" />
+          <div className="bg-[#08080C] border border-white/[0.06] p-6">
             <div className="flex items-center gap-3 mb-3">
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-mythic-cyan/20 text-mythic-cyan">Phase 2</span>
-              <span className="text-mythic-text text-sm">AI Integration</span>
+              <span className="px-2 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase font-medium bg-mythic-violet/20 text-mythic-violet">Phase 2</span>
+              <span className="text-mythic-text text-[0.82rem]">AI Integration</span>
             </div>
-            <h4 className="text-white font-semibold mb-2">AI Precompiles & Consensus</h4>
+            <h4 className="text-white font-display font-semibold mb-2">AI Precompiles & Consensus</h4>
             <ul className="space-y-2">
               {[
                 'RunInference, VerifyLogits, RegisterModel precompiles go live',
@@ -539,8 +539,8 @@ function RoadmapSection() {
                 'Mainnet beta launch with optimistic fraud proofs',
                 'Bridge v2 with fast finality mode',
               ].map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-mythic-text">
-                  <span className="text-mythic-cyan mt-1">--</span>
+                <li key={item} className="flex items-start gap-2 text-[0.82rem] text-mythic-text">
+                  <span className="text-mythic-violet mt-1">--</span>
                   {item}
                 </li>
               ))}
@@ -549,14 +549,14 @@ function RoadmapSection() {
         </div>
 
         {/* Phase 3 */}
-        <div className="relative pl-8 border-l-2 border-mythic-purple/30">
-          <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-mythic-purple border-2 border-mythic-bg" />
-          <div className="rounded-xl bg-mythic-card border border-mythic-border p-6">
+        <div className="relative pl-8 border-l-2 border-mythic-violet/30">
+          <div className="absolute -left-[5px] top-0 w-2 h-2 bg-mythic-violet" />
+          <div className="bg-[#08080C] border border-white/[0.06] p-6">
             <div className="flex items-center gap-3 mb-3">
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-mythic-purple/20 text-mythic-purple">Phase 3</span>
-              <span className="text-mythic-text text-sm">Compute Marketplace</span>
+              <span className="px-2 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase font-medium bg-mythic-violet/20 text-mythic-violet">Phase 3</span>
+              <span className="text-mythic-text text-[0.82rem]">Compute Marketplace</span>
             </div>
-            <h4 className="text-white font-semibold mb-2">Decentralized Cloud</h4>
+            <h4 className="text-white font-display font-semibold mb-2">Decentralized Cloud</h4>
             <ul className="space-y-2">
               {[
                 'Compute marketplace launch (GPU, CPU, storage)',
@@ -565,8 +565,8 @@ function RoadmapSection() {
                 'SDK for programmatic compute requests',
                 'Integration with major AI frameworks (PyTorch, TensorFlow)',
               ].map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-mythic-text">
-                  <span className="text-mythic-purple mt-1">--</span>
+                <li key={item} className="flex items-start gap-2 text-[0.82rem] text-mythic-text">
+                  <span className="text-mythic-violet mt-1">--</span>
                   {item}
                 </li>
               ))}
@@ -575,14 +575,14 @@ function RoadmapSection() {
         </div>
 
         {/* Phase 4 */}
-        <div className="relative pl-8 border-l-2 border-mythic-cyan/30">
-          <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-mythic-cyan border-2 border-mythic-bg" />
-          <div className="rounded-xl bg-mythic-card border border-mythic-border p-6">
+        <div className="relative pl-8 border-l-2 border-mythic-violet/30">
+          <div className="absolute -left-[5px] top-0 w-2 h-2 bg-mythic-violet" />
+          <div className="bg-[#08080C] border border-white/[0.06] p-6">
             <div className="flex items-center gap-3 mb-3">
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-mythic-cyan/20 text-mythic-cyan">Phase 4</span>
-              <span className="text-mythic-text text-sm">Full Decentralization</span>
+              <span className="px-2 py-0.5 font-mono text-[0.6rem] tracking-[0.1em] uppercase font-medium bg-mythic-violet/20 text-mythic-violet">Phase 4</span>
+              <span className="text-mythic-text text-[0.82rem]">Full Decentralization</span>
             </div>
-            <h4 className="text-white font-semibold mb-2">Autonomous Network</h4>
+            <h4 className="text-white font-display font-semibold mb-2">Autonomous Network</h4>
             <ul className="space-y-2">
               {[
                 'Decentralized sequencer rotation',
@@ -591,8 +591,8 @@ function RoadmapSection() {
                 'ZK proofs for instant withdrawal finality',
                 'Community-governed protocol upgrades',
               ].map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-mythic-text">
-                  <span className="text-mythic-cyan mt-1">--</span>
+                <li key={item} className="flex items-start gap-2 text-[0.82rem] text-mythic-text">
+                  <span className="text-mythic-violet mt-1">--</span>
                   {item}
                 </li>
               ))}
@@ -621,22 +621,22 @@ export default function DocsPage() {
     <div className="flex min-h-[calc(100vh-4rem)]">
       <DocsSidebar activeSection={activeSection} onSectionClick={handleSectionClick} />
 
-      <div className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:pl-8">
+      <div className="flex-1 max-w-[960px] mx-auto px-5 sm:px-10 py-16 lg:pl-8">
         <div className="space-y-16">
           <OverviewSection />
-          <hr className="border-mythic-border/50" />
+          <hr className="border-white/[0.06]" />
           <ArchitectureSection />
-          <hr className="border-mythic-border/50" />
+          <hr className="border-white/[0.06]" />
           <TokenomicsSection />
-          <hr className="border-mythic-border/50" />
+          <hr className="border-white/[0.06]" />
           <BridgeDocsSection />
-          <hr className="border-mythic-border/50" />
+          <hr className="border-white/[0.06]" />
           <AIPrecompilesSection />
-          <hr className="border-mythic-border/50" />
+          <hr className="border-white/[0.06]" />
           <ComputeMarketplaceSection />
-          <hr className="border-mythic-border/50" />
+          <hr className="border-white/[0.06]" />
           <ValidatorsSection />
-          <hr className="border-mythic-border/50" />
+          <hr className="border-white/[0.06]" />
           <RoadmapSection />
         </div>
       </div>

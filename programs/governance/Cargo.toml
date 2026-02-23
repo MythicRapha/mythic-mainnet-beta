@@ -1,0 +1,17 @@
+[package]
+name = "mythic-governance"
+version = "0.1.0"
+edition = "2021"
+description = "Mythic L2 — On-chain governance for protocol parameter changes and treasury management"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+cpi = ["no-entrypoint"]
+
+[dependencies]
+solana-program = { workspace = true }
+borsh = { workspace = true }
+thiserror = { workspace = true }

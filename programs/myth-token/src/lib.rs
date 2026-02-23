@@ -20,7 +20,7 @@ use solana_program::{
 // Program ID
 // ---------------------------------------------------------------------------
 
-solana_program::declare_id!("MythToken1111111111111111111111111111111111");
+solana_program::declare_id!("7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf");
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -59,6 +59,8 @@ pub fn process_instruction(
         6 => process_claim_rewards(program_id, accounts, data),
         7 => process_update_fee_config(program_id, accounts, data),
         8 => process_get_burn_stats(program_id, accounts),
+        9 => process_pause(program_id, accounts),
+        10 => process_unpause(program_id, accounts),
         _ => Err(MythTokenError::InvalidInstruction.into()),
     }
 }
@@ -103,6 +105,8 @@ pub enum MythTokenError {
     InvalidFeeType,
     #[error("No validators registered for distribution")]
     NoValidators,
+    #[error("Program is paused")]
+    ProgramPaused,
 }
 
 impl From<MythTokenError> for ProgramError {
@@ -124,7 +128,12 @@ pub struct FeeSplit {
 
 impl FeeSplit {
     pub fn validate(&self) -> ProgramResult {
-        if self.validator_bps + self.foundation_bps + self.burn_bps != BPS_DENOMINATOR {
+        let total = self
+            .validator_bps
+            .checked_add(self.foundation_bps)
+            .and_then(|v| v.checked_add(self.burn_bps))
+            .ok_or(MythTokenError::Overflow)?;
+        if total != BPS_DENOMINATOR {
             return Err(MythTokenError::InvalidFeeSplit.into());
         }
         Ok(())
@@ -165,12 +174,13 @@ pub struct FeeConfig {
     pub total_burned: u64,
     pub total_distributed: u64,
     pub total_foundation_collected: u64,
+    pub is_paused: bool,
     pub bump: u8,
 }
 
 impl FeeConfig {
-    // 1 + 32*4 + 6*4 + 8*4 + 1 = 1 + 128 + 24 + 32 + 1 = 186
-    pub const SIZE: usize = 186;
+    // 1 + 32*4 + 6*4 + 8*4 + 1 + 1 = 1 + 128 + 24 + 32 + 1 + 1 = 187
+    pub const SIZE: usize = 187;
 
     pub fn get_split(&self, fee_type: FeeType) -> FeeSplit {
         match fee_type {
@@ -414,6 +424,7 @@ fn process_initialize(
         total_burned: 0,
         total_distributed: 0,
         total_foundation_collected: 0,
+        is_paused: false,
         bump: config_bump,
     };
 
@@ -672,6 +683,9 @@ fn process_collect_fee(
     let mut config = FeeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(MythTokenError::NotInitialized.into());
+    }
+    if config.is_paused {
+        return Err(MythTokenError::ProgramPaused.into());
     }
 
     // Get fee split for this type
@@ -939,6 +953,18 @@ fn process_claim_rewards(
         return Err(MythTokenError::NotInitialized.into());
     }
 
+    // Validate token_program
+    if *token_program.key != spl_token::ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    // Validate vault_authority PDA
+    let (vault_auth_pda, vault_auth_bump) =
+        Pubkey::find_program_address(&[REWARD_VAULT_SEED], program_id);
+    if vault_authority.key != &vault_auth_pda {
+        return Err(MythTokenError::InvalidPDA.into());
+    }
+
     let mut vfa =
         ValidatorFeeAccount::try_from_slice(&validator_fee_account.data.borrow())?;
     if validator.key != &vfa.validator {
@@ -951,8 +977,6 @@ fn process_claim_rewards(
     let claim_amount = vfa.pending_rewards;
 
     // Transfer from reward vault using PDA authority
-    let (_, vault_auth_bump) =
-        Pubkey::find_program_address(&[REWARD_VAULT_SEED], program_id);
     let vault_seeds = &[REWARD_VAULT_SEED, &[vault_auth_bump]];
 
     transfer_spl_tokens(
@@ -1060,5 +1084,81 @@ fn process_get_burn_stats(
         config.total_foundation_collected,
     );
 
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: Pause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_pause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[FEE_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(MythTokenError::InvalidPDA.into());
+    }
+
+    let mut config = FeeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(MythTokenError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(MythTokenError::Unauthorized.into());
+    }
+
+    config.is_paused = true;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:Paused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: Unpause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_unpause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[FEE_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(MythTokenError::InvalidPDA.into());
+    }
+
+    let mut config = FeeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(MythTokenError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(MythTokenError::Unauthorized.into());
+    }
+
+    config.is_paused = false;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:Unpaused:{{\"admin\":\"{}\"}}", admin.key);
     Ok(())
 }

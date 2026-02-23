@@ -9,25 +9,25 @@ export default function WalletButton() {
     return (
       <button
         disabled
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-mythic-card border border-mythic-border text-mythic-text text-sm"
+        className="flex items-center gap-2 px-4 py-2 bg-[#08080C] border border-white/[0.06] text-mythic-text-dim font-mono text-[0.65rem] tracking-[0.1em] uppercase"
       >
-        <span className="inline-block w-4 h-4 border-2 border-mythic-purple border-t-transparent rounded-full animate-spin" />
-        Connecting...
+        <span className="inline-block w-3.5 h-3.5 border-2 border-mythic-violet border-t-transparent rounded-full animate-spin" />
+        Connecting
       </button>
     )
   }
 
   if (connected) {
     return (
-      <div className="flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-mythic-card border border-mythic-border text-sm">
-          <span className="text-mythic-cyan font-medium">{balance?.toFixed(2)} MYTH</span>
+      <div className="flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-[#08080C] border border-white/[0.06]">
+          <span className="font-mono text-[0.65rem] tracking-[0.08em] text-mythic-violet font-medium">{balance?.toFixed(2)} MYTH</span>
         </div>
         <button
           onClick={disconnect}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-mythic-card border border-mythic-border text-white text-sm hover:border-mythic-purple/50 transition-smooth"
+          className="flex items-center gap-2 px-4 py-2 bg-[#08080C] border border-white/[0.06] text-white font-mono text-[0.65rem] tracking-[0.1em] hover:border-mythic-violet/20 transition-colors"
         >
-          <span className="w-2 h-2 rounded-full bg-green-400" />
+          <span className="w-1.5 h-1.5 bg-green-400" />
           {shortAddress}
         </button>
       </div>
@@ -37,7 +37,7 @@ export default function WalletButton() {
   return (
     <button
       onClick={connect}
-      className="px-4 py-2 rounded-lg bg-gradient-to-r from-mythic-purple to-mythic-cyan text-white text-sm font-medium hover:shadow-lg hover:shadow-mythic-purple/25 transition-smooth"
+      className="px-4 py-2 bg-mythic-violet text-white font-display text-[0.75rem] font-semibold tracking-[0.04em] hover:bg-mythic-violet-bright transition-colors"
     >
       Connect Wallet
     </button>

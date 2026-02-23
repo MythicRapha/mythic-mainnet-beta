@@ -22,7 +22,7 @@ use solana_program::{
 // Program ID
 // ---------------------------------------------------------------------------
 
-solana_program::declare_id!("AVWSp12ji5yoiLeC9whJv5i34RGF5LZozQin6T58vaEh");
+solana_program::declare_id!("F5DxeFteE3hfo8tMUysuTqvKe8HHTSNttSXZiao8uYc2");
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -62,6 +62,8 @@ pub enum ComputeInstruction {
     DisputeLease = 9,
     ResolveDispute = 10,
     SlashProvider = 11,
+    Pause = 12,
+    Unpause = 13,
 }
 
 impl TryFrom<u8> for ComputeInstruction {
@@ -80,6 +82,8 @@ impl TryFrom<u8> for ComputeInstruction {
             9 => Ok(Self::DisputeLease),
             10 => Ok(Self::ResolveDispute),
             11 => Ok(Self::SlashProvider),
+            12 => Ok(Self::Pause),
+            13 => Ok(Self::Unpause),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }
@@ -98,12 +102,13 @@ pub struct MarketConfig {
     pub protocol_fee_bps: u16,
     pub request_nonce: u64,
     pub dispute_window_slots: u64,
+    pub is_paused: bool,
     pub bump: u8,
 }
 
 impl MarketConfig {
     pub const SEED: &'static [u8] = b"market_config";
-    pub const LEN: usize = 1 + 32 + 8 + 32 + 2 + 8 + 8 + 1; // 92
+    pub const LEN: usize = 1 + 32 + 8 + 32 + 2 + 8 + 8 + 1 + 1; // 93
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
@@ -330,6 +335,8 @@ pub enum MarketError {
     LeaseNotTimedOut,
     #[error("Arithmetic overflow")]
     Overflow,
+    #[error("Program is paused")]
+    ProgramPaused,
 }
 
 impl From<MarketError> for ProgramError {
@@ -374,6 +381,8 @@ pub fn process_instruction(
             process_resolve_dispute(program_id, accounts, rest)
         }
         ComputeInstruction::SlashProvider => process_slash_provider(program_id, accounts, rest),
+        ComputeInstruction::Pause => process_pause(program_id, accounts),
+        ComputeInstruction::Unpause => process_unpause(program_id, accounts),
     }
 }
 
@@ -447,8 +456,17 @@ fn transfer_lamports_signed<'a>(
     to: &AccountInfo<'a>,
     amount: u64,
 ) -> ProgramResult {
-    **from.try_borrow_mut_lamports()? -= amount;
-    **to.try_borrow_mut_lamports()? += amount;
+    let from_balance = from.lamports();
+    if from_balance < amount {
+        return Err(ProgramError::InsufficientFunds);
+    }
+    **from.try_borrow_mut_lamports()? = from_balance
+        .checked_sub(amount)
+        .ok_or(ProgramError::InsufficientFunds)?;
+    **to.try_borrow_mut_lamports()? = to
+        .lamports()
+        .checked_add(amount)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
     Ok(())
 }
 
@@ -490,6 +508,7 @@ fn process_initialize(
         protocol_fee_bps: args.protocol_fee_bps,
         request_nonce: 0,
         dispute_window_slots: DISPUTE_WINDOW_SLOTS,
+        is_paused: false,
         bump,
     };
 
@@ -529,6 +548,9 @@ fn process_register_provider(
     let config = MarketConfig::try_from_slice(&config_info.try_borrow_data()?)?;
     if !config.is_initialized {
         return Err(MarketError::NotInitialized.into());
+    }
+    if config.is_paused {
+        return Err(MarketError::ProgramPaused.into());
     }
 
     if args.gpu_model.len() > MAX_GPU_MODEL {
@@ -779,6 +801,9 @@ fn process_request_compute(
     let mut config = MarketConfig::try_from_slice(&config_info.try_borrow_data()?)?;
     if !config.is_initialized {
         return Err(MarketError::NotInitialized.into());
+    }
+    if config.is_paused {
+        return Err(MarketError::ProgramPaused.into());
     }
 
     if *system_prog.key != system_program::id() {
@@ -1413,5 +1438,79 @@ fn process_slash_provider(
         refund
     );
 
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// 12 — Pause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_pause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let iter = &mut accounts.iter();
+    let admin = next_account_info(iter)?;
+    let config_info = next_account_info(iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_info)?;
+    assert_owned_by(config_info, program_id)?;
+
+    let (config_pda, _) = Pubkey::find_program_address(&[MarketConfig::SEED], program_id);
+    if *config_info.key != config_pda {
+        return Err(MarketError::InvalidPDA.into());
+    }
+
+    let mut config = MarketConfig::try_from_slice(&config_info.try_borrow_data()?)?;
+    if !config.is_initialized {
+        return Err(MarketError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(MarketError::Unauthorized.into());
+    }
+
+    config.is_paused = true;
+    config.serialize(&mut &mut config_info.try_borrow_mut_data()?[..])?;
+
+    msg!("EVENT:Paused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// 13 — Unpause (admin-only)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_unpause(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let iter = &mut accounts.iter();
+    let admin = next_account_info(iter)?;
+    let config_info = next_account_info(iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_info)?;
+    assert_owned_by(config_info, program_id)?;
+
+    let (config_pda, _) = Pubkey::find_program_address(&[MarketConfig::SEED], program_id);
+    if *config_info.key != config_pda {
+        return Err(MarketError::InvalidPDA.into());
+    }
+
+    let mut config = MarketConfig::try_from_slice(&config_info.try_borrow_data()?)?;
+    if !config.is_initialized {
+        return Err(MarketError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(MarketError::Unauthorized.into());
+    }
+
+    config.is_paused = false;
+    config.serialize(&mut &mut config_info.try_borrow_mut_data()?[..])?;
+
+    msg!("EVENT:Unpaused:{{\"admin\":\"{}\"}}", admin.key);
     Ok(())
 }

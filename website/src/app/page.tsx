@@ -1,292 +1,326 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import FeatureCard from '@/components/FeatureCard'
 import StatsBar from '@/components/StatsBar'
 import TokenomicsTable from '@/components/TokenomicsTable'
+import ExplorerSearch from '@/components/ExplorerSearch'
 
 export default function HomePage() {
   return (
     <div className="relative">
-      {/* ===== HERO SECTION ===== */}
-      <section className="relative overflow-hidden">
-        {/* Background effects */}
-        <div className="hero-particles" />
+      {/* ===== HERO ===== */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="grid-overlay absolute inset-0" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 sm:pt-28 sm:pb-32">
-          <div className="text-center max-w-4xl mx-auto">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-mythic-purple/10 border border-mythic-purple/20 text-mythic-purple text-sm font-medium mb-8">
-              <span className="w-2 h-2 rounded-full bg-mythic-purple animate-pulse" />
-              Built on Solana SVM + Firedancer
-            </div>
-
-            {/* Headline */}
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
-              <span className="gradient-text">The AI-Native</span>
-              <br />
-              <span className="text-white">Blockchain</span>
-            </h1>
-
-            {/* Subheading */}
-            <p className="text-lg sm:text-xl text-mythic-text max-w-2xl mx-auto mb-10 leading-relaxed">
-              Mythic is a Solana SVM Layer 2 built on Firedancer. AI consensus. Decentralized compute. 1M+ TPS.
-            </p>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                href="/bridge"
-                className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-gradient-to-r from-mythic-purple to-mythic-cyan text-white font-medium hover:shadow-lg hover:shadow-mythic-purple/25 transition-all duration-300 active:scale-[0.98] text-center"
-              >
-                Launch Bridge
-              </Link>
-              <Link
-                href="/docs"
-                className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-mythic-card border border-mythic-border text-white font-medium hover:border-mythic-purple/50 hover:bg-mythic-purple/5 transition-all duration-300 active:scale-[0.98] text-center"
-              >
-                Read Docs
-              </Link>
-            </div>
+        <div className="relative max-w-[1280px] mx-auto px-5 sm:px-10 text-center">
+          {/* Convergence Mark */}
+          <div className="mb-10">
+            <Image
+              src="/brand/mark-glow.svg"
+              alt="Mythic"
+              width={80}
+              height={80}
+              className="mx-auto"
+              priority
+            />
           </div>
+
+          {/* Heading — Sora, uppercase, huge tracking */}
+          <h1 className="font-display font-extrabold text-[2.8rem] sm:text-[3.6rem] lg:text-[4.8rem] tracking-[0.18em] uppercase text-white leading-[1.05] mb-6">
+            Mythic
+          </h1>
+
+          {/* Tagline — Mono, small, wide tracking */}
+          <p className="font-mono text-[0.7rem] sm:text-[0.75rem] tracking-[0.35em] uppercase text-mythic-text-dim mb-12">
+            Intelligence, Forged On-Chain
+          </p>
+
+          {/* Badge — Mono, brand-kit style */}
+          <div className="inline-flex items-center gap-2 px-[10px] py-[4px] border border-mythic-violet/40 font-mono text-[0.6rem] tracking-[0.12em] uppercase text-mythic-violet mb-12">
+            <span className="w-1.5 h-1.5 bg-mythic-violet animate-pulse" />
+            Solana SVM + Firedancer
+          </div>
+
+          {/* Description — Inter body */}
+          <p className="text-[0.95rem] text-mythic-text max-w-[560px] mx-auto mb-12 leading-relaxed">
+            A Solana SVM Layer 2 built on Firedancer. AI consensus. Decentralized compute. 1M+ TPS.
+          </p>
+
+          {/* CTAs — brand-kit .btn pattern */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="https://pump.fun"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-7 py-3 bg-[#39FF14] text-black font-display text-[0.8rem] font-bold tracking-[0.04em] hover:bg-[#66FF44] transition-colors"
+            >
+              Buy $MYTH on PumpFun
+            </a>
+            <Link
+              href="/bridge"
+              className="w-full sm:w-auto px-7 py-3 bg-mythic-violet text-white font-display text-[0.8rem] font-semibold tracking-[0.04em] hover:bg-mythic-violet-bright transition-colors"
+            >
+              Bridge to L2
+            </Link>
+            <Link
+              href="/docs"
+              className="w-full sm:w-auto px-7 py-3 border border-white/[0.12] text-white font-display text-[0.8rem] font-semibold tracking-[0.04em] hover:border-white/[0.24] hover:bg-white/[0.03] transition-colors"
+            >
+              Read Docs
+            </Link>
+          </div>
+
+          {/* Explorer Search */}
+          <ExplorerSearch />
         </div>
       </section>
 
-      {/* ===== STATS BAR ===== */}
+      {/* ===== STATS ===== */}
       <StatsBar />
 
-      {/* ===== FEATURES SECTION ===== */}
-      <section className="py-20 sm:py-28">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Why <span className="gradient-text">Mythic</span>?
+      {/* ===== FEATURES ===== */}
+      <section className="py-[100px] sm:py-[120px]">
+        <div className="max-w-[1280px] mx-auto px-5 sm:px-10">
+          {/* Section header — brand-kit pattern */}
+          <div className="mb-16">
+            <div className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-mythic-text-muted mb-4">
+              01 / Features
+            </div>
+            <h2 className="font-display text-[2rem] sm:text-[2.4rem] font-bold tracking-[-0.02em] text-white mb-3">
+              Why Mythic?
             </h2>
-            <p className="text-mythic-text max-w-xl mx-auto">
+            <p className="text-mythic-text text-[0.95rem] max-w-[640px] leading-relaxed">
               A new paradigm for blockchain infrastructure, built from the ground up for AI workloads.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <FeatureCard
               icon={
-                <svg className="w-6 h-6 text-mythic-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-mythic-violet" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
                 </svg>
               }
               title="AI-Native Consensus"
-              description="Proof of Useful AI Work. Validators earn $MYTH by running AI inference, not wasting energy. Every block validated contributes to the network's AI compute pool."
+              description="Proof of Useful AI Work. Validators earn $MYTH by running AI inference, not wasting energy."
             />
             <FeatureCard
               icon={
-                <svg className="w-6 h-6 text-mythic-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-mythic-violet" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
                 </svg>
               }
               title="Decentralized Compute"
-              description="Rent GPU, CPU, and storage from the network. Cheaper than AWS, powered by $MYTH. Deploy AI models, run inference, and scale instantly."
+              description="Rent GPU, CPU, and storage from the network. Cheaper than AWS, powered by $MYTH."
             />
             <FeatureCard
               icon={
-                <svg className="w-6 h-6 text-mythic-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-mythic-violet" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
                 </svg>
               }
               title="Built on Firedancer"
-              description="The fastest SVM runtime. 1M+ TPS networking from day one. Full Solana program compatibility. No performance compromises."
+              description="The fastest SVM runtime. 1M+ TPS networking from day one. Full Solana program compatibility."
             />
           </div>
         </div>
       </section>
 
       {/* ===== HOW IT WORKS ===== */}
-      <section className="py-20 sm:py-28 border-y border-mythic-border/50 bg-mythic-card/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+      <section className="py-[100px] sm:py-[120px] border-y border-white/[0.06] bg-[#08080C]/50">
+        <div className="max-w-[1280px] mx-auto px-5 sm:px-10">
+          <div className="mb-16">
+            <div className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-mythic-text-muted mb-4">
+              02 / Getting Started
+            </div>
+            <h2 className="font-display text-[2rem] sm:text-[2.4rem] font-bold tracking-[-0.02em] text-white mb-3">
               How It Works
             </h2>
-            <p className="text-mythic-text max-w-xl mx-auto">
+            <p className="text-mythic-text text-[0.95rem] max-w-[640px] leading-relaxed">
               Get started with Mythic in three simple steps.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            {/* Connecting line (desktop only) */}
-            <div className="hidden md:block absolute top-16 left-[20%] right-[20%] h-px bg-gradient-to-r from-mythic-purple via-mythic-cyan to-mythic-purple opacity-30" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+            {/* Connecting line */}
+            <div className="hidden md:block absolute top-[40px] left-[16%] right-[16%] h-px bg-white/[0.06]" />
 
-            {/* Step 1 */}
-            <div className="text-center relative">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-mythic-purple to-mythic-cyan flex items-center justify-center mx-auto mb-6 relative z-10">
-                <span className="text-white font-bold">1</span>
+            {[
+              { num: '01', title: 'Get $MYTH on PumpFun', desc: 'Trade the $MYTH SPL token on PumpFun or Raydium on Solana L1. Zero VC allocation, fair launch.' },
+              { num: '02', title: 'Bridge to Mythic L2', desc: 'Deposit SOL from Solana L1 to Mythic L2 via the bridge. $MYTH is the native gas currency on L2.' },
+              { num: '03', title: 'Use AI & Compute', desc: 'Run AI inference, deploy models, rent compute, and build on the AI-native blockchain. Fees paid in native $MYTH.' },
+            ].map((step) => (
+              <div key={step.num} className="text-center relative">
+                <div className="w-[80px] h-[80px] bg-[#08080C] border border-white/[0.06] flex items-center justify-center mx-auto mb-6 relative z-10">
+                  <span className="font-display text-[1.4rem] font-bold text-mythic-violet">{step.num}</span>
+                </div>
+                <h3 className="font-display text-white font-semibold text-[1rem] mb-2">{step.title}</h3>
+                <p className="text-mythic-text text-[0.85rem] leading-relaxed max-w-[280px] mx-auto">
+                  {step.desc}
+                </p>
               </div>
-              <h3 className="text-white font-semibold text-lg mb-2">Buy $MYTH on Raydium</h3>
-              <p className="text-mythic-text text-sm leading-relaxed">
-                Swap SOL or USDC for $MYTH on Raydium. The token is fair-launched on PumpFun with zero VC allocation.
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="text-center relative">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-mythic-purple to-mythic-cyan flex items-center justify-center mx-auto mb-6 relative z-10">
-                <span className="text-white font-bold">2</span>
-              </div>
-              <h3 className="text-white font-semibold text-lg mb-2">Bridge to Mythic L2</h3>
-              <p className="text-mythic-text text-sm leading-relaxed">
-                Use the Mythic Bridge to deposit $MYTH, SOL, or USDC from Solana L1 to Mythic L2 in seconds.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="text-center relative">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-mythic-purple to-mythic-cyan flex items-center justify-center mx-auto mb-6 relative z-10">
-                <span className="text-white font-bold">3</span>
-              </div>
-              <h3 className="text-white font-semibold text-lg mb-2">Use AI & Compute</h3>
-              <p className="text-mythic-text text-sm leading-relaxed">
-                Run AI inference, deploy models, rent compute, and build on the AI-native blockchain.
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ===== ARCHITECTURE SECTION ===== */}
-      <section className="py-20 sm:py-28">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Architecture
+      {/* ===== ARCHITECTURE ===== */}
+      <section className="py-[100px] sm:py-[120px]">
+        <div className="max-w-[1280px] mx-auto px-5 sm:px-10">
+          <div className="mb-16">
+            <div className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-mythic-text-muted mb-4">
+              03 / Architecture
+            </div>
+            <h2 className="font-display text-[2rem] sm:text-[2.4rem] font-bold tracking-[-0.02em] text-white mb-3">
+              Transaction Pipeline
             </h2>
-            <p className="text-mythic-text max-w-xl mx-auto">
+            <p className="text-mythic-text text-[0.95rem] max-w-[640px] leading-relaxed">
               How Mythic L2 processes transactions and settles to Solana.
             </p>
           </div>
 
-          {/* Architecture Diagram */}
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-[960px] mx-auto">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Step 1 - Sequencer */}
-              <div className="relative group">
-                <div className="rounded-xl bg-mythic-card border border-mythic-border p-6 text-center hover:border-mythic-purple/30 transition-all duration-300 h-full">
-                  <div className="w-10 h-10 rounded-lg bg-mythic-purple/10 border border-mythic-purple/20 flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-5 h-5 text-mythic-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {[
+                {
+                  label: 'Ingest',
+                  title: 'Sequencer',
+                  desc: 'Orders transactions and batches them for execution',
+                  icon: (
+                    <svg className="w-5 h-5 text-mythic-violet" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
                     </svg>
-                  </div>
-                  <h4 className="text-white font-semibold text-sm mb-1">Sequencer</h4>
-                  <p className="text-mythic-text text-xs leading-relaxed">Orders transactions and batches them for execution</p>
-                </div>
-                {/* Arrow (hidden on mobile) */}
-                <div className="hidden lg:flex absolute -right-2 top-1/2 -translate-y-1/2 z-10">
-                  <svg className="w-4 h-4 text-mythic-purple/50" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M5 12h14m-4-4l4 4-4 4" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Step 2 - SVM Execution */}
-              <div className="relative group">
-                <div className="rounded-xl bg-mythic-card border border-mythic-border p-6 text-center hover:border-mythic-cyan/30 transition-all duration-300 h-full">
-                  <div className="w-10 h-10 rounded-lg bg-mythic-cyan/10 border border-mythic-cyan/20 flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-5 h-5 text-mythic-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  ),
+                },
+                {
+                  label: 'Execute',
+                  title: 'SVM Runtime',
+                  desc: 'Firedancer-based SVM runs Solana-compatible programs',
+                  icon: (
+                    <svg className="w-5 h-5 text-mythic-violet" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z" />
                     </svg>
-                  </div>
-                  <h4 className="text-white font-semibold text-sm mb-1">SVM Execution</h4>
-                  <p className="text-mythic-text text-xs leading-relaxed">Firedancer-based SVM runs Solana-compatible programs</p>
-                </div>
-                <div className="hidden lg:flex absolute -right-2 top-1/2 -translate-y-1/2 z-10">
-                  <svg className="w-4 h-4 text-mythic-cyan/50" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M5 12h14m-4-4l4 4-4 4" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Step 3 - AI Verification */}
-              <div className="relative group">
-                <div className="rounded-xl bg-mythic-card border border-mythic-border p-6 text-center hover:border-mythic-purple/30 transition-all duration-300 h-full">
-                  <div className="w-10 h-10 rounded-lg bg-mythic-purple/10 border border-mythic-purple/20 flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-5 h-5 text-mythic-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  ),
+                },
+                {
+                  label: 'Verify',
+                  title: 'AI Validation',
+                  desc: 'Proof of Useful AI Work validates state transitions',
+                  icon: (
+                    <svg className="w-5 h-5 text-mythic-violet" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
                     </svg>
-                  </div>
-                  <h4 className="text-white font-semibold text-sm mb-1">AI Verification</h4>
-                  <p className="text-mythic-text text-xs leading-relaxed">Proof of Useful AI Work validates state transitions</p>
-                </div>
-                <div className="hidden lg:flex absolute -right-2 top-1/2 -translate-y-1/2 z-10">
-                  <svg className="w-4 h-4 text-mythic-purple/50" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M5 12h14m-4-4l4 4-4 4" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Step 4 - Settlement */}
-              <div className="relative group">
-                <div className="rounded-xl bg-mythic-card border border-mythic-border p-6 text-center hover:border-mythic-cyan/30 transition-all duration-300 h-full">
-                  <div className="w-10 h-10 rounded-lg bg-mythic-cyan/10 border border-mythic-cyan/20 flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-5 h-5 text-mythic-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  ),
+                },
+                {
+                  label: 'Settle',
+                  title: 'Solana L1',
+                  desc: 'State roots posted to Solana L1 for final security',
+                  icon: (
+                    <svg className="w-5 h-5 text-mythic-violet" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                     </svg>
+                  ),
+                },
+              ].map((step, i) => (
+                <div key={step.title} className="relative group">
+                  <div className="bg-[#08080C] border border-white/[0.06] p-8 text-center hover:border-mythic-violet/20 transition-colors h-full">
+                    <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-4">
+                      {step.label}
+                    </div>
+                    <div className="w-10 h-10 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center mx-auto mb-4">
+                      {step.icon}
+                    </div>
+                    <h4 className="font-display text-white font-semibold text-[0.9rem] mb-2">{step.title}</h4>
+                    <p className="text-mythic-text text-[0.75rem] leading-relaxed">{step.desc}</p>
                   </div>
-                  <h4 className="text-white font-semibold text-sm mb-1">Solana L1 Settlement</h4>
-                  <p className="text-mythic-text text-xs leading-relaxed">State roots posted to Solana L1 for final security</p>
+                  {/* Arrow */}
+                  {i < 3 && (
+                    <div className="hidden lg:flex absolute -right-[10px] top-1/2 -translate-y-1/2 z-10 text-white/10">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
-
-            {/* Mobile arrows */}
-            <div className="flex lg:hidden flex-col items-center -mt-2">
-              {[0, 1, 2].map((i) => (
-                <svg key={i} className="w-4 h-4 text-mythic-purple/30 my-1 hidden" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 5v14m-4-4l4 4 4-4" />
-                </svg>
               ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ===== TOKEN SECTION ===== */}
-      <section className="py-20 sm:py-28 border-t border-mythic-border/50 bg-mythic-card/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-mythic-cyan/10 border border-mythic-cyan/20 text-mythic-cyan text-sm font-medium mb-6">
-              Tokenomics
+      {/* ===== TOKENOMICS ===== */}
+      <section className="py-[100px] sm:py-[120px] border-t border-white/[0.06] bg-[#08080C]/50">
+        <div className="max-w-[1280px] mx-auto px-5 sm:px-10">
+          <div className="mb-16">
+            <div className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-mythic-text-muted mb-4">
+              04 / Tokenomics
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              $MYTH — Fixed Supply, Deflationary
+            <h2 className="font-display text-[2rem] sm:text-[2.4rem] font-bold tracking-[-0.02em] text-white mb-3">
+              $MYTH — Native L2 Currency
             </h2>
-            <p className="text-mythic-text max-w-2xl mx-auto leading-relaxed">
-              Every transaction burns $MYTH. No inflation. No VC unlocks. Fair-launched on PumpFun.
+            <p className="text-mythic-text text-[0.95rem] max-w-[640px] leading-relaxed">
+              $MYTH is the native gas currency of the Mythic L2 chain. Fixed supply of 1B. Every transaction burns a portion. No inflation. No VC unlocks.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          {/* Buy on PumpFun CTA */}
+          <div className="mb-12 p-6 bg-[#39FF14]/5 border border-[#39FF14]/20">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-display text-white font-semibold text-[1rem] mb-1">Get $MYTH on Solana L1</h3>
+                <p className="text-mythic-text text-[0.82rem]">Trade the $MYTH SPL token on PumpFun or Raydium. Fair-launched with zero VC allocation. Bridge assets to use Mythic L2.</p>
+              </div>
+              <a
+                href="https://pump.fun"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0 px-6 py-2.5 bg-[#39FF14] text-black font-display text-[0.75rem] font-bold tracking-[0.04em] hover:bg-[#66FF44] transition-colors"
+              >
+                Buy on PumpFun
+              </a>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             {/* Token Info */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-xl bg-mythic-card border border-mythic-border p-5">
-                  <div className="text-mythic-text text-xs uppercase tracking-wider mb-1">Total Supply</div>
-                  <div className="text-2xl font-bold gradient-text">1,000,000,000</div>
+                <div className="bg-[#08080C] border border-white/[0.06] p-6">
+                  <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Total Supply</div>
+                  <div className="font-display text-[2rem] font-bold text-white">1B</div>
                 </div>
-                <div className="rounded-xl bg-mythic-card border border-mythic-border p-5">
-                  <div className="text-mythic-text text-xs uppercase tracking-wider mb-1">Mechanism</div>
-                  <div className="text-2xl font-bold text-orange-400">Burn</div>
+                <div className="bg-[#08080C] border border-white/[0.06] p-6">
+                  <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Type</div>
+                  <div className="font-display text-[2rem] font-bold text-mythic-green">Native</div>
                 </div>
               </div>
 
-              <div className="rounded-xl bg-mythic-card border border-mythic-border p-6 space-y-4">
-                <h3 className="text-white font-semibold">Token Utility</h3>
+              <div className="bg-[#0A0F05] border border-[#39FF14]/15 p-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-[#39FF14] text-lg mt-0.5">⬡</span>
+                  <div>
+                    <div className="text-white font-semibold text-[0.85rem] mb-1">Native L2 Gas Currency</div>
+                    <p className="text-mythic-text text-[0.78rem] leading-relaxed">
+                      $MYTH is minted at genesis as the native currency of Mythic L2 — like ETH on Ethereum. It powers all gas fees, staking, governance, and compute payments. This is separate from any SPL token on Solana L1.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#08080C] border border-white/[0.06] p-8 space-y-5">
+                <h3 className="font-display text-white font-semibold text-[1rem]">Token Utility</h3>
                 <ul className="space-y-3">
                   {[
-                    'Gas fees on Mythic L2 (paid in $MYTH)',
-                    'Staking for validator rewards',
-                    'Payment for AI compute and inference',
-                    'Governance voting rights',
-                    'Compute marketplace settlement',
+                    'Native gas currency on Mythic L2 — all tx fees paid in $MYTH',
+                    'Validator staking for block production & AI verification',
+                    'Payment for AI compute and inference requests',
+                    'Governance voting rights (stake-weighted)',
+                    'Compute marketplace settlement currency',
+                    'Deflationary burn on every transaction (30-40% of fees)',
                   ].map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-sm text-mythic-text">
-                      <svg className="w-4 h-4 text-mythic-cyan mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <li key={item} className="flex items-start gap-3 text-[0.85rem] text-mythic-text">
+                      <svg className="w-4 h-4 text-mythic-violet mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                       {item}
@@ -297,10 +331,10 @@ export default function HomePage() {
             </div>
 
             {/* Fee Breakdown Table */}
-            <div className="rounded-xl bg-mythic-card border border-mythic-border overflow-hidden">
-              <div className="px-6 py-4 border-b border-mythic-border">
-                <h3 className="text-white font-semibold">Fee Distribution</h3>
-                <p className="text-mythic-text text-sm mt-1">Where your $MYTH fees go</p>
+            <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden">
+              <div className="px-6 py-5 border-b border-white/[0.06]">
+                <h3 className="font-display text-white font-semibold text-[1rem]">Fee Distribution</h3>
+                <p className="text-mythic-text text-[0.82rem] mt-1">Where your $MYTH fees go</p>
               </div>
               <TokenomicsTable />
             </div>
@@ -308,26 +342,104 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== CTA SECTION ===== */}
-      <section className="py-20 sm:py-28 relative overflow-hidden">
-        <div className="hero-particles" />
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            Ready to Build on <span className="gradient-text">Mythic</span>?
+      {/* ===== ECOSYSTEM ===== */}
+      <section className="py-[100px] sm:py-[120px] border-t border-white/[0.06]">
+        <div className="max-w-[1280px] mx-auto px-5 sm:px-10">
+          <div className="mb-16">
+            <div className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-mythic-text-muted mb-4">
+              05 / Ecosystem
+            </div>
+            <h2 className="font-display text-[2rem] sm:text-[2.4rem] font-bold tracking-[-0.02em] text-white mb-3">
+              The Mythic Ecosystem
+            </h2>
+            <p className="text-mythic-text text-[0.95rem] max-w-[640px] leading-relaxed">
+              A unified suite of products built on Mythic L2. Trade, launch, bridge, and build.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* mythic.sh — Main */}
+            <a href="https://mythic.sh" className="group bg-[#08080C] border border-white/[0.06] p-8 hover:border-[#7B2FFF]/30 transition-colors">
+              <div className="w-10 h-10 bg-[#7B2FFF]/10 border border-[#7B2FFF]/20 flex items-center justify-center mb-5">
+                <svg className="w-5 h-5 text-[#7B2FFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 003 12c0-1.605.42-3.113 1.157-4.418" />
+                </svg>
+              </div>
+              <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Network</div>
+              <h4 className="font-display text-white font-semibold text-[1rem] mb-2 group-hover:text-[#7B2FFF] transition-colors">mythic.sh</h4>
+              <p className="text-mythic-text text-[0.75rem] leading-relaxed">Main network hub. Bridge, docs, and explorer.</p>
+            </a>
+
+            {/* MythicSwap — DEX */}
+            <a href="https://mythicswap.app" target="_blank" rel="noopener noreferrer" className="group bg-[#08080C] border border-white/[0.06] p-8 hover:border-[#FF9500]/30 transition-colors">
+              <div className="w-10 h-10 bg-[#FF9500]/10 border border-[#FF9500]/20 flex items-center justify-center mb-5">
+                <svg className="w-5 h-5 text-[#FF9500]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+              </div>
+              <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">DEX</div>
+              <h4 className="font-display text-white font-semibold text-[1rem] mb-2 group-hover:text-[#FF9500] transition-colors">mythicswap.app</h4>
+              <p className="text-mythic-text text-[0.75rem] leading-relaxed">AMM DEX. Swap tokens with deep liquidity on Mythic L2.</p>
+            </a>
+
+            {/* mythic.money — Launchpad */}
+            <a href="https://mythic.money" target="_blank" rel="noopener noreferrer" className="group bg-[#08080C] border border-white/[0.06] p-8 hover:border-[#00E5FF]/30 transition-colors">
+              <div className="w-10 h-10 bg-[#00E5FF]/10 border border-[#00E5FF]/20 flex items-center justify-center mb-5">
+                <svg className="w-5 h-5 text-[#00E5FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                </svg>
+              </div>
+              <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Launchpad</div>
+              <h4 className="font-display text-white font-semibold text-[1rem] mb-2 group-hover:text-[#00E5FF] transition-colors">mythic.money</h4>
+              <p className="text-mythic-text text-[0.75rem] leading-relaxed">Token launchpad. Bonding curve fair launches on Mythic L2.</p>
+            </a>
+
+            {/* mythic.foundation */}
+            <a href="https://mythic.foundation" target="_blank" rel="noopener noreferrer" className="group bg-[#08080C] border border-white/[0.06] p-8 hover:border-[#A855F7]/30 transition-colors">
+              <div className="w-10 h-10 bg-[#A855F7]/10 border border-[#A855F7]/20 flex items-center justify-center mb-5">
+                <svg className="w-5 h-5 text-[#A855F7]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+                </svg>
+              </div>
+              <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Foundation</div>
+              <h4 className="font-display text-white font-semibold text-[1rem] mb-2 group-hover:text-[#A855F7] transition-colors">mythic.foundation</h4>
+              <p className="text-mythic-text text-[0.75rem] leading-relaxed">Grants, governance, and ecosystem development.</p>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== CTA ===== */}
+      <section className="py-[100px] sm:py-[120px] relative overflow-hidden">
+        <div className="grid-overlay absolute inset-0 opacity-30" />
+        <div className="relative max-w-[1280px] mx-auto px-5 sm:px-10 text-center">
+          <div className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-mythic-text-muted mb-4">
+            06 / Get Started
+          </div>
+          <h2 className="font-display text-[2rem] sm:text-[2.4rem] font-bold tracking-[-0.02em] text-white mb-4">
+            Ready to Build on Mythic?
           </h2>
-          <p className="text-mythic-text max-w-xl mx-auto mb-10 leading-relaxed">
+          <p className="text-mythic-text text-[0.95rem] max-w-[560px] mx-auto mb-12 leading-relaxed">
             Join the next generation of AI-native blockchain infrastructure. Bridge your assets, deploy your models, and start building.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="https://pump.fun"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-7 py-3 bg-[#39FF14] text-black font-display text-[0.8rem] font-bold tracking-[0.04em] hover:bg-[#66FF44] transition-colors"
+            >
+              Buy $MYTH on PumpFun
+            </a>
             <Link
               href="/bridge"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-gradient-to-r from-mythic-purple to-mythic-cyan text-white font-medium hover:shadow-lg hover:shadow-mythic-purple/25 transition-all duration-300 active:scale-[0.98] text-center"
+              className="w-full sm:w-auto px-7 py-3 bg-mythic-violet text-white font-display text-[0.8rem] font-semibold tracking-[0.04em] hover:bg-mythic-violet-bright transition-colors"
             >
-              Launch Bridge
+              Bridge to L2
             </Link>
             <Link
               href="/docs"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-mythic-card border border-mythic-border text-white font-medium hover:border-mythic-purple/50 hover:bg-mythic-purple/5 transition-all duration-300 active:scale-[0.98] text-center"
+              className="w-full sm:w-auto px-7 py-3 border border-white/[0.12] text-white font-display text-[0.8rem] font-semibold tracking-[0.04em] hover:border-white/[0.24] hover:bg-white/[0.03] transition-colors"
             >
               Read Documentation
             </Link>

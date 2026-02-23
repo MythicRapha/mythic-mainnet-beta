@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="gem-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(57,255,20,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="640" fill="#060C06"/>
+  <circle cx="340" cy="290" r="230" fill="url(#gem-glow)"/>
+  <g filter="url(#glow)" transform="translate(190,140) scale(3)">
+    <polygon points="50,8 20,44 50,56" fill="#39FF14" opacity="0.9"/>
+    <polygon points="50,8 80,44 50,56" fill="#66FF44" opacity="0.75"/>
+    <polygon points="20,44 50,56 80,44 50,92" fill="#1A8A0A" opacity="0.85"/>
+  </g>
+  <text x="620" y="260" font-family="Sora, Inter, sans-serif" font-weight="700" font-size="76" letter-spacing="12" fill="#FFFFFF">MYTHIC</text>
+  <text x="625" y="310" font-family="JetBrains Mono, monospace" font-weight="400" font-size="18" letter-spacing="6" fill="#7B907B">THE CHAIN THAT THINKS</text>
+  <line x1="620" y1="345" x2="1050" y2="345" stroke="#39FF14" stroke-width="1" opacity="0.15"/>
+  <text x="625" y="380" font-family="JetBrains Mono, monospace" font-weight="400" font-size="14" letter-spacing="4" fill="#4A5A4A">AI-NATIVE SVM L2 ON SOLANA</text>
+  <text x="625" y="580" font-family="JetBrains Mono, monospace" font-weight="500" font-size="15" letter-spacing="3" fill="#39FF14" opacity="0.4">github.com/mythic-network</text>
+</svg>

@@ -17,7 +17,7 @@ use solana_program::{
 use spl_token;
 use thiserror::Error;
 
-declare_id!("MythBrdgL2111111111111111111111111111111111");
+declare_id!("3HsETxbcFZ5DnGiLWy3fEvpwQFzb2ThqLXY1eWQjjMLS");
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,8 @@ const IX_REGISTER_WRAPPED_TOKEN: u8 = 1;
 const IX_MINT_WRAPPED: u8 = 2;
 const IX_BURN_WRAPPED: u8 = 3;
 const IX_UPDATE_CONFIG: u8 = 4;
+const IX_PAUSE_BRIDGE: u8 = 5;
+const IX_UNPAUSE_BRIDGE: u8 = 6;
 
 // ── Error Codes ──────────────────────────────────────────────────────────────
 
@@ -61,6 +63,11 @@ impl From<BridgeL2Error> for ProgramError {
     }
 }
 
+// Custom error codes for bridge operations
+pub const ERROR_BRIDGE_PAUSED: u32 = 100;
+pub const ERROR_AMOUNT_TOO_LOW: u32 = 101;
+pub const ERROR_AMOUNT_TOO_HIGH: u32 = 102;
+
 // ── State ────────────────────────────────────────────────────────────────────
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
@@ -70,10 +77,11 @@ pub struct L2BridgeConfig {
     pub burn_nonce: u64,
     pub is_initialized: bool,
     pub bump: u8,
+    pub paused: bool,
 }
 
 impl L2BridgeConfig {
-    pub const LEN: usize = 32 + 32 + 8 + 1 + 1; // 74
+    pub const LEN: usize = 32 + 32 + 8 + 1 + 1 + 1; // 75
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
@@ -155,6 +163,8 @@ pub fn process_instruction(
         IX_MINT_WRAPPED => process_mint_wrapped(program_id, accounts, data),
         IX_BURN_WRAPPED => process_burn_wrapped(program_id, accounts, data),
         IX_UPDATE_CONFIG => process_update_config(program_id, accounts, data),
+        IX_PAUSE_BRIDGE => process_pause_bridge(program_id, accounts),
+        IX_UNPAUSE_BRIDGE => process_unpause_bridge(program_id, accounts),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
@@ -216,6 +226,7 @@ fn process_initialize(
         burn_nonce: 0,
         is_initialized: true,
         bump,
+        paused: false,
     };
 
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
@@ -268,12 +279,20 @@ fn process_register_wrapped_token(
     if config_pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
     let config = L2BridgeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(BridgeL2Error::UninitializedAccount.into());
     }
     if *admin.key != config.admin {
         return Err(BridgeL2Error::InvalidAuthority.into());
+    }
+
+    // Validate token_program
+    if *token_program.key != spl_token::ID {
+        return Err(ProgramError::IncorrectProgramId);
     }
 
     // Derive wrapped_token_info PDA
@@ -415,18 +434,34 @@ fn process_mint_wrapped(
 
     let params = MintWrappedParams::try_from_slice(data)?;
 
+    // Validate amount > 0
+    if params.amount == 0 {
+        return Err(BridgeL2Error::InsufficientBalance.into());
+    }
+
     // Validate config
     let (config_pda, _) =
         Pubkey::find_program_address(&[L2_BRIDGE_CONFIG_SEED], program_id);
     if config_pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
     let config = L2BridgeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(BridgeL2Error::UninitializedAccount.into());
     }
+    if config.paused {
+        return Err(ProgramError::Custom(ERROR_BRIDGE_PAUSED));
+    }
     if *relayer.key != config.relayer {
         return Err(BridgeL2Error::InvalidRelayer.into());
+    }
+
+    // Validate token_program
+    if *token_program.key != spl_token::ID {
+        return Err(ProgramError::IncorrectProgramId);
     }
 
     // Validate wrapped_token_info
@@ -437,6 +472,9 @@ fn process_mint_wrapped(
     }
     if wrapped_info_account.data_is_empty() {
         return Err(BridgeL2Error::TokenNotRegistered.into());
+    }
+    if wrapped_info_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
     }
     let wrapped_info =
         WrappedTokenInfo::try_from_slice(&wrapped_info_account.data.borrow())?;
@@ -556,9 +594,20 @@ fn process_burn_wrapped(
     if config_pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
     let mut config = L2BridgeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(BridgeL2Error::UninitializedAccount.into());
+    }
+    if config.paused {
+        return Err(ProgramError::Custom(ERROR_BRIDGE_PAUSED));
+    }
+
+    // Validate token_program
+    if *token_program.key != spl_token::ID {
+        return Err(ProgramError::IncorrectProgramId);
     }
 
     // Validate wrapped_token_info
@@ -569,6 +618,9 @@ fn process_burn_wrapped(
     }
     if wrapped_info_account.data_is_empty() {
         return Err(BridgeL2Error::TokenNotRegistered.into());
+    }
+    if wrapped_info_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
     }
     let wrapped_info =
         WrappedTokenInfo::try_from_slice(&wrapped_info_account.data.borrow())?;
@@ -638,6 +690,9 @@ fn process_update_config(
     if config_pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
 
     let mut config = L2BridgeConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
@@ -660,6 +715,94 @@ fn process_update_config(
         config.relayer
     );
 
+    Ok(())
+}
+
+// ── Pause Bridge ─────────────────────────────────────────────────────────────
+// Accounts:
+//   0. [signer] admin
+//   1. [writable] l2_bridge_config PDA
+
+fn process_pause_bridge(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let admin = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+
+    if !admin.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !config_account.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[L2_BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let mut config = L2BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeL2Error::UninitializedAccount.into());
+    }
+    if *admin.key != config.admin {
+        return Err(BridgeL2Error::InvalidAuthority.into());
+    }
+
+    config.paused = true;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:PauseBridge:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ── Unpause Bridge ───────────────────────────────────────────────────────────
+// Accounts:
+//   0. [signer] admin
+//   1. [writable] l2_bridge_config PDA
+
+fn process_unpause_bridge(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let admin = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+
+    if !admin.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !config_account.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[L2_BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let mut config = L2BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeL2Error::UninitializedAccount.into());
+    }
+    if *admin.key != config.admin {
+        return Err(BridgeL2Error::InvalidAuthority.into());
+    }
+
+    config.paused = false;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!("EVENT:UnpauseBridge:{{\"admin\":\"{}\"}}", admin.key);
     Ok(())
 }
 

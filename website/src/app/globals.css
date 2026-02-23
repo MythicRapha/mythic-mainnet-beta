@@ -2,21 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+/* ================================================================
+   MYTHIC BRAND SYSTEM — Electric Violet
+   Fonts: Sora (display), Inter (body), JetBrains Mono (code)
+   ================================================================ */
 
 :root {
-  --bg-primary: #0a0a0f;
-  --bg-card: #111118;
-  --border-color: #1a1a2e;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0b0;
-  --accent-purple: #8b5cf6;
-  --accent-cyan: #06b6d4;
+  /* Primary: Electric Violet */
+  --violet: #7B2FFF;
+  --violet-bright: #9B5FFF;
+  --violet-deep: #5A1FCC;
+  --violet-glow: rgba(123, 47, 255, 0.25);
+  --violet-subtle: rgba(123, 47, 255, 0.06);
+
+  /* Gem Colors */
+  --gem-green: #39FF14;
+  --gem-amber: #FF9500;
+  --gem-cyan: #00E5FF;
+  --gem-rose: #FF2D78;
+
+  /* Backgrounds */
+  --bg-0: #000000;
+  --bg-1: #08080C;
+  --bg-2: #0F0F15;
+  --bg-3: #16161F;
+  --bg-4: #1E1E2A;
+
+  /* Text */
+  --text-100: #FFFFFF;
+  --text-200: #E0E0E8;
+  --text-300: #A0A0B0;
+  --text-400: #686878;
+  --text-500: #404050;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-medium: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  /* Semantic */
+  --success: #34D399;
+  --warning: #FBBF24;
+  --error: #F87171;
+  --info: #60A5FA;
+
+  /* Typography */
+  --font-display: 'Sora', sans-serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1a1a2e #0a0a0f;
+  scrollbar-color: var(--bg-4) var(--bg-0);
 }
 
 *::-webkit-scrollbar {
@@ -24,73 +67,64 @@
 }
 
 *::-webkit-scrollbar-track {
-  background: #0a0a0f;
+  background: var(--bg-0);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #1a1a2e;
-  border-radius: 3px;
+  background: var(--bg-4);
+}
+
+::selection {
+  background: var(--violet);
+  color: #fff;
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  background-color: var(--bg-0);
+  color: var(--text-100);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Animated gradient background */
-.gradient-bg {
-  background: linear-gradient(
-    135deg,
-    #0a0a0f 0%,
-    #0f0a1a 25%,
-    #0a0a0f 50%,
-    #0a1a1f 75%,
-    #0a0a0f 100%
-  );
-  background-size: 400% 400%;
-  animation: gradient-shift 15s ease infinite;
-}
+/* ================================================================
+   BRAND TEXT UTILITIES
+   ================================================================ */
 
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Gradient text */
+/* Violet accent text — replaces gradient-text */
 .gradient-text {
-  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--violet);
 }
 
-/* Glow effects */
+.text-violet-glow {
+  color: var(--violet);
+  text-shadow: 0 0 24px rgba(123, 47, 255, 0.3);
+}
+
+/* ================================================================
+   GLOW EFFECTS — Electric Violet
+   ================================================================ */
 .glow-purple {
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
-}
-
-.glow-cyan {
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
+  box-shadow: 0 0 20px rgba(123, 47, 255, 0.15);
 }
 
 .glow-purple-hover:hover {
-  box-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 0 30px rgba(123, 47, 255, 0.25);
 }
 
-.glow-cyan-hover:hover {
-  box-shadow: 0 0 30px rgba(6, 182, 212, 0.3);
-}
-
-/* Card glass effect */
+/* ================================================================
+   GLASS CARD
+   ================================================================ */
 .glass-card {
-  background: rgba(17, 17, 24, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(26, 26, 46, 0.8);
+  background: rgba(8, 8, 12, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-subtle);
 }
 
-/* Hero particles */
+/* ================================================================
+   HERO PARTICLES — Violet only
+   ================================================================ */
 .hero-particles {
   position: absolute;
   inset: 0;
@@ -98,52 +132,39 @@ body {
   pointer-events: none;
 }
 
-.hero-particles::before,
-.hero-particles::after {
+.hero-particles::before {
   content: '';
   position: absolute;
-  width: 400px;
-  height: 400px;
+  width: 600px;
+  height: 600px;
   border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.15;
+  filter: blur(150px);
+  opacity: 0.08;
+  background: var(--violet);
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
   animation: float-particles 12s ease-in-out infinite;
 }
 
-.hero-particles::before {
-  background: #8b5cf6;
-  top: -100px;
-  left: 20%;
-}
-
-.hero-particles::after {
-  background: #06b6d4;
-  bottom: -100px;
-  right: 20%;
-  animation-delay: -6s;
-}
-
 @keyframes float-particles {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -30px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.15); }
 }
 
-/* Grid pattern overlay */
+/* ================================================================
+   GRID OVERLAY — Violet
+   ================================================================ */
 .grid-overlay {
   background-image:
-    linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(123, 47, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(123, 47, 255, 0.03) 1px, transparent 1px);
   background-size: 60px 60px;
 }
 
-/* Number counter animation */
+/* ================================================================
+   ANIMATIONS
+   ================================================================ */
 @keyframes count-up {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -153,7 +174,9 @@ body {
   animation: count-up 0.6s ease-out forwards;
 }
 
-/* Pulse ring */
+/* ================================================================
+   PULSE RING — Violet border on hover
+   ================================================================ */
 .pulse-ring {
   position: relative;
 }
@@ -161,22 +184,51 @@ body {
 .pulse-ring::after {
   content: '';
   position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  border: 1px solid transparent;
-  background: linear-gradient(135deg, #8b5cf6, #06b6d4) border-box;
-  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  -webkit-mask-composite: xor;
+  inset: -1px;
+  border: 1px solid var(--violet);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--duration-normal) ease;
 }
 
 .pulse-ring:hover::after {
-  opacity: 1;
+  opacity: 0.5;
 }
 
-/* Smooth transitions */
+/* ================================================================
+   SMOOTH TRANSITIONS
+   ================================================================ */
 .transition-smooth {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s var(--ease-out);
+}
+
+/* ================================================================
+   DOCS — GitBook Style
+   ================================================================ */
+.docs-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.docs-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.docs-sidebar::-webkit-scrollbar-thumb {
+  background: var(--bg-3);
+  border-radius: 2px;
+}
+
+.docs-sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-4);
+}
+
+details > summary {
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details[open] > summary {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }

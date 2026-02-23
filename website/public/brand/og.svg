@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(3,3,8)"/>
+      <stop offset="0.4" stop-color="rgb(6,6,14)"/>
+      <stop offset="1" stop-color="rgb(3,3,8)"/>
+    </linearGradient>
+    <!-- Primary green glow -->
+    <radialGradient id="glowGreen" cx="0.5" cy="0.35" r="0.55">
+      <stop offset="0" stop-color="rgb(57,255,20)" stop-opacity="0.1"/>
+      <stop offset="0.35" stop-color="rgb(57,255,20)" stop-opacity="0.04"/>
+      <stop offset="0.7" stop-color="rgb(57,255,20)" stop-opacity="0.01"/>
+      <stop offset="1" stop-color="black" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Secondary violet glow -->
+    <radialGradient id="glowViolet" cx="0.35" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="rgb(123,47,255)" stop-opacity="0.06"/>
+      <stop offset="0.5" stop-color="rgb(123,47,255)" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="black" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Tertiary cyan glow -->
+    <radialGradient id="glowCyan" cx="0.75" cy="0.45" r="0.4">
+      <stop offset="0" stop-color="rgb(0,229,255)" stop-opacity="0.03"/>
+      <stop offset="0.6" stop-color="rgb(0,229,255)" stop-opacity="0.01"/>
+      <stop offset="1" stop-color="black" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Vertical grid line gradient -->
+    <linearGradient id="vline" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(57,255,20)" stop-opacity="0"/>
+      <stop offset="0.25" stop-color="rgb(57,255,20)" stop-opacity="0.06"/>
+      <stop offset="0.5" stop-color="rgb(57,255,20)" stop-opacity="0.04"/>
+      <stop offset="0.75" stop-color="rgb(57,255,20)" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="rgb(57,255,20)" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Horizontal emphasis line gradient -->
+    <linearGradient id="hline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="rgb(57,255,20)" stop-opacity="0"/>
+      <stop offset="0.2" stop-color="rgb(57,255,20)" stop-opacity="0.08"/>
+      <stop offset="0.5" stop-color="rgb(57,255,20)" stop-opacity="0.15"/>
+      <stop offset="0.8" stop-color="rgb(57,255,20)" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="rgb(57,255,20)" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Prism halo -->
+    <radialGradient id="prismHalo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="rgb(57,255,20)" stop-opacity="0.15"/>
+      <stop offset="0.4" stop-color="rgb(57,255,20)" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="rgb(57,255,20)" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- === BACKGROUND === -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glowGreen)"/>
+  <rect width="1200" height="630" fill="url(#glowViolet)"/>
+  <rect width="1200" height="630" fill="url(#glowCyan)"/>
+
+  <!-- === GRID SYSTEM === -->
+  <!-- Major horizontal scan lines -->
+  <line x1="0" y1="63" x2="1200" y2="63" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="126" x2="1200" y2="126" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="189" x2="1200" y2="189" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="252" x2="1200" y2="252" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="315" x2="1200" y2="315" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="567" x2="1200" y2="567" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+
+  <!-- Major vertical lines with gradient -->
+  <line x1="300" y1="0" x2="300" y2="630" stroke="url(#vline)" stroke-width="0.5"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="url(#vline)" stroke-width="0.5"/>
+  <line x1="900" y1="0" x2="900" y2="630" stroke="url(#vline)" stroke-width="0.5"/>
+
+  <!-- Minor vertical lines -->
+  <line x1="150" y1="0" x2="150" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.02" stroke-width="0.3"/>
+  <line x1="450" y1="0" x2="450" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.02" stroke-width="0.3"/>
+  <line x1="750" y1="0" x2="750" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.02" stroke-width="0.3"/>
+  <line x1="1050" y1="0" x2="1050" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.02" stroke-width="0.3"/>
+
+  <!-- Emphasis horizontal lines -->
+  <line x1="0" y1="210" x2="1200" y2="210" stroke="url(#hline)" stroke-width="0.5"/>
+  <line x1="0" y1="420" x2="1200" y2="420" stroke="url(#hline)" stroke-width="0.5"/>
+
+  <!-- === DATA FLOW PATHS === -->
+  <line x1="65" y1="0" x2="260" y2="315" stroke="rgb(57,255,20)" stroke-opacity="0.04" stroke-width="0.4"/>
+  <line x1="65" y1="0" x2="340" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="1135" y1="0" x2="940" y2="315" stroke="rgb(57,255,20)" stroke-opacity="0.04" stroke-width="0.4"/>
+  <line x1="1135" y1="0" x2="860" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="160" y1="630" x2="600" y2="220" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="1040" y1="630" x2="600" y2="220" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+
+  <!-- === PARTICLE FIELD === -->
+  <!-- Green particles -->
+  <rect x="96" y="100" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.15"/>
+  <rect x="196" y="176" width="1" height="1" fill="rgb(57,255,20)" opacity="0.12"/>
+  <rect x="304" y="76" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.1"/>
+  <rect x="344" y="390" width="1" height="1" fill="rgb(57,255,20)" opacity="0.08"/>
+  <rect x="416" y="554" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.1"/>
+  <rect x="512" y="113" width="1" height="1" fill="rgb(57,255,20)" opacity="0.12"/>
+  <rect x="680" y="88" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.1"/>
+  <rect x="736" y="542" width="1" height="1" fill="rgb(57,255,20)" opacity="0.12"/>
+  <rect x="840" y="151" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.1"/>
+  <rect x="920" y="441" width="1" height="1" fill="rgb(57,255,20)" opacity="0.08"/>
+  <rect x="1024" y="113" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.12"/>
+  <rect x="1080" y="353" width="1" height="1" fill="rgb(57,255,20)" opacity="0.1"/>
+  <!-- Violet particles -->
+  <rect x="136" y="478" width="1" height="1" fill="rgb(123,47,255)" opacity="0.12"/>
+  <rect x="248" y="530" width="1" height="1" fill="rgb(123,47,255)" opacity="0.1"/>
+  <!-- Cyan particles -->
+  <rect x="960" y="202" width="1" height="1" fill="rgb(0,229,255)" opacity="0.1"/>
+  <rect x="1104" y="504" width="1" height="1" fill="rgb(0,229,255)" opacity="0.08"/>
+  <!-- Rose particle -->
+  <rect x="384" y="227" width="1" height="1" fill="rgb(255,45,120)" opacity="0.06"/>
+
+  <!-- === CORNER BRACKETS === -->
+  <line x1="24" y1="24" x2="60" y2="24" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="24" y1="24" x2="24" y2="60" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="1176" y1="24" x2="1140" y2="24" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="1176" y1="24" x2="1176" y2="60" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="24" y1="606" x2="60" y2="606" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="24" y1="606" x2="24" y2="570" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="1176" y1="606" x2="1140" y2="606" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="1176" y1="606" x2="1176" y2="570" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+
+  <!-- === HUD READOUTS === -->
+  <text x="40" y="18" font-family="Menlo, monospace" font-size="7" fill="rgb(57,255,20)">SYS::ONLINE</text>
+  <text x="1160" y="18" text-anchor="end" font-family="Menlo, monospace" font-size="7" fill="rgb(57,255,20)">L2::MAINNET</text>
+
+  <!-- Left side readouts -->
+  <text x="36" y="310" font-family="Menlo, monospace" font-size="48" font-weight="bold" fill="rgb(57,255,20)">1M+ TPS</text>
+  <text x="38" y="336" font-family="Menlo, monospace" font-size="10" fill="rgb(57,255,20)">FIREDANCER CORE</text>
+
+  <!-- Right side readouts -->
+  <text x="1164" y="304" text-anchor="end" font-family="Menlo, monospace" font-size="38" font-weight="bold" fill="rgb(57,255,20)">AI-NATIVE</text>
+  <text x="1162" y="332" text-anchor="end" font-family="Menlo, monospace" font-size="10" fill="rgb(57,255,20)">SOLANA SVM</text>
+
+  <!-- === PRISM HALO === -->
+  <circle cx="600" cy="185" r="130" fill="url(#prismHalo)"/>
+
+  <!-- === CONVERGENCE PRISM (Green) === -->
+  <g transform="translate(510, 80)">
+    <!-- Outer glow -->
+    <polygon points="90,0 18,78 90,103" fill="rgb(57,255,20)" opacity="0.04"/>
+    <polygon points="90,0 162,78 90,103" fill="rgb(111,255,79)" opacity="0.03"/>
+    <polygon points="18,78 90,103 162,78 90,185" fill="rgb(42,204,16)" opacity="0.03"/>
+    <!-- Main prism faces -->
+    <polygon points="90,0 18,78 90,103" fill="rgb(57,255,20)" opacity="0.92"/>
+    <polygon points="90,0 162,78 90,103" fill="rgb(111,255,79)" opacity="0.78"/>
+    <polygon points="18,78 90,103 162,78 90,185" fill="rgb(42,204,16)" opacity="0.88"/>
+    <!-- Refraction edges -->
+    <line x1="90" y1="0" x2="90" y2="185" stroke="white" stroke-opacity="0.18" stroke-width="0.6"/>
+    <line x1="90" y1="0" x2="18" y2="78" stroke="white" stroke-opacity="0.08" stroke-width="0.3"/>
+    <line x1="90" y1="0" x2="162" y2="78" stroke="white" stroke-opacity="0.06" stroke-width="0.3"/>
+    <line x1="90" y1="103" x2="18" y2="78" stroke="white" stroke-opacity="0.06" stroke-width="0.3"/>
+    <line x1="90" y1="103" x2="162" y2="78" stroke="white" stroke-opacity="0.04" stroke-width="0.3"/>
+  </g>
+
+  <!-- === MYTHIC WORDMARK === -->
+  <text x="600" y="355" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="56" fill="rgb(57,255,20)">MYTHIC</text>
+
+  <!-- === TAGLINE === -->
+  <text x="600" y="390" text-anchor="middle" font-family="Menlo, monospace" font-size="16" letter-spacing="4" fill="rgb(57,255,20)">THE CHAIN THAT THINKS</text>
+
+  <!-- === BOTTOM INFO STRIP === -->
+  <text x="50" y="610" font-family="Menlo, monospace" font-size="12" fill="rgb(57,255,20)">mythic.sh</text>
+  <text x="600" y="610" text-anchor="middle" font-family="Menlo, monospace" font-size="10" letter-spacing="2" fill="rgb(57,255,20)">DECENTRALIZED AI · 1M+ TPS · SOLANA SVM L2</text>
+  <text x="1150" y="610" text-anchor="end" font-family="Menlo, monospace" font-size="12" fill="rgb(57,255,20)">$MYTH</text>
+
+  <!-- === BORDER === -->
+  <rect x="0.5" y="0.5" width="1199" height="629" fill="none" stroke="rgb(57,255,20)" stroke-opacity="0.15" stroke-width="0.5"/>
+</svg>

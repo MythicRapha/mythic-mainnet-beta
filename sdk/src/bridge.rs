@@ -1,4 +1,16 @@
 //! L1 Bridge instruction builders — deposits, withdrawals, config management.
+//!
+//! Matches: programs/bridge/src/lib.rs
+//! Program ID: MythBrdg11111111111111111111111111111111111
+//!
+//! Instructions:
+//!   0 = Initialize
+//!   1 = Deposit (SPL token)
+//!   2 = DepositSOL
+//!   3 = InitiateWithdrawal
+//!   4 = ChallengeWithdrawal
+//!   5 = FinalizeWithdrawal
+//!   6 = UpdateConfig
 
 use borsh::BorshSerialize;
 use solana_program::{
@@ -19,50 +31,50 @@ const IX_CHALLENGE_WITHDRAWAL: u8 = 4;
 const IX_FINALIZE_WITHDRAWAL: u8 = 5;
 const IX_UPDATE_CONFIG: u8 = 6;
 
-// ── Param Structs ───────────────────────────────────────────────────────────
+// ── Param Structs (exact Borsh match to program) ────────────────────────────
 
 #[derive(BorshSerialize)]
-struct InitializeParams {
-    sequencer: Pubkey,
-    challenge_period: i64,
+pub struct InitializeParams {
+    pub sequencer: Pubkey,
+    pub challenge_period: i64,
 }
 
 #[derive(BorshSerialize)]
-struct DepositParams {
-    amount: u64,
-    l2_recipient: [u8; 32],
+pub struct DepositParams {
+    pub amount: u64,
+    pub l2_recipient: [u8; 32],
 }
 
 #[derive(BorshSerialize)]
-struct DepositSOLParams {
-    amount: u64,
-    l2_recipient: [u8; 32],
+pub struct DepositSOLParams {
+    pub amount: u64,
+    pub l2_recipient: [u8; 32],
 }
 
 #[derive(BorshSerialize)]
-struct InitiateWithdrawalParams {
-    recipient: Pubkey,
-    amount: u64,
-    token_mint: Pubkey,
-    merkle_proof: [u8; 32],
-    nonce: u64,
+pub struct InitiateWithdrawalParams {
+    pub recipient: Pubkey,
+    pub amount: u64,
+    pub token_mint: Pubkey,
+    pub merkle_proof: [u8; 32],
+    pub nonce: u64,
 }
 
 #[derive(BorshSerialize)]
-struct ChallengeWithdrawalParams {
-    withdrawal_nonce: u64,
-    fraud_proof: Vec<u8>,
+pub struct ChallengeWithdrawalParams {
+    pub withdrawal_nonce: u64,
+    pub fraud_proof: Vec<u8>,
 }
 
 #[derive(BorshSerialize)]
-struct FinalizeWithdrawalParams {
-    withdrawal_nonce: u64,
+pub struct FinalizeWithdrawalParams {
+    pub withdrawal_nonce: u64,
 }
 
 #[derive(BorshSerialize)]
-struct UpdateConfigParams {
-    new_sequencer: Option<Pubkey>,
-    new_challenge_period: Option<i64>,
+pub struct UpdateConfigParams {
+    pub new_sequencer: Option<Pubkey>,
+    pub new_challenge_period: Option<i64>,
 }
 
 // ── PDA Helpers ─────────────────────────────────────────────────────────────
@@ -88,6 +100,12 @@ pub fn find_withdrawal(nonce: u64) -> (Pubkey, u8) {
 
 // ── Instruction Builders ────────────────────────────────────────────────────
 
+/// Initialize the bridge.
+///
+/// Accounts:
+///   0. `[signer, writable]` admin (payer)
+///   1. `[writable]` bridge_config PDA
+///   2. `[]` system_program
 pub fn create_initialize_instruction(
     admin: &Pubkey,
     sequencer: &Pubkey,
@@ -112,6 +130,15 @@ pub fn create_initialize_instruction(
     }
 }
 
+/// Deposit SPL tokens into the bridge.
+///
+/// Accounts:
+///   0. `[signer]` depositor
+///   1. `[writable]` depositor token account (ATA for mint)
+///   2. `[writable]` vault token account (PDA-owned ATA)
+///   3. `[]` token mint
+///   4. `[writable]` bridge_config PDA
+///   5. `[]` token_program
 pub fn create_deposit_instruction(
     depositor: &Pubkey,
     l2_recipient: [u8; 32],
@@ -144,6 +171,13 @@ pub fn create_deposit_instruction(
     }
 }
 
+/// Deposit native SOL into the bridge.
+///
+/// Accounts:
+///   0. `[signer, writable]` depositor
+///   1. `[writable]` sol_vault PDA
+///   2. `[writable]` bridge_config PDA
+///   3. `[]` system_program
 pub fn create_deposit_sol_instruction(
     depositor: &Pubkey,
     l2_recipient: [u8; 32],
@@ -171,6 +205,14 @@ pub fn create_deposit_sol_instruction(
     }
 }
 
+/// Initiate a withdrawal (sequencer only).
+///
+/// Accounts:
+///   0. `[signer]` sequencer
+///   1. `[signer, writable]` payer
+///   2. `[writable]` withdrawal_request PDA
+///   3. `[]` bridge_config PDA
+///   4. `[]` system_program
 pub fn create_initiate_withdrawal_instruction(
     sequencer: &Pubkey,
     payer: &Pubkey,
@@ -206,6 +248,13 @@ pub fn create_initiate_withdrawal_instruction(
     }
 }
 
+/// Challenge a pending withdrawal.
+///
+/// Accounts:
+///   0. `[signer, writable]` challenger (posts bond)
+///   1. `[writable]` withdrawal_request PDA
+///   2. `[]` bridge_config PDA
+///   3. `[]` system_program
 pub fn create_challenge_withdrawal_instruction(
     challenger: &Pubkey,
     withdrawal_nonce: u64,
@@ -233,6 +282,16 @@ pub fn create_challenge_withdrawal_instruction(
     }
 }
 
+/// Finalize a withdrawal after the challenge period.
+///
+/// Accounts:
+///   0. `[signer, writable]` payer / anyone can finalize
+///   1. `[writable]` withdrawal_request PDA
+///   2. `[writable]` vault token account (PDA-owned)
+///   3. `[writable]` recipient token account
+///   4. `[]` token mint
+///   5. `[]` bridge_config PDA
+///   6. `[]` token_program
 pub fn create_finalize_withdrawal_instruction(
     payer: &Pubkey,
     withdrawal_nonce: u64,
@@ -262,6 +321,11 @@ pub fn create_finalize_withdrawal_instruction(
     }
 }
 
+/// Update bridge configuration (admin only).
+///
+/// Accounts:
+///   0. `[signer]` admin
+///   1. `[writable]` bridge_config PDA
 pub fn create_update_config_instruction(
     admin: &Pubkey,
     new_sequencer: Option<Pubkey>,

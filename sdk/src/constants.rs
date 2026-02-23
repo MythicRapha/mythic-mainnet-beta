@@ -28,57 +28,59 @@ pub const SETTLEMENT_PROGRAM_ID: Pubkey =
 pub const MYTH_TOKEN_PROGRAM_ID: Pubkey =
     solana_program::pubkey!("MythToken1111111111111111111111111111111111");
 
-// ── PDA Seeds ───────────────────────────────────────────────────────────────
+// ── PDA Seeds: Bridge (L1) ──────────────────────────────────────────────────
 
-// Bridge (L1)
 pub const BRIDGE_CONFIG_SEED: &[u8] = b"bridge_config";
 pub const VAULT_SEED: &[u8] = b"vault";
 pub const SOL_VAULT_SEED: &[u8] = b"sol_vault";
 pub const WITHDRAWAL_SEED: &[u8] = b"withdrawal";
 
-// Bridge (L2)
-pub const L2_BRIDGE_CONFIG_SEED: &[u8] = b"bridge_config";
+// ── PDA Seeds: Bridge (L2) ──────────────────────────────────────────────────
+
+pub const L2_BRIDGE_CONFIG_SEED: &[u8] = b"l2_bridge_config";
 pub const WRAPPED_MINT_SEED: &[u8] = b"wrapped_mint";
-pub const MINT_AUTHORITY_SEED: &[u8] = b"mint_authority";
-pub const BURN_RECORD_SEED: &[u8] = b"burn_record";
+pub const PROCESSED_DEPOSIT_SEED: &[u8] = b"processed";
+/// The L2 mint account seed (for the actual SPL mint PDA).
+pub const L2_MINT_SEED: &[u8] = b"mint";
 
-// AI Precompiles
-pub const AI_REGISTRY_SEED: &[u8] = b"ai_registry";
-pub const AI_JOB_SEED: &[u8] = b"ai_job";
-pub const AI_RESULT_SEED: &[u8] = b"ai_result";
+// ── PDA Seeds: AI Precompiles ───────────────────────────────────────────────
 
-// Compute Market
+pub const AI_CONFIG_SEED: &[u8] = b"ai_config";
+pub const MODEL_SEED: &[u8] = b"model";
+pub const AI_VALIDATOR_SEED: &[u8] = b"ai_validator";
+pub const INFERENCE_SEED: &[u8] = b"inference";
+pub const RESULT_SEED: &[u8] = b"result";
+pub const VERIFICATION_SEED: &[u8] = b"verification";
+
+// ── PDA Seeds: Compute Market ───────────────────────────────────────────────
+
+pub const MARKET_CONFIG_SEED: &[u8] = b"market_config";
 pub const PROVIDER_SEED: &[u8] = b"provider";
-pub const COMPUTE_JOB_SEED: &[u8] = b"compute_job";
-pub const ESCROW_SEED: &[u8] = b"escrow";
+pub const STAKE_VAULT_SEED: &[u8] = b"stake_vault";
+pub const REQUEST_SEED: &[u8] = b"request";
+pub const LEASE_SEED: &[u8] = b"lease";
+pub const DISPUTE_SEED: &[u8] = b"dispute";
 
-// Settlement
+// ── PDA Seeds: Settlement ───────────────────────────────────────────────────
+
 pub const SETTLEMENT_CONFIG_SEED: &[u8] = b"settlement_config";
 pub const STATE_ROOT_SEED: &[u8] = b"state_root";
+pub const CHALLENGE_SEED: &[u8] = b"challenge";
 
-// MYTH Token
+// ── PDA Seeds: MYTH Token ───────────────────────────────────────────────────
+
 pub const FEE_CONFIG_SEED: &[u8] = b"fee_config";
-pub const FEE_VAULT_SEED: &[u8] = b"fee_vault";
-
-// ── Fee Split Percentages ───────────────────────────────────────────────────
-// Total transaction fee is split among these recipients. Values in basis points (1/100th of %).
-
-/// Percentage of fees burned (deflationary). 50% = 5000 bps.
-pub const FEE_BURN_BPS: u16 = 5000;
-
-/// Percentage of fees to sequencer/validators. 30% = 3000 bps.
-pub const FEE_SEQUENCER_BPS: u16 = 3000;
-
-/// Percentage of fees to foundation treasury. 20% = 2000 bps.
-pub const FEE_FOUNDATION_BPS: u16 = 2000;
-
-/// Total basis points (sanity check: BURN + SEQUENCER + FOUNDATION = 10000).
-pub const FEE_TOTAL_BPS: u16 = 10000;
+pub const VALIDATOR_SEED: &[u8] = b"validator";
+pub const FEE_POOL_SEED: &[u8] = b"fee_pool";
+pub const REWARD_VAULT_SEED: &[u8] = b"reward_vault";
 
 // ── Default Config Values ───────────────────────────────────────────────────
 
 /// Default challenge period for bridge withdrawals: 7 days in seconds.
 pub const DEFAULT_CHALLENGE_PERIOD: i64 = 604_800;
+
+/// Default challenge period for settlement state roots: ~7 days at 400ms slots.
+pub const DEFAULT_CHALLENGE_PERIOD_SLOTS: u64 = 151_200;
 
 /// MYTH token decimals (same as SOL: 9 decimals).
 pub const MYTH_DECIMALS: u8 = 9;
@@ -89,8 +91,5 @@ pub const LAMPORTS_PER_MYTH: u64 = 1_000_000_000;
 /// Total supply: 1 billion MYTH.
 pub const TOTAL_SUPPLY_MYTH: u64 = 1_000_000_000;
 
-/// Default target lamports per signature.
-pub const DEFAULT_TARGET_LAMPORTS_PER_SIG: u64 = 5_000;
-
-/// Default slots per epoch.
-pub const DEFAULT_SLOTS_PER_EPOCH: u64 = 432_000;
+/// BPS denominator used by fee splits.
+pub const BPS_DENOMINATOR: u16 = 10_000;

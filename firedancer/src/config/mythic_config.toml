@@ -31,7 +31,7 @@ l1_chain                = "solana"
 settlement_interval_slots = 100
 challenge_period_slots  = 151200                # ~7 days at 400ms blocks
 l1_rpc_url              = "https://api.mainnet-beta.solana.com"
-settlement_program_id   = "MythSett1111111111111111111111111111111111"
+settlement_program_id   = "MythSett1ement11111111111111111111111111111"
 
 # ---------------------------------------------------------------
 # Fees
@@ -60,12 +60,12 @@ protocol_fee_bps        = 500                   # 5%
 # On-chain program addresses
 # ---------------------------------------------------------------
 [programs]
-bridge                  = "MythBrdg1111111111111111111111111111111111"
-bridge_l2               = "MythBrdgL211111111111111111111111111111111"
-ai_precompiles          = "MythAI11111111111111111111111111111111111"
-compute_market          = "MythComp1111111111111111111111111111111111"
-settlement              = "MythSett1111111111111111111111111111111111"
-myth_token              = "MythTokn1111111111111111111111111111111111"
+bridge                  = "MythBrdg11111111111111111111111111111111111"
+bridge_l2               = "MythBrdgL2111111111111111111111111111111111"
+ai_precompiles          = "CT1yUSX8n5uid5PyrPYnoG5H6Pp2GoqYGEKmMehq3uWJ"
+compute_market          = "AVWSp12ji5yoiLeC9whJv5i34RGF5LZozQin6T58vaEh"
+settlement              = "MythSett1ement11111111111111111111111111111"
+myth_token              = "MythToken1111111111111111111111111111111111"
 
 # ---------------------------------------------------------------
 # Firedancer tile topology for fdctl

@@ -23,12 +23,13 @@ use std::sync::Arc;
 
 const BRIDGE_CONFIG_SEED: &[u8] = b"bridge_config";
 const WITHDRAWAL_SEED: &[u8] = b"withdrawal";
-const L2_BRIDGE_CONFIG_SEED: &[u8] = b"bridge_config";
+const L2_BRIDGE_CONFIG_SEED: &[u8] = b"l2_bridge_config";
 const WRAPPED_MINT_SEED: &[u8] = b"wrapped_mint";
+const PROCESSED_SEED: &[u8] = b"processed";
 
 // Instruction discriminators
 const IX_INITIATE_WITHDRAWAL: u8 = 3;
-const IX_MINT_WRAPPED: u8 = 1;
+const IX_MINT_WRAPPED: u8 = 2;
 
 // ── State Persistence ───────────────────────────────────────────────────────
 
@@ -71,8 +72,8 @@ struct BurnEvent {
     burner: String,
     l1_recipient: String,
     amount: u64,
-    l1_token_mint: String,
-    nonce: u64,
+    l1_mint: String,
+    burn_nonce: u64,
 }
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -143,16 +144,18 @@ impl RelayerConfig {
 
 #[derive(BorshSerialize)]
 struct MintWrappedParams {
+    l1_deposit_nonce: u64,
+    recipient: Pubkey,
     amount: u64,
-    l1_token_mint: [u8; 32],
-    deposit_nonce: u64,
+    l1_mint: Pubkey,
+    l1_tx_signature: [u8; 64],
 }
 
 #[derive(BorshSerialize)]
 struct InitiateWithdrawalParams {
-    recipient: [u8; 32],
+    recipient: Pubkey,
     amount: u64,
-    token_mint: [u8; 32],
+    token_mint: Pubkey,
     merkle_proof: [u8; 32],
     nonce: u64,
 }
@@ -164,31 +167,61 @@ fn build_mint_wrapped_ix(
     amount: u64,
     l1_token_mint: &Pubkey,
     deposit_nonce: u64,
+    l1_tx_signature: &[u8; 64],
 ) -> Instruction {
     let (config_pda, _) =
         Pubkey::find_program_address(&[L2_BRIDGE_CONFIG_SEED], bridge_l2_program);
-    let (wrapped_mint, _) = Pubkey::find_program_address(
+    let (wrapped_info_pda, _) = Pubkey::find_program_address(
         &[WRAPPED_MINT_SEED, l1_token_mint.as_ref()],
         bridge_l2_program,
     );
+    let mint_seed: &[u8] = b"mint";
+    let (l2_mint_pda, _) = Pubkey::find_program_address(
+        &[mint_seed, l1_token_mint.as_ref()],
+        bridge_l2_program,
+    );
+    let nonce_bytes = deposit_nonce.to_le_bytes();
+    let (processed_pda, _) = Pubkey::find_program_address(
+        &[PROCESSED_SEED, &nonce_bytes],
+        bridge_l2_program,
+    );
+
+    // Derive the recipient's associated token account for the wrapped mint
+    let recipient_token =
+        spl_associated_token_account::get_associated_token_address(l2_recipient, &l2_mint_pda);
 
     let mut data = vec![IX_MINT_WRAPPED];
     let params = MintWrappedParams {
+        l1_deposit_nonce: deposit_nonce,
+        recipient: *l2_recipient,
         amount,
-        l1_token_mint: l1_token_mint.to_bytes(),
-        deposit_nonce,
+        l1_mint: *l1_token_mint,
+        l1_tx_signature: *l1_tx_signature,
     };
     params.serialize(&mut data).unwrap();
 
+    // Account order must match process_mint_wrapped in bridge-l2:
+    //   0. [signer]          relayer
+    //   1. [signer, writable] payer
+    //   2. []                 l2_bridge_config PDA
+    //   3. []                 wrapped_token_info PDA
+    //   4. [writable]         l2_mint account
+    //   5. [writable]         recipient token account (ATA)
+    //   6. [writable]         processed_deposit PDA
+    //   7. []                 token_program
+    //   8. []                 system_program
     Instruction {
         program_id: *bridge_l2_program,
         accounts: vec![
-            AccountMeta::new_readonly(*relayer, true), // relayer (signer)
-            AccountMeta::new(config_pda, false),        // bridge config PDA
-            AccountMeta::new(wrapped_mint, false),      // wrapped mint PDA
-            AccountMeta::new(*l2_recipient, false),     // recipient
-            AccountMeta::new_readonly(spl_token::id(), false), // token program
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(*relayer, true),           // 0. relayer (signer)
+            AccountMeta::new(*relayer, true),                    // 1. payer (signer, writable)
+            AccountMeta::new_readonly(config_pda, false),        // 2. l2_bridge_config PDA
+            AccountMeta::new_readonly(wrapped_info_pda, false),  // 3. wrapped_token_info PDA
+            AccountMeta::new(l2_mint_pda, false),                // 4. l2_mint (writable)
+            AccountMeta::new(recipient_token, false),            // 5. recipient token account (writable)
+            AccountMeta::new(processed_pda, false),              // 6. processed_deposit PDA (writable)
+            AccountMeta::new_readonly(spl_token::id(), false),   // 7. token_program
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false), // 8. system_program
         ],
         data,
     }
@@ -210,22 +243,28 @@ fn build_initiate_withdrawal_ix(
 
     let mut data = vec![IX_INITIATE_WITHDRAWAL];
     let params = InitiateWithdrawalParams {
-        recipient: recipient.to_bytes(),
+        recipient: *recipient,
         amount,
-        token_mint: token_mint.to_bytes(),
+        token_mint: *token_mint,
         merkle_proof: [0u8; 32], // Placeholder — real proof computed off-chain
         nonce,
     };
     params.serialize(&mut data).unwrap();
 
+    // Account order must match process_initiate_withdrawal in bridge (L1):
+    //   0. [signer]           sequencer
+    //   1. [signer, writable] payer
+    //   2. [writable]         withdrawal_request PDA
+    //   3. []                 bridge_config PDA
+    //   4. []                 system_program
     Instruction {
         program_id: *bridge_l1_program,
         accounts: vec![
-            AccountMeta::new_readonly(*relayer, true), // sequencer/relayer (signer)
-            AccountMeta::new(*relayer, true),           // payer (signer, writable)
-            AccountMeta::new(withdrawal_pda, false),    // withdrawal PDA
-            AccountMeta::new_readonly(config_pda, false), // bridge config
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(*relayer, true),  // 0. sequencer (signer)
+            AccountMeta::new(*relayer, true),            // 1. payer (signer, writable)
+            AccountMeta::new(withdrawal_pda, false),     // 2. withdrawal PDA (writable)
+            AccountMeta::new_readonly(config_pda, false),// 3. bridge config
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false), // 4. system_program
         ],
         data,
     }
@@ -252,7 +291,7 @@ fn parse_deposit_events(logs: &[String]) -> Vec<DepositEvent> {
 fn parse_burn_events(logs: &[String]) -> Vec<BurnEvent> {
     let mut events = Vec::new();
     for log in logs {
-        if let Some(json_str) = log.strip_prefix("Program log: EVENT:Burn:") {
+        if let Some(json_str) = log.strip_prefix("Program log: EVENT:BurnWrapped:") {
             if let Ok(event) = serde_json::from_str::<BurnEvent>(json_str) {
                 events.push(event);
             }
@@ -482,6 +521,9 @@ fn poll_l1_deposits(
             let l1_token_mint = Pubkey::from_str(&event.token_mint)
                 .unwrap_or(solana_sdk::system_program::id());
 
+            // Convert the L1 transaction signature to a 64-byte array
+            let l1_tx_sig_bytes: [u8; 64] = sig.as_ref().try_into().unwrap_or([0u8; 64]);
+
             let ix = build_mint_wrapped_ix(
                 &config.bridge_l2_program,
                 &config.relayer_keypair.pubkey(),
@@ -489,6 +531,7 @@ fn poll_l1_deposits(
                 event.amount,
                 &l1_token_mint,
                 event.nonce,
+                &l1_tx_sig_bytes,
             );
 
             let result = retry_with_backoff(
@@ -586,22 +629,23 @@ fn poll_l2_burns(
 
         let events = parse_burn_events(&logs);
         for event in events {
-            if event.nonce <= state.last_burn_nonce {
+            if event.burn_nonce <= state.last_burn_nonce {
                 continue;
             }
 
-            let l1_recipient = match Pubkey::from_str(&event.l1_recipient) {
-                Ok(pk) => pk,
-                Err(_) => {
+            // l1_recipient is emitted as hex-encoded bytes by the L2 bridge
+            let l1_recipient = match hex_to_pubkey(&event.l1_recipient) {
+                Some(pk) => pk,
+                None => {
                     eprintln!(
-                        "[BURN] Invalid l1_recipient: {}",
+                        "[BURN] Invalid l1_recipient hex: {}",
                         event.l1_recipient
                     );
                     continue;
                 }
             };
 
-            let l1_token_mint = Pubkey::from_str(&event.l1_token_mint)
+            let l1_token_mint = Pubkey::from_str(&event.l1_mint)
                 .unwrap_or(solana_sdk::system_program::id());
 
             let ix = build_initiate_withdrawal_ix(
@@ -610,7 +654,7 @@ fn poll_l2_burns(
                 &l1_recipient,
                 event.amount,
                 &l1_token_mint,
-                event.nonce,
+                event.burn_nonce,
             );
 
             let result = retry_with_backoff(
@@ -635,15 +679,15 @@ fn poll_l2_burns(
                 Ok(tx_sig) => {
                     println!(
                         "RELAYED BURN: nonce={} amount={} l1_recipient={} tx={}",
-                        event.nonce, event.amount, l1_recipient, tx_sig
+                        event.burn_nonce, event.amount, l1_recipient, tx_sig
                     );
-                    state.last_burn_nonce = event.nonce;
+                    state.last_burn_nonce = event.burn_nonce;
                     relayed += 1;
                 }
                 Err(e) => {
                     eprintln!(
                         "[BURN] Failed to relay nonce={}: {}",
-                        event.nonce, e
+                        event.burn_nonce, e
                     );
                 }
             }

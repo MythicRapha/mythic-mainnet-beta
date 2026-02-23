@@ -73,10 +73,8 @@ export default function HomePage() {
 
           {/* Whitepaper link */}
           <div className="mt-6">
-            <a
-              href="/mythic-whitepaper.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/whitepaper"
               className="inline-flex items-center gap-2 font-mono text-[0.7rem] tracking-[0.08em] text-mythic-violet hover:text-mythic-violet-bright transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,7 +84,7 @@ export default function HomePage() {
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
-            </a>
+            </Link>
           </div>
 
           {/* Explorer Search */}

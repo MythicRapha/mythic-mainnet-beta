@@ -113,9 +113,9 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="/mythic-whitepaper.pdf" target="_blank" rel="noopener noreferrer" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
+                <Link href="/whitepaper" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
                   Whitepaper
-                </a>
+                </Link>
               </li>
               <li>
                 <Link href="/docs#tokenomics" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">

@@ -2,6 +2,13 @@
 /target/
 **/*.rs.bk
 
+# Node
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+
 # IDE
 .idea/
 .vscode/
@@ -16,10 +23,6 @@ Thumbs.db
 # Keys and secrets
 *.pem
 *.key
-*.json
-!Cargo.json
-!package.json
-!tsconfig.json
 relayer_state.json
 
 # Firedancer build output

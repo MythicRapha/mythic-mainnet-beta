@@ -1,0 +1,23 @@
+[package]
+name = "mythic-launchpad"
+version = "0.1.0"
+edition = "2021"
+description = "MythicPad — AI token bonding curve launchpad for Mythic L2"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+cpi = ["no-entrypoint"]
+
+[dependencies]
+solana-program = { workspace = true }
+spl-token = { workspace = true }
+spl-associated-token-account = { workspace = true }
+borsh = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+bytemuck = { workspace = true }
+num-derive = { workspace = true }
+num-traits = { workspace = true }

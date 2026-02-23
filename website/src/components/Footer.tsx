@@ -117,26 +117,6 @@ export default function Footer() {
                   Whitepaper
                 </Link>
               </li>
-              <li>
-                <Link href="/docs#tokenomics" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
-                  Tokenomics
-                </Link>
-              </li>
-              <li>
-                <Link href="/docs#roadmap" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
-                  Roadmap
-                </Link>
-              </li>
-              <li>
-                <a
-                  href="https://pump.fun"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#39FF14] hover:text-[#66FF44] transition-colors text-[0.82rem]"
-                >
-                  Buy $MYTH on PumpFun ↗
-                </a>
-              </li>
             </ul>
           </div>
         </div>

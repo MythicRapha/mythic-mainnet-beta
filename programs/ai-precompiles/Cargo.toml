@@ -1,0 +1,21 @@
+[package]
+name = "mythic-ai-precompiles"
+version = "0.1.0"
+edition = "2021"
+description = "Mythic L2 — Native AI inference/verification precompiles for the SVM"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+cpi = ["no-entrypoint"]
+
+[dependencies]
+solana-program = { workspace = true }
+borsh = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+bytemuck = { workspace = true }
+num-derive = { workspace = true }
+num-traits = { workspace = true }

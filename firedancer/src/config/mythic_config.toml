@@ -1,0 +1,74 @@
+# Mythic L2 Chain Configuration
+# Applied via fdctl configure
+# ---------------------------------------------------------------
+# This file defines all chain-level parameters for Mythic L2,
+# an SVM-based Layer 2 that settles to Solana mainnet.
+# ---------------------------------------------------------------
+
+[mythic]
+chain_id                = "mythic-l2"
+chain_name              = "Mythic L2 — AI-Native Cloud Computing"
+native_token            = "MYTH"
+native_token_decimals   = 9
+total_supply            = 1000000000000000000  # 1B tokens * 10^9 decimals
+
+# ---------------------------------------------------------------
+# Consensus — centralized sequencer (Phase 1)
+# ---------------------------------------------------------------
+[consensus]
+type                    = "sequencer"           # Not "tower_bft"
+block_time_ms           = 400
+max_transactions_per_block = 10000
+epoch_length_slots      = 432000
+sequencer_rotation      = false                 # Phase 1: single sequencer
+
+# ---------------------------------------------------------------
+# Settlement — periodic state root anchoring to Solana L1
+# ---------------------------------------------------------------
+[settlement]
+enabled                 = true
+l1_chain                = "solana"
+settlement_interval_slots = 100
+challenge_period_slots  = 151200                # ~7 days at 400ms blocks
+l1_rpc_url              = "https://api.mainnet-beta.solana.com"
+settlement_program_id   = "MythSett1111111111111111111111111111111111"
+
+# ---------------------------------------------------------------
+# Fees
+# ---------------------------------------------------------------
+[fees]
+base_fee_lamports       = 5000                  # 0.000005 MYTH per signature
+priority_fee_enabled    = true
+
+# ---------------------------------------------------------------
+# AI Validation & Rewards (Phase 1: optional)
+# ---------------------------------------------------------------
+[ai]
+ai_validation_enabled   = false
+ai_reward_multiplier    = 3                     # 3x rewards for AI validators
+min_ai_stake            = 100000000000000       # 100K MYTH
+
+# ---------------------------------------------------------------
+# Compute Market
+# ---------------------------------------------------------------
+[compute_market]
+enabled                 = true
+min_provider_stake      = 1000000000000         # 1000 MYTH
+protocol_fee_bps        = 500                   # 5%
+
+# ---------------------------------------------------------------
+# On-chain program addresses
+# ---------------------------------------------------------------
+[programs]
+bridge                  = "MythBrdg1111111111111111111111111111111111"
+bridge_l2               = "MythBrdgL211111111111111111111111111111111"
+ai_precompiles          = "MythAI11111111111111111111111111111111111"
+compute_market          = "MythComp1111111111111111111111111111111111"
+settlement              = "MythSett1111111111111111111111111111111111"
+myth_token              = "MythTokn1111111111111111111111111111111111"
+
+# ---------------------------------------------------------------
+# Firedancer tile topology for fdctl
+# ---------------------------------------------------------------
+[tiles]
+layout = "1 net, 1 quic, 2 verify, 1 sequencer, 1 pack, 4 bank, 1 store"

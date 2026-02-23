@@ -1,0 +1,34 @@
+# Build artifacts
+/target/
+**/*.rs.bk
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keys and secrets
+*.pem
+*.key
+*.json
+!Cargo.json
+!package.json
+!tsconfig.json
+relayer_state.json
+
+# Firedancer build output
+firedancer/build/
+
+# Genesis output
+genesis-output/
+
+# Old files
+chat.json
+file.md
+.crush/

@@ -1,0 +1,17 @@
+[package]
+name = "mythic-genesis"
+version = "0.1.0"
+edition = "2021"
+description = "Mythic L2 — Custom genesis generator for $MYTH chain"
+
+[[bin]]
+name = "mythic-genesis"
+path = "src/main.rs"
+
+[dependencies]
+solana-sdk = { workspace = true }
+solana-program = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+borsh = { workspace = true }

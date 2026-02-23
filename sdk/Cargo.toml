@@ -1,0 +1,15 @@
+[package]
+name = "mythic-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "Mythic L2 — SDK for interacting with Mythic chain programs"
+
+[dependencies]
+solana-program = { workspace = true }
+solana-sdk = { workspace = true }
+spl-token = { workspace = true }
+spl-associated-token-account = { workspace = true }
+borsh = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }

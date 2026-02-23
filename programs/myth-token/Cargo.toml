@@ -1,0 +1,21 @@
+[package]
+name = "mythic-token"
+version = "0.1.0"
+edition = "2021"
+description = "Mythic L2 — $MYTH native token fee distribution and burn logic"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+cpi = ["no-entrypoint"]
+
+[dependencies]
+solana-program = { workspace = true }
+spl-token = { workspace = true }
+borsh = { workspace = true }
+thiserror = { workspace = true }
+bytemuck = { workspace = true }
+num-derive = { workspace = true }
+num-traits = { workspace = true }

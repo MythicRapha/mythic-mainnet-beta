@@ -99,7 +99,7 @@ export function deserializeBridgeConfig(data: Buffer): BridgeConfig {
   // Fee fields added in v2 (187 bytes). Old format is 123 bytes.
   const hasV2Fields = data.length >= 187
   const bridgeVault = hasV2Fields ? readPubkey(data, offset) : admin; offset += hasV2Fields ? 32 : 0
-  const bridgeFeeBps = hasV2Fields ? readU64(data, offset) : BigInt(10); offset += hasV2Fields ? 8 : 0
+  const bridgeFeeBps = hasV2Fields ? readU64(data, offset) : BigInt(0); offset += hasV2Fields ? 8 : 0
   const totalFeesCollected = hasV2Fields ? readU64(data, offset) : BigInt(0); offset += hasV2Fields ? 8 : 0
   const totalFeesWithdrawn = hasV2Fields ? readU64(data, offset) : BigInt(0); offset += hasV2Fields ? 8 : 0
   const totalSolFeesCollected = hasV2Fields ? readU64(data, offset) : BigInt(0)

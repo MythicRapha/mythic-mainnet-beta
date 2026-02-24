@@ -167,7 +167,7 @@ export default function HomePage() {
 
             {[
               { num: '01', title: 'Get $MYTH on PumpFun', desc: 'Trade the $MYTH SPL token on PumpFun or Raydium on Solana L1. Zero VC allocation, fair launch.' },
-              { num: '02', title: 'Bridge to Mythic L2', desc: 'Deposit SOL from Solana L1 to Mythic L2 via the bridge. $MYTH is the native gas currency on L2.' },
+              { num: '02', title: 'Bridge to Mythic L2', desc: 'Bridge assets from Solana L1 to Mythic L2 via the bridge. $MYTH is the native gas currency on L2.' },
               { num: '03', title: 'Use AI & Compute', desc: 'Run AI inference, deploy models, rent compute, and build on the AI-native blockchain. Fees paid in native $MYTH.' },
             ].map((step) => (
               <div key={step.num} className="text-center relative">

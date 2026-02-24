@@ -5,6 +5,12 @@ import { PublicKey } from '@solana/web3.js'
 export const BRIDGE_L1_PROGRAM_ID = new PublicKey('oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ')
 export const BRIDGE_L2_PROGRAM_ID = new PublicKey('MythBrdgL2111111111111111111111111111111111')
 
+// ── Token Mints (L1 Solana Mainnet) ─────────────────────────────────────────
+
+export const L1_MYTH_MINT = new PublicKey('5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump')
+export const L1_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
+export const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
+
 // ── PDA Seeds ───────────────────────────────────────────────────────────────
 
 export const BRIDGE_CONFIG_SEED = Buffer.from('bridge_config')
@@ -105,6 +111,7 @@ export interface BridgeAsset {
   icon: string
   l1Mint?: PublicKey   // undefined = native SOL on L1 (MYTH on L2)
   decimals: number
+  isToken2022?: boolean // e.g. L1 MYTH uses Token-2022
 }
 
 export interface DepositRecord {
@@ -129,13 +136,13 @@ export interface WithdrawalRecord {
 export interface BridgeStats {
   paused: boolean
   depositNonce: number
-  minDeposit: number     // in SOL
-  maxDeposit: number     // in SOL
-  dailyLimit: number     // in SOL
-  dailyVolume: number    // in SOL
-  dailyRemaining: number // in SOL
+  minDeposit: number     // in MYTH
+  maxDeposit: number     // in MYTH
+  dailyLimit: number     // in MYTH
+  dailyVolume: number    // in MYTH
+  dailyRemaining: number // in MYTH
   feeBps: number
-  totalFeesCollected: number // in SOL
+  totalFeesCollected: number // in MYTH
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -152,7 +159,22 @@ export const SUPPORTED_ASSETS: BridgeAsset[] = [
   {
     symbol: 'SOL',
     name: 'Solana',
-    icon: 'S',
+    icon: '◎',
     decimals: 9,
+  },
+  {
+    symbol: 'MYTH',
+    name: 'Mythic',
+    icon: 'M',
+    l1Mint: new PublicKey('5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump'),
+    decimals: 6,   // L1 MYTH is Token-2022 with 6 decimals
+    isToken2022: true,
+  },
+  {
+    symbol: 'USDC',
+    name: 'USD Coin',
+    icon: '$',
+    l1Mint: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
+    decimals: 6,
   },
 ]

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import BridgeCard from '@/components/BridgeCard'
+import BridgeLiveStats from '@/components/BridgeLiveStats'
 
 export const metadata: Metadata = {
   title: 'Bridge — Mythic',
-  description: 'Bridge SOL from Solana L1 to Mythic L2. Deposited SOL is credited as MYTH on L2 — the native gas currency. Fast finality, low fees.',
+  description: 'Bridge assets between Solana L1 and Mythic L2. Deposit MYTH, USDC, or native SOL to get started on the Mythic network. Fast finality, low fees.',
 }
 
 export default function BridgePage() {
@@ -22,14 +23,9 @@ export default function BridgePage() {
             Mythic Bridge
           </h1>
           <p className="text-mythic-text text-[0.95rem] max-w-[480px] mx-auto mb-6">
-            Bridge SOL between Solana L1 and Mythic L2. Deposited SOL is credited as MYTH on L2 — the native gas currency. Withdrawals have a 7-day challenge period.
+            Bridge assets between Solana L1 and Mythic L2. Deposit MYTH, USDC, or native SOL to get started. Withdrawals have a ~42 hour challenge period.
           </p>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-mythic-violet/30 bg-mythic-violet/5">
-            <span className="w-1.5 h-1.5 bg-mythic-violet animate-pulse" />
-            <span className="font-mono text-[0.55rem] tracking-[0.1em] uppercase text-mythic-violet">
-              0.1% bridge fee &mdash; SOL deposits live
-            </span>
-          </div>
+          <BridgeLiveStats />
         </div>
 
         {/* Bridge Card */}

@@ -29,7 +29,7 @@ export default function WalletButton() {
     return (
       <div className="flex items-center gap-2">
         <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-[#08080C] border border-white/[0.06]">
-          <span className="font-mono text-[0.65rem] tracking-[0.08em] text-mythic-violet font-medium">{balance?.toFixed(2)} SOL</span>
+          <span className="font-mono text-[0.65rem] tracking-[0.08em] text-mythic-violet font-medium">{balance?.toFixed(2)} MYTH</span>
           {walletName && (
             <span className="font-mono text-[0.5rem] tracking-[0.08em] text-mythic-text-muted uppercase">
               {walletName === 'mythic' ? '⚡' : walletName === 'phantom' ? '👻' : '☀️'}
@@ -58,7 +58,7 @@ export default function WalletButton() {
 
       {showWalletModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={closeWalletModal}>
-          <div className="relative w-full max-w-md mx-4 bg-[#08080C] border border-white/[0.06] p-8" onClick={e => e.stopPropagation()}>
+          <div className="relative w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto bg-[#08080C] border border-white/[0.06] p-8" onClick={e => e.stopPropagation()}>
             <button onClick={closeWalletModal} className="absolute top-4 right-4 text-mythic-text-muted hover:text-white transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>

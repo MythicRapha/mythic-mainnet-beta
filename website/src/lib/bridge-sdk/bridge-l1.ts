@@ -5,7 +5,11 @@ import {
   TransactionInstruction,
   Transaction,
 } from '@solana/web3.js'
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountInstruction,
+} from '@solana/spl-token'
 import {
   BRIDGE_L1_PROGRAM_ID,
   L1_IX,
@@ -151,6 +155,93 @@ export async function buildDepositSOLTransaction(
 ): Promise<Transaction> {
   const ix = createDepositSOLInstruction(depositor, amountLamports, l2Recipient)
   const tx = new Transaction().add(ix)
+  tx.feePayer = depositor
+  tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
+  return tx
+}
+
+// ── Build Full Deposit SPL Token Transaction ────────────────────────────────
+
+export async function buildDepositSPLTransaction(
+  connection: Connection,
+  depositor: PublicKey,
+  mint: PublicKey,
+  amountTokens: bigint,
+  isToken2022: boolean = false,
+  l2Recipient?: PublicKey,
+): Promise<Transaction> {
+  const tokenProgramId = isToken2022
+    ? new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
+    : TOKEN_PROGRAM_ID
+
+  // Derive user's ATA
+  const depositorAta = getAssociatedTokenAddressSync(
+    mint,
+    depositor,
+    false,
+    tokenProgramId,
+  )
+
+  // Derive vault ATA (owned by the bridge config PDA)
+  const [configPda] = deriveBridgeConfig()
+  const vaultAta = getAssociatedTokenAddressSync(
+    mint,
+    configPda,
+    true, // PDA-owned
+    tokenProgramId,
+  )
+
+  // Derive fee vault ATA (owned by the fee vault PDA)
+  const [feeVaultPda] = deriveFeeVault()
+  const feeVaultAta = getAssociatedTokenAddressSync(
+    mint,
+    feeVaultPda,
+    true,
+    tokenProgramId,
+  )
+
+  const tx = new Transaction()
+
+  // Create vault ATA if it doesn't exist
+  const vaultInfo = await connection.getAccountInfo(vaultAta)
+  if (!vaultInfo) {
+    tx.add(
+      createAssociatedTokenAccountInstruction(
+        depositor,
+        vaultAta,
+        configPda,
+        mint,
+        tokenProgramId,
+      ),
+    )
+  }
+
+  // Create fee vault ATA if it doesn't exist
+  const feeInfo = await connection.getAccountInfo(feeVaultAta)
+  if (!feeInfo) {
+    tx.add(
+      createAssociatedTokenAccountInstruction(
+        depositor,
+        feeVaultAta,
+        feeVaultPda,
+        mint,
+        tokenProgramId,
+      ),
+    )
+  }
+
+  // Add the deposit instruction
+  const ix = createDepositSPLInstruction(
+    depositor,
+    depositorAta,
+    vaultAta,
+    feeVaultAta,
+    mint,
+    amountTokens,
+    l2Recipient,
+  )
+  tx.add(ix)
+
   tx.feePayer = depositor
   tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
   return tx

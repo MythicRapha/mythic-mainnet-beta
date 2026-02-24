@@ -160,7 +160,7 @@ function TokenomicsSection() {
       </Paragraph>
 
       <InfoBox title="Native L2 Currency vs. PumpFun Token">
-        <strong className="text-white">Mythic L2 $MYTH</strong> is the native gas currency of the Mythic L2 chain, created at genesis and used for all on-chain operations (gas, staking, governance, compute payments). It is <em>separate</em> from the $MYTH SPL token traded on PumpFun/Raydium on Solana L1. The PumpFun token represents community access and speculative interest, while the native L2 $MYTH powers the actual blockchain. Users can bridge assets between L1 and L2 — L1 SOL deposits are credited as MYTH on L2, and native L2 $MYTH is used for all transaction fees.
+        <strong className="text-white">Mythic L2 $MYTH</strong> is the native gas currency of the Mythic L2 chain, created at genesis and used for all on-chain operations (gas, staking, governance, compute payments). It is <em>separate</em> from the $MYTH SPL token traded on PumpFun/Raydium on Solana L1. The PumpFun token represents community access and speculative interest, while the native L2 $MYTH powers the actual blockchain. Users can bridge assets between L1 and L2 — deposits are credited as their L2 equivalents, and native L2 $MYTH is used for all transaction fees.
       </InfoBox>
 
       <SubHeading>Token Details</SubHeading>
@@ -222,7 +222,7 @@ function BridgeDocsSection() {
     <section>
       <SectionHeading id="bridge">Bridge</SectionHeading>
       <Paragraph>
-        The Mythic Bridge is the core infrastructure that connects Solana L1 and Mythic L2. It enables users to move SOL between the two chains, with deposited SOL credited as MYTH on L2. The bridge uses an optimistic rollup model with fraud proofs, secured by Solana L1 settlement.
+        The Mythic Bridge is the core infrastructure that connects Solana L1 and Mythic L2. It enables users to move assets between the two chains. Deposited assets are credited as their L2 equivalents, with native SOL becoming MYTH on L2. The bridge uses an optimistic rollup model with fraud proofs, secured by Solana L1 settlement.
       </Paragraph>
 
       {/* Architecture */}
@@ -237,7 +237,7 @@ function BridgeDocsSection() {
           </div>
           <div>
             <h4 className="text-white font-medium mb-1">Solana L1 Bridge Program</h4>
-            <p className="text-mythic-text text-[0.82rem]">Holds the SOL vault, processes deposit/withdrawal instructions, and verifies settlement state roots. Deployed on Solana mainnet.</p>
+            <p className="text-mythic-text text-[0.82rem]">Holds the bridge vault, processes deposit/withdrawal instructions, and verifies settlement state roots. Deployed on Solana mainnet.</p>
           </div>
         </div>
         <div className="flex items-start gap-4">
@@ -274,7 +274,7 @@ function BridgeDocsSection() {
         <SubHeading>Deposit Flow (L1 → L2)</SubHeading>
       </div>
       <Paragraph>
-        Deposits move SOL from Solana L1 to Mythic L2, where it is credited as MYTH. The process is fast -- typically confirmed within ~30 seconds.
+        Deposits move assets from Solana L1 to Mythic L2. Native SOL is credited as MYTH on L2. The process is fast -- typically confirmed within ~30 seconds.
       </Paragraph>
       <div className="bg-[#08080C] border border-white/[0.06] p-5 mb-6 space-y-3">
         <div className="flex items-center gap-3 text-[0.82rem]">
@@ -283,11 +283,11 @@ function BridgeDocsSection() {
         </div>
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">2.</span>
-          <span className="text-mythic-text">Select the amount of SOL to deposit (min 0.01 SOL, max 1,000 SOL)</span>
+          <span className="text-mythic-text">Select the amount to deposit (min 0.01 MYTH, max 1,000 MYTH)</span>
         </div>
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">3.</span>
-          <span className="text-mythic-text">Confirm the transaction -- SOL is sent to the bridge vault on L1</span>
+          <span className="text-mythic-text">Confirm the transaction -- funds are sent to the bridge vault on L1</span>
         </div>
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">4.</span>
@@ -303,7 +303,7 @@ function BridgeDocsSection() {
         </div>
       </div>
       <InfoBox title="Deposit Fee">
-        A 0.1% (10 bps) fee is applied to deposits. For example, depositing 10 SOL credits ~9.99 MYTH on L2. Fees are distributed through the MYTH fee structure: 50% to validators, 10% to the foundation, and 40% burned.
+        A 0.1% (10 bps) fee is applied to deposits. For example, depositing 10 MYTH credits ~9.99 MYTH on L2. Fees are distributed through the MYTH fee structure: 50% to validators, 10% to the foundation, and 40% burned.
       </InfoBox>
 
       {/* Withdrawal Flow */}
@@ -332,7 +332,7 @@ function BridgeDocsSection() {
         </div>
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">5.</span>
-          <span className="text-mythic-text">SOL is released from the L1 vault to your wallet</span>
+          <span className="text-mythic-text">Funds are released from the L1 vault to your wallet</span>
         </div>
       </div>
       <InfoBox title="Challenge Period">
@@ -381,12 +381,12 @@ function BridgeDocsSection() {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
         {[
-          { label: 'Min Deposit', value: '0.01 SOL' },
-          { label: 'Max Deposit', value: '1,000 SOL' },
-          { label: 'Daily Limit', value: '10,000 SOL' },
+          { label: 'Min Deposit', value: '0.01 MYTH' },
+          { label: 'Max Deposit', value: '1,000 MYTH' },
+          { label: 'Daily Limit', value: '10,000 MYTH' },
           { label: 'Challenge Period', value: '7 days' },
           { label: 'Bridge Fee', value: '10 bps (0.1%)' },
-          { label: 'Supported Assets', value: 'SOL' },
+          { label: 'Supported Assets', value: 'MYTH, SOL, USDC' },
         ].map((item) => (
           <div key={item.label} className="bg-[#08080C] border border-white/[0.06] p-4">
             <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">{item.label}</div>
@@ -455,7 +455,7 @@ function BridgeDocsSection() {
           'Successful fraud proof challengers are rewarded from the sequencer bond',
           'Emergency pause mechanism allows the bridge admin to halt operations instantly',
           'Bridge admin authority will be transferred to a multisig/Ledger hardware wallet before mainnet launch',
-          'Daily withdrawal limit of 10,000 SOL caps exposure in case of exploit',
+          'Daily withdrawal limit of 10,000 MYTH caps exposure in case of exploit',
         ].map((item) => (
           <li key={item} className="flex items-start gap-3 text-[0.82rem] text-mythic-text">
             <svg className="w-4 h-4 text-mythic-violet mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -326,12 +326,12 @@ export default function WhitepaperPage() {
         {/* =============== 5. BRIDGE =============== */}
         <H2 id="bridge">5. Bridge &amp; Settlement</H2>
         <P>
-          The Mythic Bridge is a trust-minimized system for moving assets between Solana L1 and Mythic L2. It currently supports SOL, with additional assets (including USDC and Token-2022 tokens) added through governance.
+          The Mythic Bridge is a trust-minimized system for moving assets between Solana L1 and Mythic L2. It currently supports MYTH, SOL, and USDC, with additional Token-2022 compatible assets added through governance.
         </P>
 
         <H3>5.1 Deposits (L1 → L2)</H3>
         <P>
-          Deposits are processed within seconds. Users send assets to the bridge contract on Solana L1. The Mythic sequencer monitors the bridge contract and credits the equivalent amount to the user&apos;s L2 address. Deposited SOL is credited as $MYTH at the current exchange rate. Deposits benefit from Solana L1&apos;s ~400ms finality — funds are available on L2 within approximately 10 seconds.
+          Deposits are processed within seconds. Users send assets to the bridge contract on Solana L1. The Mythic sequencer monitors the bridge contract and credits the equivalent amount to the user&apos;s L2 address. Deposited assets are credited as $MYTH at the current exchange rate. Deposits benefit from Solana L1&apos;s ~400ms finality — funds are available on L2 within approximately 10 seconds.
         </P>
 
         <H3>5.2 Withdrawals (L2 → L1)</H3>

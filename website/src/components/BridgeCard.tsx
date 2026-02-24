@@ -1,19 +1,61 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { Connection } from '@solana/web3.js'
+import { PublicKey } from '@solana/web3.js'
 import { useWalletContext } from '@/providers/WalletProvider'
 import { useBridge } from '@/hooks/useBridge'
+import { SUPPORTED_ASSETS, BridgeAsset } from '@/lib/bridge-sdk'
+import { useMythPrice } from '@/hooks/useMythPrice'
+import Image from 'next/image'
+
+function TokenIcon({ symbol, size = 20 }: { symbol: string; size?: number }) {
+  const src = symbol === 'SOL' ? '/brand/solana-logo.svg'
+    : symbol === 'USDC' ? '/brand/usdc-logo.svg'
+    : '/brand/myth-token.svg'
+  const alt = symbol === 'SOL' ? 'Solana' : symbol === 'USDC' ? 'USDC' : 'MYTH'
+  return <Image src={src} alt={alt} width={size} height={size} className="rounded-full" />
+}
 
 export default function BridgeCard() {
   const { connected, shortAddress, balance, l2Balance, openWalletModal, connecting } = useWalletContext()
   const {
     direction, setDirection,
+    selectedAsset, setSelectedAsset,
     stats, l2Paused, loading, txSignature, error, deposits, solVaultTvl,
-    depositSOL, calculateFee,
+    tokenBalances,
+    depositSOL, depositSPL, withdrawFromL2,
+    calculateFee,
     clearError, clearTx,
   } = useBridge()
 
+  const { price: mythPrice, solToMyth } = useMythPrice()
+
   const [amount, setAmount] = useState('')
+  const [l1Recipient, setL1Recipient] = useState('')
+  const [showAssetPicker, setShowAssetPicker] = useState(false)
+
+  // L2 network liveness metrics
+  const [l2Slot, setL2Slot] = useState<number | null>(null)
+  const [l2Latency, setL2Latency] = useState<number | null>(null)
+
+  const fetchL2Status = useCallback(async () => {
+    try {
+      const l2Rpc = process.env.NEXT_PUBLIC_L2_RPC_URL || 'https://rpc.mythic.sh'
+      const conn = new Connection(l2Rpc, 'confirmed')
+      const start = performance.now()
+      const slot = await conn.getSlot()
+      const latency = Math.round(performance.now() - start)
+      setL2Slot(slot)
+      setL2Latency(latency)
+    } catch { /* L2 unreachable */ }
+  }, [])
+
+  useEffect(() => {
+    fetchL2Status()
+    const interval = setInterval(fetchL2Status, 10_000)
+    return () => clearInterval(interval)
+  }, [fetchL2Status])
 
   const parsedAmount = useMemo(() => {
     const n = parseFloat(amount.replace(/,/g, ''))
@@ -21,17 +63,43 @@ export default function BridgeCard() {
   }, [amount])
 
   const fee = useMemo(() => calculateFee(parsedAmount), [calculateFee, parsedAmount])
-  const receiveAmount = useMemo(() => Math.max(0, parsedAmount - fee), [parsedAmount, fee])
+
+  // Conversion rates: SOL→MYTH and USDC→MYTH use live market price, MYTH→MYTH is 1:1
+  const conversionRate = useMemo(() => {
+    if (direction === 'withdraw') return 1
+    if (selectedAsset.symbol === 'MYTH') return 1
+    if (selectedAsset.symbol === 'SOL' && mythPrice && mythPrice.priceSOL > 0) {
+      return 1 / mythPrice.priceSOL // e.g. if MYTH is 0.0000001 SOL, then 1 SOL = 10M MYTH
+    }
+    if (selectedAsset.symbol === 'USDC' && mythPrice && mythPrice.priceUsd > 0) {
+      return 1 / mythPrice.priceUsd
+    }
+    return 0 // rate not available yet
+  }, [direction, selectedAsset, mythPrice])
+
+  const receiveAmount = useMemo(() => {
+    const afterFee = Math.max(0, parsedAmount - fee)
+    return afterFee * conversionRate
+  }, [parsedAmount, fee, conversionRate])
 
   const isPaused = direction === 'deposit' ? stats?.paused : l2Paused
   const fromChain = direction === 'deposit' ? 'Solana L1' : 'Mythic L2'
   const toChain = direction === 'deposit' ? 'Mythic L2' : 'Solana L1'
-  const fromBalance = direction === 'deposit' ? balance : l2Balance
+
+  // Source token label (actual L1 asset name)
+  const tokenLabel = direction === 'deposit' ? selectedAsset.symbol : 'MYTH'
+
+  // Balance depends on direction and selected asset
+  const fromBalance = useMemo(() => {
+    if (direction === 'withdraw') return l2Balance
+    if (selectedAsset.symbol === 'SOL') return balance
+    return tokenBalances[selectedAsset.symbol] ?? null
+  }, [direction, selectedAsset, balance, l2Balance, tokenBalances])
 
   const handleMax = () => {
     if (fromBalance !== null && fromBalance > 0) {
-      // Reserve 0.01 for tx fees (SOL on L1, MYTH on L2)
-      const max = Math.max(0, fromBalance - 0.01)
+      const reserve = direction === 'deposit' && selectedAsset.symbol === 'SOL' ? 0.01 : 0.001
+      const max = Math.max(0, fromBalance - reserve)
       setAmount(max.toFixed(4))
     }
   }
@@ -42,8 +110,25 @@ export default function BridgeCard() {
     clearTx()
     try {
       if (direction === 'deposit') {
-        await depositSOL(parsedAmount)
+        if (selectedAsset.l1Mint) {
+          await depositSPL(parsedAmount, selectedAsset)
+        } else {
+          await depositSOL(parsedAmount)
+        }
         setAmount('')
+      } else {
+        const recipient = l1Recipient.trim()
+        let recipientPubkey: PublicKey | undefined
+        if (recipient) {
+          try {
+            recipientPubkey = new PublicKey(recipient)
+          } catch {
+            throw new Error('Invalid L1 recipient address')
+          }
+        }
+        await withdrawFromL2(parsedAmount, recipientPubkey)
+        setAmount('')
+        setL1Recipient('')
       }
     } catch {
       // error already set in hook
@@ -55,7 +140,7 @@ export default function BridgeCard() {
       ? stats
         ? parsedAmount >= stats.minDeposit && parsedAmount <= stats.maxDeposit && parsedAmount <= stats.dailyRemaining
         : false
-      : false)
+      : l2Balance !== null && parsedAmount <= (l2Balance ?? 0))
 
   return (
     <div className="w-full max-w-lg mx-auto space-y-4">
@@ -78,18 +163,20 @@ export default function BridgeCard() {
             </>
           )}
         </div>
-        {stats && (
-          <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4">
+          {l2Slot !== null && (
             <div className="text-right">
-              <span className="font-mono text-[0.5rem] tracking-[0.1em] uppercase text-mythic-text-muted block">TVL</span>
-              <span className="font-mono text-[0.65rem] text-white">{solVaultTvl.toFixed(2)} SOL</span>
+              <span className="font-mono text-[0.5rem] tracking-[0.1em] uppercase text-mythic-text-muted block">L2 Slot</span>
+              <span className="font-mono text-[0.65rem] text-white">{l2Slot.toLocaleString()}</span>
             </div>
+          )}
+          {l2Latency !== null && (
             <div className="text-right">
-              <span className="font-mono text-[0.5rem] tracking-[0.1em] uppercase text-mythic-text-muted block">24h Volume</span>
-              <span className="font-mono text-[0.65rem] text-white">{stats.dailyVolume.toFixed(2)} SOL</span>
+              <span className="font-mono text-[0.5rem] tracking-[0.1em] uppercase text-mythic-text-muted block">Latency</span>
+              <span className={`font-mono text-[0.65rem] ${l2Latency < 500 ? 'text-[#39FF14]' : l2Latency < 1500 ? 'text-mythic-amber' : 'text-mythic-error'}`}>{l2Latency}ms</span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Main Card */}
@@ -97,48 +184,36 @@ export default function BridgeCard() {
         {/* Tabs */}
         <div className="flex border-b border-white/[0.06]">
           <button
-            onClick={() => { setDirection('deposit'); clearError(); clearTx() }}
+            onClick={() => { setDirection('deposit'); clearError(); clearTx(); setAmount('') }}
             className={`flex-1 py-4 font-mono text-[0.65rem] tracking-[0.1em] uppercase font-medium transition-colors ${
               direction === 'deposit'
                 ? 'text-white border-b-2 border-mythic-violet bg-mythic-violet/5'
                 : 'text-mythic-text-dim hover:text-white'
             }`}
           >
-            Deposit
+            Deposit (L1 &rarr; L2)
           </button>
           <button
-            onClick={() => { setDirection('withdraw'); clearError(); clearTx() }}
+            onClick={() => { setDirection('withdraw'); clearError(); clearTx(); setAmount('') }}
             className={`flex-1 py-4 font-mono text-[0.65rem] tracking-[0.1em] uppercase font-medium transition-colors ${
               direction === 'withdraw'
                 ? 'text-white border-b-2 border-mythic-violet bg-mythic-violet/5'
                 : 'text-mythic-text-dim hover:text-white'
             }`}
           >
-            Withdraw <span className="text-mythic-text-muted">(Coming Soon)</span>
+            Withdraw (L2 &rarr; L1)
           </button>
         </div>
 
         <div className="p-6 space-y-4">
-          {direction === 'withdraw' ? (
-            <div className="py-12 text-center space-y-3">
-              <svg className="w-10 h-10 text-mythic-text-muted mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <p className="text-mythic-text text-[0.88rem]">L2 to L1 withdrawals will launch with mainnet.</p>
-              <p className="font-mono text-[0.65rem] text-mythic-text-dim">
-                Follow <a href="https://x.com/Mythic_L2" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:underline">@Mythic_L2</a> for updates.
-              </p>
-            </div>
-          ) : !stats ? (
+          {!stats && direction === 'deposit' ? (
             <div className="py-12 text-center space-y-3">
               <svg className="w-8 h-8 text-mythic-violet mx-auto animate-spin" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               <p className="text-mythic-text text-[0.88rem]">Loading bridge configuration...</p>
-              <p className="font-mono text-[0.65rem] text-mythic-text-dim">
-                Connecting to Mythic L2 network
-              </p>
+              <p className="font-mono text-[0.65rem] text-mythic-text-dim">Connecting to Solana mainnet</p>
             </div>
           ) : (
             <>
@@ -150,14 +225,50 @@ export default function BridgeCard() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center">
-                      <span className="text-xs font-bold text-white">S</span>
-                    </div>
-                    <span className="text-white font-medium text-[0.9rem]">{fromChain}</span>
+                    {direction === 'deposit' ? (
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowAssetPicker(!showAssetPicker)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] hover:border-mythic-violet/30 transition-colors"
+                        >
+                          <TokenIcon symbol={selectedAsset.symbol} size={20} />
+                          <span className="text-white font-medium text-[0.85rem]">{selectedAsset.symbol}</span>
+                          <svg className="w-3 h-3 text-mythic-text-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showAssetPicker && (
+                          <div className="absolute top-full left-0 mt-1 w-40 bg-[#0C0C12] border border-white/[0.08] z-10">
+                            {SUPPORTED_ASSETS.map((asset) => (
+                              <button
+                                key={asset.symbol}
+                                onClick={() => {
+                                  setSelectedAsset(asset)
+                                  setShowAssetPicker(false)
+                                  setAmount('')
+                                  clearError()
+                                }}
+                                className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.04] transition-colors ${
+                                  asset.symbol === selectedAsset.symbol ? 'bg-mythic-violet/10 text-white' : 'text-mythic-text-dim'
+                                }`}
+                              >
+                                <TokenIcon symbol={asset.symbol} size={18} />
+                                <span className="text-[0.8rem] font-medium">{asset.symbol}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-3 py-1.5">
+                        <TokenIcon symbol="MYTH" size={20} />
+                        <span className="text-white font-medium text-[0.85rem]">MYTH</span>
+                      </div>
+                    )}
                   </div>
                   {connected && fromBalance !== null && (
                     <span className="font-mono text-[0.6rem] text-mythic-text-dim">
-                      Balance: {fromBalance.toFixed(4)} SOL
+                      Balance: {fromBalance.toFixed(4)} {tokenLabel}
                     </span>
                   )}
                 </div>
@@ -172,24 +283,22 @@ export default function BridgeCard() {
                 </div>
               </div>
 
-              {/* To */}
+              {/* To — always MYTH on L2 */}
               <div className="bg-black border border-white/[0.06] p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted">To</span>
                   <span className="font-mono text-[0.55rem] tracking-[0.1em] text-mythic-text-dim">{toChain}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center">
-                    <span className="text-xs font-bold text-white">M</span>
-                  </div>
-                  <span className="text-white font-medium text-[0.9rem]">{toChain}</span>
+                <div className="flex items-center gap-3 px-3 py-1.5">
+                  <TokenIcon symbol="MYTH" size={20} />
+                  <span className="text-white font-medium text-[0.85rem]">MYTH</span>
                 </div>
               </div>
 
               {/* Amount Input */}
               <div>
                 <label className="block font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">
-                  Amount (SOL)
+                  Amount ({tokenLabel})
                 </label>
                 <div className="flex items-center gap-2 p-3 bg-black border border-white/[0.06] focus-within:border-mythic-violet/30 transition-colors">
                   <input
@@ -213,34 +322,86 @@ export default function BridgeCard() {
                 </div>
               </div>
 
-              {/* Deposit Limits */}
-              {stats && (
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-black border border-white/[0.06] p-2.5 text-center">
-                    <span className="block font-mono text-[0.45rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">Min</span>
-                    <span className="block font-mono text-[0.65rem] text-white">{stats.minDeposit} SOL</span>
-                  </div>
-                  <div className="bg-black border border-white/[0.06] p-2.5 text-center">
-                    <span className="block font-mono text-[0.45rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">Max</span>
-                    <span className="block font-mono text-[0.65rem] text-white">{stats.maxDeposit.toLocaleString()} SOL</span>
-                  </div>
-                  <div className="bg-black border border-white/[0.06] p-2.5 text-center">
-                    <span className="block font-mono text-[0.45rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">24h Left</span>
-                    <span className="block font-mono text-[0.65rem] text-white">{stats.dailyRemaining.toFixed(0)} SOL</span>
+              {/* L1 Recipient (withdrawal only) */}
+              {direction === 'withdraw' && (
+                <div>
+                  <label className="block font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">
+                    L1 Recipient (optional, defaults to connected wallet)
+                  </label>
+                  <div className="p-3 bg-black border border-white/[0.06] focus-within:border-mythic-violet/30 transition-colors">
+                    <input
+                      type="text"
+                      value={l1Recipient}
+                      onChange={(e) => setL1Recipient(e.target.value.trim())}
+                      placeholder="Solana L1 address (leave blank for same wallet)"
+                      className="w-full bg-transparent text-white text-[0.8rem] font-mono outline-none placeholder:text-white/20"
+                    />
                   </div>
                 </div>
               )}
 
-              {/* Fee + Receive */}
+
+
+
+              {/* Withdrawal Info */}
+              {direction === 'withdraw' && (
+                <div className="bg-mythic-violet/5 border border-mythic-violet/20 p-3 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-3.5 h-3.5 text-mythic-violet flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-mono text-[0.6rem] text-mythic-violet font-medium">Withdrawal Info</span>
+                  </div>
+                  <p className="font-mono text-[0.55rem] text-mythic-text-dim leading-relaxed">
+                    Withdrawals send MYTH from L2 to the bridge reserve. The relayer initiates a withdrawal on L1 with a ~42 hour challenge period before funds can be claimed.
+                  </p>
+                </div>
+              )}
+
+              {/* Fee + Rate + Receive */}
               {parsedAmount > 0 && (
                 <div className="space-y-1.5 px-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[0.6rem] text-mythic-text-dim">Bridge Fee ({stats ? stats.feeBps / 100 : 0.1}%)</span>
-                    <span className="font-mono text-[0.6rem] text-mythic-text-dim">{fee.toFixed(6)} SOL</span>
-                  </div>
+                  {direction === 'deposit' && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[0.6rem] text-mythic-text-dim">Bridge Fee ({stats ? stats.feeBps / 100 : 0}%)</span>
+                      <span className="font-mono text-[0.6rem] text-mythic-text-dim">{fee.toFixed(6)} {tokenLabel}</span>
+                    </div>
+                  )}
+                  {direction === 'deposit' && selectedAsset.symbol !== 'MYTH' && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[0.6rem] text-mythic-text-dim">Rate</span>
+                      <span className="font-mono text-[0.6rem] text-mythic-text-dim">
+                        {selectedAsset.symbol === 'SOL' && mythPrice && mythPrice.priceSOL > 0
+                          ? `1 SOL ≈ ${(1 / mythPrice.priceSOL).toLocaleString(undefined, { maximumFractionDigits: 0 })} MYTH`
+                          : selectedAsset.symbol === 'USDC' && mythPrice && mythPrice.priceUsd > 0
+                            ? `1 USDC ≈ ${(1 / mythPrice.priceUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })} MYTH`
+                            : 'Loading rate...'}
+                      </span>
+                    </div>
+                  )}
+                  {direction === 'deposit' && mythPrice && mythPrice.priceUsd > 0 && selectedAsset.symbol !== 'MYTH' && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[0.6rem] text-mythic-text-dim">MYTH Price</span>
+                      <span className="font-mono text-[0.6rem] text-mythic-text-dim">
+                        ${mythPrice.priceUsd.toFixed(6)} USD
+                      </span>
+                    </div>
+                  )}
+                  {direction === 'deposit' && mythPrice && mythPrice.solPriceUsd > 0 && selectedAsset.symbol === 'SOL' && (
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[0.6rem] text-mythic-text-dim">SOL Price</span>
+                      <span className="font-mono text-[0.6rem] text-mythic-text-dim">
+                        ${mythPrice.solPriceUsd.toFixed(2)} USD
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[0.6rem] text-white">You Receive</span>
-                    <span className="font-mono text-[0.6rem] text-white font-medium">{receiveAmount.toFixed(6)} MYTH</span>
+                    <span className="font-mono text-[0.6rem] text-white font-medium">
+                      {conversionRate > 0
+                        ? `~${receiveAmount.toLocaleString(undefined, { maximumFractionDigits: receiveAmount > 1000 ? 0 : 6 })} MYTH`
+                        : 'Loading...'}
+                    </span>
                   </div>
                 </div>
               )}
@@ -255,22 +416,31 @@ export default function BridgeCard() {
                 </div>
               )}
 
-              {/* Success — tx signature */}
+              {/* Success */}
               {txSignature && (
                 <div className="flex items-start gap-2 p-3 border-l-[3px] border-[#39FF14] bg-[#39FF14]/5">
                   <svg className="w-4 h-4 text-[#39FF14] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <div>
-                    <p className="text-[#39FF14]/90 text-[0.75rem] font-medium mb-1">Deposit Submitted</p>
+                    <p className="text-[#39FF14]/90 text-[0.75rem] font-medium mb-1">
+                      {direction === 'deposit' ? 'Deposit Submitted' : 'Withdrawal Submitted'}
+                    </p>
                     <a
-                      href={`https://explorer.mythic.sh/tx/${txSignature}`}
+                      href={direction === 'deposit'
+                        ? `https://solscan.io/tx/${txSignature}`
+                        : `https://explorer.mythic.sh/tx/${txSignature}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-[0.6rem] text-mythic-violet hover:text-mythic-violet-bright underline break-all"
                     >
                       {txSignature.slice(0, 20)}...{txSignature.slice(-8)}
                     </a>
+                    {direction === 'withdraw' && (
+                      <p className="font-mono text-[0.55rem] text-mythic-text-dim mt-1">
+                        The relayer will process this withdrawal on L1. Challenge period: ~42 hours.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -282,7 +452,7 @@ export default function BridgeCard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <p className="text-mythic-error/90 text-[0.75rem] leading-relaxed">
-                    The bridge is currently <strong>paused</strong> by the admin. Deposits and withdrawals are temporarily disabled.
+                    The bridge is currently <strong>paused</strong>. Deposits and withdrawals are temporarily disabled.
                   </p>
                 </div>
               )}
@@ -302,8 +472,10 @@ export default function BridgeCard() {
                       </svg>
                       Processing...
                     </span>
+                  ) : direction === 'deposit' ? (
+                    `Deposit ${selectedAsset.symbol} to Mythic L2`
                   ) : (
-                    'Deposit to Mythic L2'
+                    'Withdraw MYTH to Solana L1'
                   )}
                 </button>
               ) : (
@@ -345,11 +517,11 @@ export default function BridgeCard() {
       <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden">
         <div className="px-6 py-4 border-b border-white/[0.06]">
           <h3 className="font-display text-white font-medium text-[0.9rem]">
-            {direction === 'deposit' ? 'Recent Deposits' : 'Pending Withdrawals'}
+            Recent Bridge Transactions
           </h3>
         </div>
 
-        {direction === 'deposit' && deposits.length > 0 ? (
+        {deposits.length > 0 ? (
           <div className="divide-y divide-white/[0.04]">
             {deposits.map((d) => (
               <div key={d.signature} className="px-6 py-3 flex items-center justify-between">
@@ -364,7 +536,7 @@ export default function BridgeCard() {
                       {d.amount.toFixed(4)} {d.token}
                     </div>
                     <a
-                      href={`https://explorer.mythic.sh/tx/${d.signature}`}
+                      href={`https://solscan.io/tx/${d.signature}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-mythic-text-dim text-[0.65rem] hover:text-mythic-violet"
@@ -394,9 +566,7 @@ export default function BridgeCard() {
           <div className="px-6 py-8 text-center">
             <p className="font-mono text-[0.65rem] text-mythic-text-dim">
               {connected
-                ? direction === 'deposit'
-                  ? 'No deposits found for this wallet'
-                  : 'Withdrawals will appear here after burning wrapped tokens on L2'
+                ? 'No bridge transactions found for this wallet'
                 : 'Connect wallet to view transaction history'}
             </p>
           </div>

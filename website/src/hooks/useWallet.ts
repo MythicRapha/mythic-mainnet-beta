@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { Connection, PublicKey, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { LAMPORTS_PER_MYTH } from '@/lib/bridge-sdk'
 
 /**
  * Unified wallet provider interface.
@@ -68,7 +69,7 @@ function detectProvider(): { provider: WalletProvider | null; name: WalletName }
 }
 
 const L1_RPC = '/api/l1-rpc'
-const L2_RPC = 'https://rpc.mythic.sh'
+const L2_RPC = process.env.NEXT_PUBLIC_L2_RPC_URL || 'https://rpc.mythic.sh'
 
 interface WalletState {
   connected: boolean
@@ -118,7 +119,7 @@ export function useWallet() {
       setWallet(prev => ({
         ...prev,
         balance: l1Balance / LAMPORTS_PER_SOL,
-        l2Balance: l2Bal !== null ? l2Bal / LAMPORTS_PER_SOL : null,
+        l2Balance: l2Bal !== null ? l2Bal / LAMPORTS_PER_MYTH : null,
       }))
     } catch {
       // silently fail on balance fetch

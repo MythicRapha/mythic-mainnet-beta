@@ -84,7 +84,7 @@ function OverviewSection() {
       </ul>
 
       <InfoBox title="Network Status">
-        Mythic L2 is currently in active development. Testnet is coming soon. Follow <a href="https://x.com/Mythic_L2" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:underline">@Mythic_L2</a> for updates.
+        Mythic L2 testnet is live. Connect at rpc.mythic.sh with any Solana-compatible wallet or CLI. Follow <a href="https://x.com/Mythic_L2" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:underline">@Mythic_L2</a> for updates.
       </InfoBox>
     </section>
   )
@@ -222,58 +222,291 @@ function BridgeDocsSection() {
     <section>
       <SectionHeading id="bridge">Bridge</SectionHeading>
       <Paragraph>
-        The Mythic Bridge allows users to move assets between Solana L1 and Mythic L2. It supports SOL, $MYTH, and USDC with more assets coming soon. Deposited SOL is credited as MYTH on L2.
+        The Mythic Bridge is the core infrastructure that connects Solana L1 and Mythic L2. It enables users to move SOL between the two chains, with deposited SOL credited as MYTH on L2. The bridge uses an optimistic rollup model with fraud proofs, secured by Solana L1 settlement.
       </Paragraph>
 
-      <SubHeading>Depositing (L1 to L2)</SubHeading>
+      {/* Architecture */}
+      <SubHeading>Architecture Overview</SubHeading>
       <Paragraph>
-        Deposits are processed within seconds. When you deposit assets to Mythic L2, the bridge contract on Solana L1 locks your tokens and the Mythic sequencer credits the equivalent amount to your L2 address.
+        The bridge consists of two on-chain programs (one on Solana L1, one on Mythic L2), a relayer service that watches for cross-chain events, and a settlement service that posts Merkle state roots to L1 for verification.
+      </Paragraph>
+      <div id="bridge-architecture" className="scroll-mt-24 bg-[#08080C] border border-white/[0.06] p-6 mb-6 space-y-4">
+        <div className="flex items-start gap-4">
+          <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-mythic-violet text-sm font-bold">L1</span>
+          </div>
+          <div>
+            <h4 className="text-white font-medium mb-1">Solana L1 Bridge Program</h4>
+            <p className="text-mythic-text text-[0.82rem]">Holds the SOL vault, processes deposit/withdrawal instructions, and verifies settlement state roots. Deployed on Solana mainnet.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-4">
+          <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-mythic-violet text-sm font-bold">L2</span>
+          </div>
+          <div>
+            <h4 className="text-white font-medium mb-1">Mythic L2 Bridge Program</h4>
+            <p className="text-mythic-text text-[0.82rem]">Mints MYTH on L2 when deposits are confirmed, and burns MYTH when withdrawals are initiated. Manages the L2 side of the bridge ledger.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-4">
+          <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-mythic-violet text-[0.6rem] font-bold">RLY</span>
+          </div>
+          <div>
+            <h4 className="text-white font-medium mb-1">Relayer</h4>
+            <p className="text-mythic-text text-[0.82rem]">Watches Solana L1 for deposit events via Yellowstone gRPC, then credits the equivalent MYTH on L2 to the user&apos;s address. Also initiates L1 withdrawals when users burn MYTH on L2.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-4">
+          <div className="w-8 h-8 bg-mythic-violet/10 border border-mythic-violet/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span className="text-mythic-violet text-[0.6rem] font-bold">STL</span>
+          </div>
+          <div>
+            <h4 className="text-white font-medium mb-1">Settlement Service</h4>
+            <p className="text-mythic-text text-[0.82rem]">Posts Merkle state roots to Solana L1 every 100 slots (~40 seconds). These roots allow anyone to verify the L2 state and submit fraud proofs if an invalid transition is detected.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Deposit Flow */}
+      <div id="bridge-deposit" className="scroll-mt-24">
+        <SubHeading>Deposit Flow (L1 → L2)</SubHeading>
+      </div>
+      <Paragraph>
+        Deposits move SOL from Solana L1 to Mythic L2, where it is credited as MYTH. The process is fast -- typically confirmed within ~30 seconds.
       </Paragraph>
       <div className="bg-[#08080C] border border-white/[0.06] p-5 mb-6 space-y-3">
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">1.</span>
-          <span className="text-mythic-text">Connect your Solana wallet on the Bridge page</span>
+          <span className="text-mythic-text">Connect your Solana wallet on mythic.sh/bridge</span>
         </div>
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">2.</span>
-          <span className="text-mythic-text">Select asset and enter amount</span>
+          <span className="text-mythic-text">Select the amount of SOL to deposit (min 0.01 SOL, max 1,000 SOL)</span>
         </div>
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">3.</span>
-          <span className="text-mythic-text">Confirm the deposit transaction in your wallet</span>
+          <span className="text-mythic-text">Confirm the transaction -- SOL is sent to the bridge vault on L1</span>
         </div>
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">4.</span>
-          <span className="text-mythic-text">Funds appear on Mythic L2 within ~10 seconds</span>
+          <span className="text-mythic-text">Relayer detects the deposit event on L1</span>
+        </div>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">5.</span>
+          <span className="text-mythic-text">Relayer mints equivalent MYTH on L2 to your address</span>
+        </div>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">6.</span>
+          <span className="text-mythic-text">Funds appear on Mythic L2 within ~30 seconds</span>
         </div>
       </div>
-
-      <SubHeading>Withdrawing (L2 to L1)</SubHeading>
-      <Paragraph>
-        Withdrawals use an optimistic model with a 7-day challenge period. This delay ensures that any fraudulent state transitions can be detected and challenged before funds are released on L1.
-      </Paragraph>
-      <div className="bg-[#08080C] border border-white/[0.06] p-5 mb-6 space-y-3">
-        <div className="flex items-center gap-3 text-[0.82rem]">
-          <span className="text-mythic-violet font-mono">1.</span>
-          <span className="text-mythic-text">Initiate withdrawal on the Bridge page</span>
-        </div>
-        <div className="flex items-center gap-3 text-[0.82rem]">
-          <span className="text-mythic-violet font-mono">2.</span>
-          <span className="text-mythic-text">L2 tokens are burned, withdrawal proof is generated</span>
-        </div>
-        <div className="flex items-center gap-3 text-[0.82rem]">
-          <span className="text-mythic-violet font-mono">3.</span>
-          <span className="text-mythic-text">Wait 7-day challenge period</span>
-        </div>
-        <div className="flex items-center gap-3 text-[0.82rem]">
-          <span className="text-mythic-violet font-mono">4.</span>
-          <span className="text-mythic-text">Claim tokens on Solana L1</span>
-        </div>
-      </div>
-
-      <InfoBox title="Bridge Security">
-        The bridge contract is secured by the Solana L1 validator set. Withdrawal proofs are verified on-chain, and the 7-day challenge period allows any honest observer to submit fraud proofs if the withdrawal is based on an invalid L2 state.
+      <InfoBox title="Deposit Fee">
+        A 0.25% (25 bps) fee is applied to deposits. For example, depositing 10 SOL credits 9.975 MYTH on L2. Fees are distributed through the MYTH fee structure: 50% to validators, 10% to the foundation, and 40% burned.
       </InfoBox>
+
+      {/* Withdrawal Flow */}
+      <div id="bridge-withdraw" className="scroll-mt-24">
+        <SubHeading>Withdrawal Flow (L2 → L1)</SubHeading>
+      </div>
+      <Paragraph>
+        Withdrawals move assets from Mythic L2 back to Solana L1. Because Mythic uses an optimistic rollup model, withdrawals include a 42-hour challenge period to allow fraud proof submission before funds are released.
+      </Paragraph>
+      <div className="bg-[#08080C] border border-white/[0.06] p-5 mb-6 space-y-3">
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">1.</span>
+          <span className="text-mythic-text">Initiate withdrawal on the Bridge page -- MYTH is burned on L2</span>
+        </div>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">2.</span>
+          <span className="text-mythic-text">Relayer generates a withdrawal proof and initiates the withdrawal on L1</span>
+        </div>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">3.</span>
+          <span className="text-mythic-text">Challenge period begins: 42 hours (151,200 seconds)</span>
+        </div>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">4.</span>
+          <span className="text-mythic-text">If unchallenged, the withdrawal is finalized</span>
+        </div>
+        <div className="flex items-center gap-3 text-[0.82rem]">
+          <span className="text-mythic-violet font-mono">5.</span>
+          <span className="text-mythic-text">SOL is released from the L1 vault to your wallet</span>
+        </div>
+      </div>
+      <InfoBox title="Challenge Period">
+        The 42-hour challenge period is a security measure. During this window, any honest observer can submit a fraud proof to the L1 settlement contract if the withdrawal is based on an invalid L2 state. This protects all bridge users from fraudulent state transitions.
+      </InfoBox>
+
+      {/* Bridge Addresses */}
+      <div id="bridge-addresses" className="scroll-mt-24">
+        <SubHeading>Bridge Addresses</SubHeading>
+      </div>
+      <Paragraph>
+        These are the on-chain program addresses for the Mythic bridge infrastructure. Verify these addresses before interacting with the bridge.
+      </Paragraph>
+      <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden mb-6">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Program</th>
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Address</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">L1 Bridge Program</td>
+              <td className="py-3.5 px-4 text-mythic-violet font-mono text-[0.72rem] break-all">oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ</td>
+            </tr>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">L2 Bridge Program</td>
+              <td className="py-3.5 px-4 text-mythic-violet font-mono text-[0.72rem] break-all">MythBrdgL2111111111111111111111111111111111</td>
+            </tr>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">L1 Config PDA</td>
+              <td className="py-3.5 px-4 text-mythic-violet font-mono text-[0.72rem] break-all">4A76xw47iNfTkoC5dGSGND5DW5z3E5gPdjPzp8Gnk9s9</td>
+            </tr>
+            <tr>
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Settlement Program (L1)</td>
+              <td className="py-3.5 px-4 text-mythic-violet font-mono text-[0.72rem] break-all">4TrowzShv4CrsuqZeUdLLVMdnDDkqkmnER1MZ5NsSaav</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Parameters */}
+      <div id="bridge-parameters" className="scroll-mt-24">
+        <SubHeading>Parameters</SubHeading>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+        {[
+          { label: 'Min Deposit', value: '0.01 SOL' },
+          { label: 'Max Deposit', value: '1,000 SOL' },
+          { label: 'Daily Limit', value: '10,000 SOL' },
+          { label: 'Challenge Period', value: '42 hours' },
+          { label: 'Bridge Fee', value: '25 bps (0.25%)' },
+          { label: 'Supported Assets', value: 'SOL' },
+        ].map((item) => (
+          <div key={item.label} className="bg-[#08080C] border border-white/[0.06] p-4">
+            <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">{item.label}</div>
+            <div className="text-white font-semibold text-[0.82rem]">{item.value}</div>
+          </div>
+        ))}
+      </div>
+      <Paragraph>
+        Token-2022 compatible asset bridging is planned for a future upgrade, enabling additional tokens to be bridged between L1 and L2.
+      </Paragraph>
+
+      {/* How to Bridge */}
+      <div id="bridge-how-to" className="scroll-mt-24">
+        <SubHeading>How to Bridge</SubHeading>
+      </div>
+      <Paragraph>
+        There are multiple ways to bridge assets between Solana L1 and Mythic L2:
+      </Paragraph>
+      <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden mb-6">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Method</th>
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Access</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Website</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">
+                <a href="https://mythic.sh/bridge" className="text-mythic-violet hover:underline">mythic.sh/bridge</a>
+              </td>
+            </tr>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Telegram Bot</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">
+                <a href="https://t.me/MythicWalletBot" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:underline">@MythicWalletBot</a> → /bridge
+              </td>
+            </tr>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Wallet Extension</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">Built-in Bridge tab in the Mythic Wallet extension</td>
+            </tr>
+            <tr>
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Web Wallet</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">
+                <a href="https://wallet.mythic.sh" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:underline">wallet.mythic.sh</a> → Bridge
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Security */}
+      <div id="bridge-security" className="scroll-mt-24">
+        <SubHeading>Security</SubHeading>
+      </div>
+      <Paragraph>
+        The Mythic Bridge is secured by multiple layers of protection, combining the security of Solana L1 settlement with optimistic fraud proofs and operational safeguards.
+      </Paragraph>
+      <ul className="space-y-3 mb-6">
+        {[
+          'Optimistic rollup model -- state transitions are assumed valid unless challenged within the 42-hour window',
+          'Settlement roots posted to Solana L1 every 100 slots, verifiable by anyone',
+          'Any honest observer can submit a fraud proof to the L1 settlement contract',
+          'Successful fraud proof challengers are rewarded from the sequencer bond',
+          'Emergency pause mechanism allows the bridge admin to halt operations instantly',
+          'Bridge admin authority will be transferred to a multisig/Ledger hardware wallet before mainnet launch',
+          'Daily withdrawal limit of 10,000 SOL caps exposure in case of exploit',
+        ].map((item) => (
+          <li key={item} className="flex items-start gap-3 text-[0.82rem] text-mythic-text">
+            <svg className="w-4 h-4 text-mythic-violet mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            {item}
+          </li>
+        ))}
+      </ul>
+      <InfoBox title="Testnet Notice">
+        The bridge is currently running on testnet. During the testnet phase, the bridge admin retains upgrade authority for rapid iteration. Before mainnet launch, upgrade authority will be transferred to a multisig controlled by hardware wallets.
+      </InfoBox>
+
+      {/* Fee Structure */}
+      <div id="bridge-fees" className="scroll-mt-24">
+        <SubHeading>Fee Structure</SubHeading>
+      </div>
+      <Paragraph>
+        Bridge operations incur a 25 basis point (0.25%) fee on deposits. This fee is distributed through the standard MYTH fee allocation model, contributing to network security and deflationary pressure.
+      </Paragraph>
+      <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden mb-6">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Destination</th>
+              <th className="text-center py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Share</th>
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Validators</td>
+              <td className="py-3.5 px-4 text-center text-mythic-violet text-[0.82rem]">50%</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">Rewards for block production and AI verification</td>
+            </tr>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Foundation</td>
+              <td className="py-3.5 px-4 text-center text-mythic-violet text-[0.82rem]">10%</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">Protocol development and ecosystem grants</td>
+            </tr>
+            <tr>
+              <td className="py-3.5 px-4 text-white text-[0.82rem]">Burned</td>
+              <td className="py-3.5 px-4 text-center text-mythic-violet text-[0.82rem]">40%</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">Permanently removed from circulation</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <Paragraph>
+        Bridge fees contribute to the deflationary pressure on $MYTH. With 40% of each bridge fee burned, increased bridge usage directly reduces the circulating supply.
+      </Paragraph>
     </section>
   )
 }
@@ -478,28 +711,29 @@ function ValidatorsSection() {
             </tr>
             <tr>
               <td className="py-3.5 px-4 text-white text-[0.82rem]">$MYTH Stake</td>
-              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">TBD</td>
-              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">TBD</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">100,000 MYTH</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">1,000,000 MYTH</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <SubHeading>Validator Setup</SubHeading>
-      <CodeBlock>{`# Install Mythic validator software
-curl -sSf https://mythic.sh/install.sh | sh
+      <CodeBlock>{`# Clone the Mythic validator repository
+git clone https://github.com/MythicL2/mythic-validator.git
+cd mythic-validator
 
-# Initialize validator
-mythic-validator init \\
-  --identity keypair.json \\
-  --stake-account stake.json \\
-  --rpc-url https://rpc.mythic.sh
+# Install dependencies (requires Rust 1.93+ and Solana CLI 3.0+)
+cargo build --release
 
-# Start validator
-mythic-validator start \\
-  --gpu-enabled \\
-  --ai-models llama3,mistral \\
-  --log-level info`}</CodeBlock>
+# Generate validator identity
+solana-keygen new -o validator-keypair.json
+
+# Start the validator (connects to Mythic L2 network)
+solana-test-validator \\
+  --identity validator-keypair.json \\
+  --rpc-url https://rpc.mythic.sh \\
+  --log`}</CodeBlock>
 
       <SubHeading>Rewards</SubHeading>
       <Paragraph>

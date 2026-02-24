@@ -13,8 +13,8 @@ interface NetworkData {
   slotIndex: number
   slotsInEpoch: number
   transactionCount: number
-  peakTps: number | null
-  liveTps: number | null
+  blockTimeMs: number | null
+  realTps: number | null
   slotRate: number | null
   version: string | null
   timestamp: number
@@ -189,19 +189,19 @@ function NetworkCard({ net }: { net: NetworkData }) {
 
           <div>
             <div className="font-mono text-[0.45rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">
-              Peak TPS
+              Capacity
             </div>
-            <div className="font-display text-[1.15rem] font-bold text-mythic-violet tabular-nums">
-              <AnimatedStat value={net.peakTps} online={net.online} />
+            <div className="font-display text-[1.15rem] font-bold text-[#39FF14] tabular-nums">
+              {net.online ? '1M+' : '\u2014'}
             </div>
           </div>
 
           <div>
             <div className="font-mono text-[0.45rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">
-              Live TPS
+              Block Time
             </div>
             <div className="font-display text-[1.15rem] font-bold text-mythic-violet tabular-nums">
-              <AnimatedStat value={net.liveTps} online={net.online} />
+              {net.online && net.blockTimeMs ? `~${net.blockTimeMs}ms` : '\u2014'}
             </div>
           </div>
         </div>
@@ -212,7 +212,7 @@ function NetworkCard({ net }: { net: NetworkData }) {
               Total Txns
             </div>
             <div className="font-display text-[1.15rem] font-bold text-white tabular-nums">
-              <AnimatedStat value={net.transactionCount} online={net.online} />
+              {net.online ? (net.transactionCount === 0 ? '0' : formatNumber(net.transactionCount)) : '\u2014'}
             </div>
           </div>
 

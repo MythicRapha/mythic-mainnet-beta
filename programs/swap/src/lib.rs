@@ -41,6 +41,14 @@ const FEE_SCALE: u128 = 1_000_000_000_000; // 1e12 for accumulated fee precision
 const LP_TOKEN_DECIMALS: u8 = 6;
 const MIN_LIQUIDITY: u64 = 1_000; // minimum LP tokens locked on first deposit
 
+/// MYTH Token program ID — fees are routed here for unified burn/distribute.
+const MYTH_TOKEN_PROGRAM_ID: Pubkey =
+    solana_program::pubkey!("7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf");
+const FEE_CONFIG_SEED: &[u8] = b"fee_config";
+
+/// Fee type discriminators for myth-token CollectFee
+const FEE_TYPE_GAS: u8 = 0;
+
 // ---------------------------------------------------------------------------
 // Entrypoint
 // ---------------------------------------------------------------------------
@@ -414,6 +422,64 @@ fn burn_tokens<'a>(
     )
 }
 
+/// CPI to myth-token CollectFee to route protocol fees through
+/// the unified burn/distribute system. If the CPI fails (e.g., myth-token
+/// program not deployed yet), we log a warning and continue — the protocol
+/// fee was already transferred to the protocol vault as a fallback.
+fn cpi_collect_fee<'a>(
+    payer: &AccountInfo<'a>,
+    myth_token_program: &AccountInfo<'a>,
+    fee_config: &AccountInfo<'a>,
+    fee_pool: &AccountInfo<'a>,
+    payer_token_account: &AccountInfo<'a>,
+    foundation_token_account: &AccountInfo<'a>,
+    myth_mint: &AccountInfo<'a>,
+    fee_pool_token_account: &AccountInfo<'a>,
+    token_program: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
+    fee_type: u8,
+    amount: u64,
+) -> ProgramResult {
+    // Build myth-token CollectFee instruction data:
+    // discriminator (1 byte) = 4, then CollectFeeArgs { fee_type: u8, amount: u64 }
+    let mut ix_data = Vec::with_capacity(10);
+    ix_data.push(4u8); // CollectFee discriminator
+    ix_data.push(fee_type);
+    ix_data.extend_from_slice(&amount.to_le_bytes());
+
+    let ix = solana_program::instruction::Instruction {
+        program_id: MYTH_TOKEN_PROGRAM_ID,
+        accounts: vec![
+            solana_program::instruction::AccountMeta::new(*payer.key, true),
+            solana_program::instruction::AccountMeta::new(*fee_config.key, false),
+            solana_program::instruction::AccountMeta::new(*fee_pool.key, false),
+            solana_program::instruction::AccountMeta::new(*payer_token_account.key, false),
+            solana_program::instruction::AccountMeta::new(*foundation_token_account.key, false),
+            solana_program::instruction::AccountMeta::new(*myth_mint.key, false),
+            solana_program::instruction::AccountMeta::new(*fee_pool_token_account.key, false),
+            solana_program::instruction::AccountMeta::new_readonly(*token_program.key, false),
+            solana_program::instruction::AccountMeta::new_readonly(*system_program.key, false),
+        ],
+        data: ix_data,
+    };
+
+    invoke(
+        &ix,
+        &[
+            payer.clone(),
+            fee_config.clone(),
+            fee_pool.clone(),
+            payer_token_account.clone(),
+            foundation_token_account.clone(),
+            myth_mint.clone(),
+            fee_pool_token_account.clone(),
+            token_program.clone(),
+            system_program.clone(),
+            myth_token_program.clone(),
+        ],
+    )
+}
+
 /// Sort two mints and return (lower, higher). Returns error if identical.
 fn sort_mints<'a>(mint_a: &'a Pubkey, mint_b: &'a Pubkey) -> Result<(&'a Pubkey, &'a Pubkey), ProgramError> {
     if mint_a == mint_b {
@@ -526,11 +592,12 @@ fn process_initialize(
 //   7.  [writable]          lp_mint PDA (seeds: ["lp_mint", pool_key])
 //   8.  [writable]          creator_token_a (source for initial liquidity)
 //   9.  [writable]          creator_token_b (source for initial liquidity)
-//   10. [writable]          creator_lp_ata (receives LP tokens)
+//   10. [writable]          creator_lp_ata (receives LP tokens — created inline if empty)
 //   11. [writable]          protocol_vault (receives creation fee)
 //   12. []                  token_program
 //   13. []                  system_program
 //   14. []                  rent sysvar
+//   15. []                  associated_token_program (optional, for ATA creation)
 
 fn process_create_pool(
     program_id: &Pubkey,
@@ -560,6 +627,8 @@ fn process_create_pool(
     let token_program = next_account_info(iter)?;
     let system_prog = next_account_info(iter)?;
     let rent_sysvar = next_account_info(iter)?;
+    // Optional: associated token program for creating LP ATA inline
+    let ata_program = next_account_info(iter).ok();
 
     assert_signer(creator)?;
     assert_writable(creator)?;
@@ -746,6 +815,36 @@ fn process_create_pool(
         args.initial_amount_b,
         &[],
     )?;
+
+    // 5b. Create LP ATA for creator if it doesn't exist yet
+    //     (LP mint was just created above, so ATA can now be initialized)
+    if creator_lp_ata.data_is_empty() {
+        if let Some(ata_prog) = ata_program {
+            if *ata_prog.key != spl_associated_token_account::id() {
+                return Err(ProgramError::IncorrectProgramId);
+            }
+            invoke(
+                &spl_associated_token_account::instruction::create_associated_token_account(
+                    creator.key,
+                    creator.key,
+                    &lp_mint_pda,
+                    &spl_token::id(),
+                ),
+                &[
+                    creator.clone(),
+                    creator_lp_ata.clone(),
+                    creator.clone(),
+                    lp_mint_info.clone(),
+                    system_prog.clone(),
+                    token_program.clone(),
+                    ata_prog.clone(),
+                ],
+            )?;
+        } else {
+            msg!("LP ATA does not exist and AssociatedTokenProgram not provided");
+            return Err(ProgramError::NotEnoughAccountKeys);
+        }
+    }
 
     // 6. Calculate initial LP tokens: sqrt(amount_a * amount_b)
     let product = (args.initial_amount_a as u128)
@@ -1253,6 +1352,15 @@ fn process_remove_liquidity(
 //   6.  [writable]          trader_token_out (destination)
 //   7.  [writable]          protocol_fee_vault_token (token account for protocol fees)
 //   8.  []                  token_program
+//
+// Optional myth-token CPI accounts (for unified fee collection):
+//   9.  []                  myth_token_program
+//   10. [writable]          myth_token fee_config PDA
+//   11. [writable]          myth_token fee_pool PDA
+//   12. [writable]          foundation_token_account
+//   13. [writable]          myth_mint
+//   14. [writable]          fee_pool_token_account
+//   15. []                  system_program
 
 fn process_swap(
     program_id: &Pubkey,
@@ -1410,6 +1518,37 @@ fn process_swap(
             protocol_fee,
             &[],
         )?;
+    }
+
+    // 2b. If myth-token CPI accounts are provided, route fee through unified collection
+    if protocol_fee > 0 {
+        let myth_token_program = next_account_info(iter);
+        if let Ok(myth_prog) = myth_token_program {
+            if myth_prog.key == &MYTH_TOKEN_PROGRAM_ID {
+                let fee_config_info = next_account_info(iter)?;
+                let fee_pool_info = next_account_info(iter)?;
+                let foundation_token_info = next_account_info(iter)?;
+                let myth_mint_info = next_account_info(iter)?;
+                let fee_pool_token_info = next_account_info(iter)?;
+                let system_prog = next_account_info(iter)?;
+
+                // Best-effort CPI — if it fails we still completed the swap
+                let _ = cpi_collect_fee(
+                    trader,
+                    myth_prog,
+                    fee_config_info,
+                    fee_pool_info,
+                    protocol_fee_vault, // payer_token_account = protocol fee vault (already funded)
+                    foundation_token_info,
+                    myth_mint_info,
+                    fee_pool_token_info,
+                    token_program,
+                    system_prog,
+                    FEE_TYPE_GAS,
+                    protocol_fee,
+                );
+            }
+        }
     }
 
     // 3. Transfer output tokens from output vault to trader

@@ -39,6 +39,14 @@ const MAX_TOKEN_URI_LEN: usize = 200;
 const MAX_DESCRIPTION_LEN: usize = 256;
 const TOKEN_DECIMALS: u8 = 6;
 
+/// MYTH Token program ID — fees are routed here for unified burn/distribute.
+const MYTH_TOKEN_PROGRAM_ID: Pubkey =
+    solana_program::pubkey!("7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf");
+const FEE_CONFIG_SEED_MT: &[u8] = b"fee_config";
+
+/// Fee type discriminators for myth-token CollectFee
+const FEE_TYPE_COMPUTE: u8 = 1;
+
 // Default values (used in tests and client-side configuration)
 pub const DEFAULT_GRADUATION_THRESHOLD: u64 = 85_000_000_000; // 85 MYTH
 pub const DEFAULT_PROTOCOL_FEE_BPS: u16 = 100; // 1%
@@ -571,6 +579,62 @@ fn burn_tokens<'a>(
     }
 }
 
+/// CPI to myth-token CollectFee — routes protocol fees through the unified
+/// burn/distribution engine. Best-effort: callers should ignore errors so
+/// that the launchpad still works even if the myth-token program is not
+/// deployed or the accounts are missing.
+fn cpi_collect_fee<'a>(
+    payer: &AccountInfo<'a>,
+    myth_token_program: &AccountInfo<'a>,
+    fee_config: &AccountInfo<'a>,
+    fee_pool: &AccountInfo<'a>,
+    payer_token_account: &AccountInfo<'a>,
+    foundation_token_account: &AccountInfo<'a>,
+    myth_mint: &AccountInfo<'a>,
+    fee_pool_token_account: &AccountInfo<'a>,
+    token_program: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
+    fee_type: u8,
+    amount: u64,
+) -> ProgramResult {
+    let mut ix_data = Vec::with_capacity(10);
+    ix_data.push(4u8); // CollectFee discriminator
+    ix_data.push(fee_type);
+    ix_data.extend_from_slice(&amount.to_le_bytes());
+
+    let ix = solana_program::instruction::Instruction {
+        program_id: MYTH_TOKEN_PROGRAM_ID,
+        accounts: vec![
+            solana_program::instruction::AccountMeta::new(*payer.key, true),
+            solana_program::instruction::AccountMeta::new(*fee_config.key, false),
+            solana_program::instruction::AccountMeta::new(*fee_pool.key, false),
+            solana_program::instruction::AccountMeta::new(*payer_token_account.key, false),
+            solana_program::instruction::AccountMeta::new(*foundation_token_account.key, false),
+            solana_program::instruction::AccountMeta::new(*myth_mint.key, false),
+            solana_program::instruction::AccountMeta::new(*fee_pool_token_account.key, false),
+            solana_program::instruction::AccountMeta::new_readonly(*token_program.key, false),
+            solana_program::instruction::AccountMeta::new_readonly(*system_program.key, false),
+        ],
+        data: ix_data,
+    };
+
+    invoke(
+        &ix,
+        &[
+            payer.clone(),
+            fee_config.clone(),
+            fee_pool.clone(),
+            payer_token_account.clone(),
+            foundation_token_account.clone(),
+            myth_mint.clone(),
+            fee_pool_token_account.clone(),
+            token_program.clone(),
+            system_program.clone(),
+            myth_token_program.clone(),
+        ],
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Instruction 0: Initialize
 // ---------------------------------------------------------------------------
@@ -653,15 +717,16 @@ fn process_initialize(
 //   1.  [writable]          launchpad_config PDA
 //   2.  [writable]          token_launch PDA (seeds: ["token_launch", mint.key])
 //   3.  [writable]          mint PDA (seeds: ["mint", launch_index.to_le_bytes()])
-//   4.  [writable]          curve_vault — $MYTH ATA for the mint PDA (holds buyer $MYTH)
-//   5.  []                  myth_mint — the $MYTH token mint
-//   6.  [writable]          creator_myth_ata — creator's $MYTH token account (for pre-buy cost)
-//   7.  [writable]          creator_token_ata — creator's ATA for the new token (receives pre-buy)
-//   8.  [writable]          foundation_myth_ata — foundation $MYTH account (receives fees)
-//   9.  []                  token_program (spl_token)
-//   10. []                  associated_token_program
-//   11. []                  system_program
-//   12. []                  rent sysvar
+//   4.  [writable]          curve_vault — $MYTH ATA owned by curve_vault_authority
+//   5.  []                  curve_vault_authority — PDA (seeds: ["curve_vault", mint.key])
+//   6.  []                  myth_mint — the $MYTH token mint
+//   7.  [writable]          creator_myth_ata — creator's $MYTH token account (for pre-buy cost)
+//   8.  [writable]          creator_token_ata — creator's ATA for the new token (receives pre-buy)
+//   9.  [writable]          foundation_myth_ata — foundation $MYTH account (receives fees)
+//   10. []                  token_program (spl_token)
+//   11. []                  associated_token_program
+//   12. []                  system_program
+//   13. []                  rent sysvar
 
 fn process_create_token(
     program_id: &Pubkey,
@@ -697,6 +762,7 @@ fn process_create_token(
     let token_launch_account = next_account_info(account_iter)?;
     let mint_account = next_account_info(account_iter)?;
     let curve_vault = next_account_info(account_iter)?;
+    let curve_vault_authority = next_account_info(account_iter)?;
     let myth_mint = next_account_info(account_iter)?;
     let creator_myth_ata = next_account_info(account_iter)?;
     let creator_token_ata = next_account_info(account_iter)?;
@@ -723,12 +789,6 @@ fn process_create_token(
         return Err(LaunchpadError::ProgramPaused.into());
     }
 
-    // Load and validate config
-    let mut config = LaunchpadConfig::try_from_slice(&config_account.data.borrow())?;
-    if !config.is_initialized {
-        return Err(LaunchpadError::NotInitialized.into());
-    }
-
     let launch_index = config.total_tokens_launched;
     let launch_index_bytes = launch_index.to_le_bytes();
 
@@ -746,10 +806,20 @@ fn process_create_token(
         return Err(LaunchpadError::InvalidPDA.into());
     }
 
-    // Derive curve_vault PDA (seeds: ["curve_vault", mint_pubkey])
+    // Derive curve_vault authority PDA (seeds: ["curve_vault", mint_pubkey])
     let (vault_pda, _vault_bump) =
         Pubkey::find_program_address(&[CURVE_VAULT_SEED, mint_pda.as_ref()], program_id);
-    if curve_vault.key != &vault_pda {
+    if curve_vault_authority.key != &vault_pda {
+        return Err(LaunchpadError::InvalidPDA.into());
+    }
+
+    // curve_vault (account[4]) is the ATA for $MYTH owned by the vault PDA.
+    // Validate it's the correct ATA derivation.
+    let expected_vault_ata = spl_associated_token_account::get_associated_token_address(
+        &vault_pda,
+        myth_mint.key,
+    );
+    if curve_vault.key != &expected_vault_ata {
         return Err(LaunchpadError::InvalidPDA.into());
     }
 
@@ -772,8 +842,6 @@ fn process_create_token(
     )?;
 
     // Initialize the mint with the mint PDA itself as authority (the program signs via PDA)
-    // We use the token_launch PDA as mint authority so we can sign mints from there.
-    // Actually, we use the mint PDA itself as the authority — cleaner approach.
     invoke_signed(
         &spl_token::instruction::initialize_mint(
             &spl_token::id(),
@@ -786,21 +854,20 @@ fn process_create_token(
         &[&[MINT_SEED, &launch_index_bytes, &[mint_bump]]],
     )?;
 
-    // 2. Create the curve vault (ATA for $MYTH held by the curve_vault PDA)
-    //    The curve_vault PDA will hold $MYTH tokens paid by buyers.
-    //    We create it as an ATA owned by the curve_vault PDA.
+    // 2. Create the curve vault ATA for $MYTH (owned by the vault PDA).
+    //    Uses idempotent create — succeeds even if already created.
     invoke(
-        &spl_associated_token_account::instruction::create_associated_token_account(
-            creator.key,        // payer
-            &vault_pda,         // wallet (owner of the ATA)
-            myth_mint.key,      // the $MYTH mint
+        &spl_associated_token_account::instruction::create_associated_token_account_idempotent(
+            creator.key,
+            &vault_pda,    // owner of the ATA = the curve_vault authority PDA
+            myth_mint.key, // $MYTH mint
             &spl_token::id(),
         ),
         &[
-            creator.clone(),
-            curve_vault.clone(),
-            mint_account.clone(), // not used but passed for ATA derivation context
-            myth_mint.clone(),
+            creator.clone(),              // funding account (payer)
+            curve_vault.clone(),          // associated token account to create
+            curve_vault_authority.clone(), // wallet (owner of the ATA)
+            myth_mint.clone(),            // token mint
             system_program.clone(),
             token_program.clone(),
             associated_token_program.clone(),
@@ -971,6 +1038,13 @@ fn process_create_token(
 //   9. []                  token_program
 //   10. []                 associated_token_program
 //   11. []                 system_program
+//
+// Optional myth-token CPI accounts (for unified fee collection):
+//   12. []                 myth_token_program
+//   13. [writable]         myth_token fee_config PDA
+//   14. [writable]         myth_token fee_pool PDA
+//   15. [writable]         myth_mint (for burning)
+//   16. [writable]         fee_pool_token_account
 
 fn process_buy(
     program_id: &Pubkey,
@@ -1080,6 +1154,34 @@ fn process_buy(
         )?;
     }
 
+    // Optional myth-token CPI for unified fee tracking/burning
+    if fee > 0 {
+        let myth_token_program = next_account_info(account_iter);
+        if let Ok(myth_prog) = myth_token_program {
+            if myth_prog.key == &MYTH_TOKEN_PROGRAM_ID {
+                let fee_config_info = next_account_info(account_iter)?;
+                let fee_pool_info = next_account_info(account_iter)?;
+                let myth_mint_info = next_account_info(account_iter)?;
+                let fee_pool_token_info = next_account_info(account_iter)?;
+
+                let _ = cpi_collect_fee(
+                    buyer,
+                    myth_prog,
+                    fee_config_info,
+                    fee_pool_info,
+                    foundation_myth_ata,
+                    foundation_myth_ata,
+                    myth_mint_info,
+                    fee_pool_token_info,
+                    token_program,
+                    system_program,
+                    FEE_TYPE_COMPUTE,
+                    fee,
+                );
+            }
+        }
+    }
+
     // Create buyer's token ATA if needed (idempotent)
     invoke(
         &spl_associated_token_account::instruction::create_associated_token_account_idempotent(
@@ -1165,6 +1267,13 @@ fn process_buy(
 //   7. [writable]          seller_token_ata — seller's token account (tokens burned from here)
 //   8. [writable]          foundation_myth_ata — foundation $MYTH account (fees)
 //   9. []                  token_program
+//
+// Optional myth-token CPI accounts (for unified fee collection):
+//   10. []                 myth_token_program
+//   11. [writable]         myth_token fee_config PDA
+//   12. [writable]         myth_token fee_pool PDA
+//   13. [writable]         myth_mint (for burning)
+//   14. [writable]         fee_pool_token_account
 
 fn process_sell(
     program_id: &Pubkey,
@@ -1294,6 +1403,35 @@ fn process_sell(
         )?;
     }
 
+    // Optional myth-token CPI for unified fee tracking/burning
+    if fee > 0 {
+        let myth_token_program = next_account_info(account_iter);
+        if let Ok(myth_prog) = myth_token_program {
+            if myth_prog.key == &MYTH_TOKEN_PROGRAM_ID {
+                let fee_config_info = next_account_info(account_iter)?;
+                let fee_pool_info = next_account_info(account_iter)?;
+                let myth_mint_info = next_account_info(account_iter)?;
+                let fee_pool_token_info = next_account_info(account_iter)?;
+                let system_prog = next_account_info(account_iter)?;
+
+                let _ = cpi_collect_fee(
+                    seller,
+                    myth_prog,
+                    fee_config_info,
+                    fee_pool_info,
+                    foundation_myth_ata,
+                    foundation_myth_ata,
+                    myth_mint_info,
+                    fee_pool_token_info,
+                    token_program,
+                    system_prog,
+                    FEE_TYPE_COMPUTE,
+                    fee,
+                );
+            }
+        }
+    }
+
     // Update launch state
     launch.tokens_sold = launch
         .tokens_sold
@@ -1338,6 +1476,14 @@ fn process_sell(
 //   8.  [writable]          dex_myth_ata — receives 80% of vault (MythicSwap LP creation)
 //   9.  [writable]          dex_token_ata — receives remaining tokens for LP
 //   10. []                  token_program
+//
+// Optional myth-token CPI accounts (for unified fee collection on foundation 10%):
+//   11. []                 myth_token_program
+//   12. [writable]         myth_token fee_config PDA
+//   13. [writable]         myth_token fee_pool PDA
+//   14. [writable]         myth_mint (for burning)
+//   15. [writable]         fee_pool_token_account
+//   16. []                 system_program
 
 fn process_graduate(
     program_id: &Pubkey,
@@ -1461,6 +1607,35 @@ fn process_graduate(
             foundation_share,
             vault_seeds,
         )?;
+    }
+
+    // Optional myth-token CPI for unified fee tracking/burning on foundation share
+    if foundation_share > 0 {
+        let myth_token_program = next_account_info(account_iter);
+        if let Ok(myth_prog) = myth_token_program {
+            if myth_prog.key == &MYTH_TOKEN_PROGRAM_ID {
+                let fee_config_info = next_account_info(account_iter)?;
+                let fee_pool_info = next_account_info(account_iter)?;
+                let myth_mint_info = next_account_info(account_iter)?;
+                let fee_pool_token_info = next_account_info(account_iter)?;
+                let system_prog = next_account_info(account_iter)?;
+
+                let _ = cpi_collect_fee(
+                    cranker,
+                    myth_prog,
+                    fee_config_info,
+                    fee_pool_info,
+                    foundation_myth_ata,
+                    foundation_myth_ata,
+                    myth_mint_info,
+                    fee_pool_token_info,
+                    token_program,
+                    system_prog,
+                    FEE_TYPE_COMPUTE,
+                    foundation_share,
+                );
+            }
+        }
     }
 
     // Mint remaining tokens (max_supply - tokens_sold) to the DEX token ATA

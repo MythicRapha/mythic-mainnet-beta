@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
 
+// Force dynamic — never static-render this route
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const NETWORKS = [
   { id: 'mainnet', label: 'Mainnet', rpcUrl: 'https://rpc.mythic.sh', publicUrl: 'rpc.mythic.sh' },
   { id: 'testnet', label: 'Testnet', rpcUrl: 'https://rpc.mythic.sh', publicUrl: 'testnet.mythic.sh' },
@@ -39,25 +43,20 @@ async function fetchNetwork(net: typeof NETWORKS[0]) {
 
     const isOnline = slotVal !== null && slotVal !== undefined
 
-    // Peak TPS = slot production rate × max transactions per slot (65,536)
-    // This represents the theoretical throughput capacity of the chain
-    let peakTps: number | null = null
-    let liveTps: number | null = null
-
+    // Calculate real metrics from performance samples
+    let blockTimeMs: number | null = null
     let slotRate: number | null = null
+    let realTps: number | null = null
+    let nonVoteTxCount = 0
 
     if (samples && samples.length > 0) {
-      const rates = samples.map((s: { numSlots: number; samplePeriodSecs: number; numTransactions: number }) => {
-        const sr = s.numSlots / s.samplePeriodSecs
-        return {
-          peak: Math.round(sr * 65536),
-          active: Math.round(sr * 1000),
-          rate: sr,
-        }
-      })
-      peakTps = Math.max(...rates.map((r: { peak: number }) => r.peak))
-      liveTps = Math.round(rates.reduce((sum: number, r: { active: number }) => sum + r.active, 0) / rates.length)
-      slotRate = rates.reduce((sum: number, r: { rate: number }) => sum + r.rate, 0) / rates.length
+      const totalSlots = samples.reduce((s: number, x: { numSlots: number }) => s + x.numSlots, 0)
+      const totalSecs = samples.reduce((s: number, x: { samplePeriodSecs: number }) => s + x.samplePeriodSecs, 0)
+      const totalNonVoteTxns = samples.reduce((s: number, x: { numNonVoteTransactions: number }) => s + (x.numNonVoteTransactions ?? 0), 0)
+      slotRate = totalSlots / totalSecs
+      blockTimeMs = Math.round((totalSecs / totalSlots) * 1000)
+      realTps = Math.round(totalNonVoteTxns / totalSecs)
+      nonVoteTxCount = totalNonVoteTxns
     }
 
     return {
@@ -71,8 +70,8 @@ async function fetchNetwork(net: typeof NETWORKS[0]) {
       slotIndex: epochVal?.slotIndex ?? 0,
       slotsInEpoch: epochVal?.slotsInEpoch ?? 0,
       transactionCount: txCountVal ?? epochVal?.transactionCount ?? 0,
-      peakTps,
-      liveTps,
+      blockTimeMs,
+      realTps,
       slotRate,
       version: versionVal ? `${versionVal['solana-core']}` : null,
       timestamp: Date.now(),
@@ -89,8 +88,8 @@ async function fetchNetwork(net: typeof NETWORKS[0]) {
       slotIndex: 0,
       slotsInEpoch: 0,
       transactionCount: 0,
-      peakTps: null,
-      liveTps: null,
+      blockTimeMs: null,
+      realTps: null,
       slotRate: null,
       version: null,
       timestamp: Date.now(),

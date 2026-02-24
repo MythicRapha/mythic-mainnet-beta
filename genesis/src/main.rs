@@ -10,12 +10,13 @@ use std::str::FromStr;
 
 // ── Mythic Program Addresses ────────────────────────────────────────────────
 
-const BRIDGE_PROGRAM: &str = "MythBrdg11111111111111111111111111111111111";
-const BRIDGE_L2_PROGRAM: &str = "MythBrdgL2111111111111111111111111111111111";
+const BRIDGE_PROGRAM: &str = "BE2pz9kxPJLHd65B9tVBuZUwp3y5mKYczb6JLMsyPymA";
+const BRIDGE_L2_PROGRAM: &str = "5t8JwXzGQ3c7PCY6p6oJqZgFt8gff2d6uTLrqa1jFrKP";
 const AI_PRECOMPILES_PROGRAM: &str = "CT1yUSX8n5uid5PyrPYnoG5H6Pp2GoqYGEKmMehq3uWJ";
 const COMPUTE_MARKET_PROGRAM: &str = "AVWSp12ji5yoiLeC9whJv5i34RGF5LZozQin6T58vaEh";
-const SETTLEMENT_PROGRAM: &str = "MythSett1ement11111111111111111111111111111";
-const MYTH_TOKEN_PROGRAM: &str = "MythToken1111111111111111111111111111111111";
+const SETTLEMENT_PROGRAM: &str = "4TrowzShv4CrsuqZeUdLLVMdnDDkqkmnER1MZ5NsSaav";
+const MYTH_TOKEN_PROGRAM: &str = "7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf";
+const LAUNCHPAD_PROGRAM: &str = "62dVNKTPhChmGVzQu7YzK19vVtTk371Zg7iHfNzk635c";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 

@@ -72,9 +72,14 @@ const sectionGroups: { label: string; sections: DocSection[] }[] = [
         title: 'Bridge',
         icon: '🌉',
         children: [
+          { id: 'bridge-architecture', title: 'Architecture' },
           { id: 'bridge-deposit', title: 'Deposit (L1 → L2)' },
           { id: 'bridge-withdraw', title: 'Withdraw (L2 → L1)' },
-          { id: 'bridge-security', title: 'Security Model' },
+          { id: 'bridge-addresses', title: 'Bridge Addresses' },
+          { id: 'bridge-parameters', title: 'Parameters' },
+          { id: 'bridge-how-to', title: 'How to Bridge' },
+          { id: 'bridge-security', title: 'Security' },
+          { id: 'bridge-fees', title: 'Fee Structure' },
         ],
       },
     ],
@@ -120,7 +125,7 @@ const sectionGroups: { label: string; sections: DocSection[] }[] = [
       },
       {
         id: 'launchpad',
-        title: 'MythicPad',
+        title: 'mythic.money',
         icon: '🚀',
         children: [
           { id: 'pad-overview', title: 'Overview' },

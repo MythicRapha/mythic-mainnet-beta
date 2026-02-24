@@ -60,8 +60,8 @@ protocol_fee_bps        = 500                   # 5%
 # On-chain program addresses
 # ---------------------------------------------------------------
 [programs]
-bridge                  = "oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ"
-bridge_l2               = "3HsETxbcFZ5DnGiLWy3fEvpwQFzb2ThqLXY1eWQjjMLS"
+bridge                  = "BE2pz9kxPJLHd65B9tVBuZUwp3y5mKYczb6JLMsyPymA"
+bridge_l2               = "5t8JwXzGQ3c7PCY6p6oJqZgFt8gff2d6uTLrqa1jFrKP"
 ai_precompiles          = "CT1yUSX8n5uid5PyrPYnoG5H6Pp2GoqYGEKmMehq3uWJ"
 compute_market          = "AVWSp12ji5yoiLeC9whJv5i34RGF5LZozQin6T58vaEh"
 settlement              = "4TrowzShv4CrsuqZeUdLLVMdnDDkqkmnER1MZ5NsSaav"

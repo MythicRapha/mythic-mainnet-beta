@@ -19,30 +19,50 @@ interface WalletProvider {
 
 export type WalletName = 'mythic' | 'phantom' | 'solflare' | null
 
+function getProvider(name: WalletName): WalletProvider | null {
+  if (typeof window === 'undefined' || !name) return null
+
+  if (name === 'mythic') {
+    const mythic = (window as any).mythic
+    return mythic?.isMythicWallet ? (mythic as WalletProvider) : null
+  }
+  if (name === 'phantom') {
+    const solana = (window as any).solana
+    return solana?.isPhantom ? (solana as WalletProvider) : null
+  }
+  if (name === 'solflare') {
+    const solflare = (window as any).solflare
+    return solflare?.isSolflare ? (solflare as WalletProvider) : null
+  }
+  return null
+}
+
 /**
- * Detect the best available wallet provider.
- * Priority: Mythic Wallet > Phantom > Solflare
+ * Detect which wallets are available in the browser.
+ */
+export function detectAvailableWallets(): { mythic: boolean; phantom: boolean; solflare: boolean } {
+  if (typeof window === 'undefined') return { mythic: false, phantom: false, solflare: false }
+  return {
+    mythic: !!(window as any).mythic?.isMythicWallet,
+    phantom: !!(window as any).solana?.isPhantom,
+    solflare: !!(window as any).solflare?.isSolflare,
+  }
+}
+
+/**
+ * Detect the first available wallet provider (used for auto-reconnect).
  */
 function detectProvider(): { provider: WalletProvider | null; name: WalletName } {
   if (typeof window === 'undefined') return { provider: null, name: null }
 
-  // 1. Mythic Wallet extension (injects window.mythic)
   const mythic = (window as any).mythic
-  if (mythic?.isMythicWallet) {
-    return { provider: mythic as WalletProvider, name: 'mythic' }
-  }
+  if (mythic?.isMythicWallet) return { provider: mythic as WalletProvider, name: 'mythic' }
 
-  // 2. Phantom
   const solana = (window as any).solana
-  if (solana?.isPhantom) {
-    return { provider: solana as WalletProvider, name: 'phantom' }
-  }
+  if (solana?.isPhantom) return { provider: solana as WalletProvider, name: 'phantom' }
 
-  // 3. Solflare
   const solflare = (window as any).solflare
-  if (solflare?.isSolflare) {
-    return { provider: solflare as WalletProvider, name: 'solflare' }
-  }
+  if (solflare?.isSolflare) return { provider: solflare as WalletProvider, name: 'solflare' }
 
   return { provider: null, name: null }
 }
@@ -58,7 +78,7 @@ interface WalletState {
   l2Balance: number | null
   connecting: boolean
   walletName: WalletName
-  showInstallPrompt: boolean
+  showWalletModal: boolean
 }
 
 export function useWallet() {
@@ -70,12 +90,11 @@ export function useWallet() {
     l2Balance: null,
     connecting: false,
     walletName: null,
-    showInstallPrompt: false,
+    showWalletModal: false,
   })
 
   const refreshBalances = useCallback(async (pubkey: PublicKey) => {
     try {
-      // L1 balance via our dedicated node proxy (avoids CORS / Connection issues with relative URL)
       const l1Res = await fetch(L1_RPC, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -119,22 +138,28 @@ export function useWallet() {
         l2Balance: null,
         connecting: false,
         walletName: name,
-        showInstallPrompt: false,
+        showWalletModal: false,
       })
       refreshBalances(pubkey)
     }
   }, [refreshBalances])
 
-  const connect = useCallback(async () => {
-    const { provider, name } = detectProvider()
+  // Open the wallet selection modal
+  const openWalletModal = useCallback(() => {
+    setWallet(prev => ({ ...prev, showWalletModal: true }))
+  }, [])
 
-    // No wallet found → show install prompt popup
-    if (!provider) {
-      setWallet(prev => ({ ...prev, showInstallPrompt: true }))
-      return
-    }
+  const closeWalletModal = useCallback(() => {
+    setWallet(prev => ({ ...prev, showWalletModal: false }))
+  }, [])
 
-    setWallet(prev => ({ ...prev, connecting: true }))
+  // Connect to a specific wallet by name
+  const connectWallet = useCallback(async (name: WalletName) => {
+    if (!name) return
+    const provider = getProvider(name)
+    if (!provider) return
+
+    setWallet(prev => ({ ...prev, connecting: true, showWalletModal: false }))
 
     try {
       const { publicKey } = await provider.connect()
@@ -146,7 +171,7 @@ export function useWallet() {
         l2Balance: null,
         connecting: false,
         walletName: name,
-        showInstallPrompt: false,
+        showWalletModal: false,
       })
       refreshBalances(publicKey)
     } catch {
@@ -155,9 +180,11 @@ export function useWallet() {
   }, [refreshBalances])
 
   const disconnect = useCallback(async () => {
-    const { provider } = detectProvider()
-    if (provider) {
-      try { await provider.disconnect() } catch { /* ignore */ }
+    if (wallet.walletName) {
+      const provider = getProvider(wallet.walletName)
+      if (provider) {
+        try { await provider.disconnect() } catch { /* ignore */ }
+      }
     }
     setWallet({
       connected: false,
@@ -167,26 +194,22 @@ export function useWallet() {
       l2Balance: null,
       connecting: false,
       walletName: null,
-      showInstallPrompt: false,
+      showWalletModal: false,
     })
-  }, [])
-
-  const dismissInstallPrompt = useCallback(() => {
-    setWallet(prev => ({ ...prev, showInstallPrompt: false }))
-  }, [])
+  }, [wallet.walletName])
 
   const signAndSendTransaction = useCallback(async (tx: Transaction): Promise<{ signature: string }> => {
-    const { provider } = detectProvider()
+    const provider = wallet.walletName ? getProvider(wallet.walletName) : null
     if (!provider) throw new Error('Wallet not connected')
     const { signature } = await provider.signAndSendTransaction(tx)
     return { signature }
-  }, [])
+  }, [wallet.walletName])
 
   const signTransaction = useCallback(async (tx: Transaction): Promise<Transaction> => {
-    const { provider } = detectProvider()
+    const provider = wallet.walletName ? getProvider(wallet.walletName) : null
     if (!provider) throw new Error('Wallet not connected')
     return provider.signTransaction(tx)
-  }, [])
+  }, [wallet.walletName])
 
   const shortAddress = wallet.address
     ? `${wallet.address.slice(0, 4)}...${wallet.address.slice(-4)}`
@@ -195,9 +218,10 @@ export function useWallet() {
   return {
     ...wallet,
     shortAddress,
-    connect,
+    openWalletModal,
+    closeWalletModal,
+    connectWallet,
     disconnect,
-    dismissInstallPrompt,
     signAndSendTransaction,
     signTransaction,
     refreshBalances,

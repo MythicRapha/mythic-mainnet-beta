@@ -10,11 +10,23 @@ interface LiveStats {
   online: boolean
 }
 
+interface BurnStats {
+  burned: number
+  circulating: number
+}
+
 function formatNumber(n: number): string {
   if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + 'B'
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
   return n.toLocaleString()
+}
+
+function formatBurn(n: number): string {
+  if (n === 0) return '0'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(2) + 'K'
+  return n.toFixed(2)
 }
 
 const RPC_URL = 'https://rpc.mythic.sh'
@@ -31,6 +43,7 @@ async function rpcCall(method: string, params: unknown[] = []) {
 
 export default function StatsBar() {
   const [stats, setStats] = useState<LiveStats | null>(null)
+  const [burn, setBurn] = useState<BurnStats | null>(null)
   const [visible, setVisible] = useState(false)
 
   const fetchStats = useCallback(async () => {
@@ -47,14 +60,14 @@ export default function StatsBar() {
       const samplesVal = samples.status === 'fulfilled' ? samples.value : null
       const txCountVal = txCount.status === 'fulfilled' ? txCount.value : null
 
-      const tps = samplesVal?.[0]
-        ? Math.round(samplesVal[0].numTransactions / samplesVal[0].samplePeriodSecs)
+      const blockTimeMs = samplesVal?.[0]
+        ? Math.round((samplesVal[0].samplePeriodSecs / samplesVal[0].numSlots) * 1000)
         : null
 
       setStats({
         slot: slotVal ?? 0,
         epoch: epochVal?.epoch ?? 0,
-        tps,
+        tps: blockTimeMs,
         transactionCount: txCountVal ?? epochVal?.transactionCount ?? 0,
         online: slotVal !== null && slotVal !== undefined,
       })
@@ -63,21 +76,39 @@ export default function StatsBar() {
     }
   }, [])
 
+  const fetchBurn = useCallback(async () => {
+    try {
+      const res = await fetch('/api/supply')
+      if (!res.ok) return
+      const data = await res.json()
+      setBurn({
+        burned: data.supply?.burned ?? 0,
+        circulating: data.supply?.circulating ?? 1_000_000_000,
+      })
+    } catch {
+      // keep previous data
+    }
+  }, [])
+
   useEffect(() => {
     fetchStats()
-    const interval = setInterval(fetchStats, 5000)
+    fetchBurn()
+    const statsInterval = setInterval(fetchStats, 5000)
+    const burnInterval = setInterval(fetchBurn, 15000)
     const timer = setTimeout(() => setVisible(true), 300)
     return () => {
-      clearInterval(interval)
+      clearInterval(statsInterval)
+      clearInterval(burnInterval)
       clearTimeout(timer)
     }
-  }, [fetchStats])
+  }, [fetchStats, fetchBurn])
 
   const items = [
     {
       label: 'Status',
       value: stats ? (stats.online ? 'Online' : 'Offline') : '...',
       accent: stats?.online ? 'text-[#39FF14]' : stats === null ? 'text-white' : 'text-red-400',
+      dot: stats?.online,
     },
     {
       label: 'Current Slot',
@@ -85,14 +116,14 @@ export default function StatsBar() {
       accent: 'text-white',
     },
     {
-      label: 'Live TPS',
-      value: stats?.online && stats.tps !== null ? formatNumber(stats.tps) : '...',
+      label: 'Block Time',
+      value: stats?.online && stats.tps !== null ? `~${stats.tps}ms` : '...',
       accent: 'text-mythic-violet',
     },
     {
-      label: 'Total Transactions',
-      value: stats?.online ? formatNumber(stats.transactionCount) : '...',
-      accent: 'text-white',
+      label: 'Burned',
+      value: burn ? formatBurn(burn.burned) + ' MYTH' : '...',
+      accent: 'text-[#FF4444]',
     },
   ]
 
@@ -111,7 +142,7 @@ export default function StatsBar() {
               style={{ transitionDelay: `${i * 100}ms` }}
             >
               <div className={`font-display text-[2rem] font-bold mb-1 tabular-nums ${item.accent}`}>
-                {item.label === 'Status' && stats?.online && (
+                {'dot' in item && item.dot && (
                   <span className="inline-block w-2 h-2 bg-[#39FF14] mr-2 animate-pulse align-middle" />
                 )}
                 {item.value}

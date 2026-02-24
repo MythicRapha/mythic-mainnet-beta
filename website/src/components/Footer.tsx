@@ -85,7 +85,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="https://github.com/MythicFoundation"
+                  href="https://github.com/MythicL2"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-mythic-text hover:text-white transition-colors text-[0.82rem]"
@@ -139,7 +139,7 @@ export default function Footer() {
               </svg>
             </a>
             <a
-              href="https://github.com/MythicFoundation"
+              href="https://github.com/MythicL2"
               target="_blank"
               rel="noopener noreferrer"
               className="text-mythic-text-dim hover:text-white transition-colors"

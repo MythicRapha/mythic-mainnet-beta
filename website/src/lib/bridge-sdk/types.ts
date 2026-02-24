@@ -2,8 +2,8 @@ import { PublicKey } from '@solana/web3.js'
 
 // ── Program IDs (deployed) ──────────────────────────────────────────────────
 
-export const BRIDGE_L1_PROGRAM_ID = new PublicKey('MythBrdg11111111111111111111111111111111111')
-export const BRIDGE_L2_PROGRAM_ID = new PublicKey('MythBrdgL2111111111111111111111111111111111')
+export const BRIDGE_L1_PROGRAM_ID = new PublicKey('oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ')
+export const BRIDGE_L2_PROGRAM_ID = new PublicKey('3HsETxbcFZ5DnGiLWy3fEvpwQFzb2ThqLXY1eWQjjMLS')
 
 // ── PDA Seeds ───────────────────────────────────────────────────────────────
 

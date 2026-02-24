@@ -1,5 +1,6 @@
 // mythic-relayer: Bridge relayer service for Mythic L2
-// Watches L1 deposits and L2 burns, relays between chains.
+// Watches L1 deposits and L2 BridgeToL1 events, relays between chains.
+// Uses the Native Transfer Bridge model — no SPL tokens on L2.
 
 use borsh::BorshSerialize;
 use serde::{Deserialize, Serialize};
@@ -12,7 +13,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use std::fs;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::net::TcpListener;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -24,12 +25,15 @@ use std::sync::Arc;
 const BRIDGE_CONFIG_SEED: &[u8] = b"bridge_config";
 const WITHDRAWAL_SEED: &[u8] = b"withdrawal";
 const L2_BRIDGE_CONFIG_SEED: &[u8] = b"l2_bridge_config";
-const WRAPPED_MINT_SEED: &[u8] = b"wrapped_mint";
+const BRIDGE_RESERVE_SEED: &[u8] = b"bridge_reserve";
 const PROCESSED_SEED: &[u8] = b"processed";
 
 // Instruction discriminators
 const IX_INITIATE_WITHDRAWAL: u8 = 3;
-const IX_MINT_WRAPPED: u8 = 2;
+const IX_RELEASE_BRIDGED: u8 = 2;
+
+/// Decimal scaling: L1 MYTH = 6 decimals, L2 MYTH = 9 decimals.
+const DECIMAL_SCALING_FACTOR: u64 = 1_000;
 
 // ── State Persistence ───────────────────────────────────────────────────────
 
@@ -63,17 +67,21 @@ struct DepositEvent {
     depositor: String,
     l2_recipient: String,
     amount: u64,
+    #[serde(default = "default_sol_mint")]
     token_mint: String,
     nonce: u64,
 }
 
+fn default_sol_mint() -> String {
+    "So11111111111111111111111111111111111111112".to_string()
+}
+
 #[derive(Deserialize, Debug)]
-struct BurnEvent {
-    burner: String,
+struct BridgeToL1Event {
+    sender: String,
     l1_recipient: String,
     amount: u64,
-    l1_mint: String,
-    burn_nonce: u64,
+    withdraw_nonce: u64,
 }
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -103,13 +111,13 @@ impl RelayerConfig {
 
         let bridge_l1_program = Pubkey::from_str(
             &std::env::var("BRIDGE_L1_PROGRAM")
-                .unwrap_or_else(|_| "MythBrdg11111111111111111111111111111111111".to_string()),
+                .unwrap_or_else(|_| "BE2pz9kxPJLHd65B9tVBuZUwp3y5mKYczb6JLMsyPymA".to_string()),
         )
         .map_err(|e| format!("Invalid BRIDGE_L1_PROGRAM: {}", e))?;
 
         let bridge_l2_program = Pubkey::from_str(
             &std::env::var("BRIDGE_L2_PROGRAM")
-                .unwrap_or_else(|_| "MythBrdgL2111111111111111111111111111111111".to_string()),
+                .unwrap_or_else(|_| "5t8JwXzGQ3c7PCY6p6oJqZgFt8gff2d6uTLrqa1jFrKP".to_string()),
         )
         .map_err(|e| format!("Invalid BRIDGE_L2_PROGRAM: {}", e))?;
 
@@ -143,11 +151,10 @@ impl RelayerConfig {
 // ── Instruction Builders ────────────────────────────────────────────────────
 
 #[derive(BorshSerialize)]
-struct MintWrappedParams {
+struct ReleaseBridgedParams {
     l1_deposit_nonce: u64,
     recipient: Pubkey,
     amount: u64,
-    l1_mint: Pubkey,
     l1_tx_signature: [u8; 64],
 }
 
@@ -160,68 +167,53 @@ struct InitiateWithdrawalParams {
     nonce: u64,
 }
 
-fn build_mint_wrapped_ix(
+/// Build a ReleaseBridged instruction for the L2 bridge.
+/// Transfers native MYTH from the bridge reserve PDA to the recipient.
+fn build_release_bridged_ix(
     bridge_l2_program: &Pubkey,
     relayer: &Pubkey,
     l2_recipient: &Pubkey,
     amount: u64,
-    l1_token_mint: &Pubkey,
     deposit_nonce: u64,
     l1_tx_signature: &[u8; 64],
 ) -> Instruction {
     let (config_pda, _) =
         Pubkey::find_program_address(&[L2_BRIDGE_CONFIG_SEED], bridge_l2_program);
-    let (wrapped_info_pda, _) = Pubkey::find_program_address(
-        &[WRAPPED_MINT_SEED, l1_token_mint.as_ref()],
-        bridge_l2_program,
-    );
-    let mint_seed: &[u8] = b"mint";
-    let (l2_mint_pda, _) = Pubkey::find_program_address(
-        &[mint_seed, l1_token_mint.as_ref()],
-        bridge_l2_program,
-    );
+    let (reserve_pda, _) =
+        Pubkey::find_program_address(&[BRIDGE_RESERVE_SEED], bridge_l2_program);
     let nonce_bytes = deposit_nonce.to_le_bytes();
     let (processed_pda, _) = Pubkey::find_program_address(
         &[PROCESSED_SEED, &nonce_bytes],
         bridge_l2_program,
     );
 
-    // Derive the recipient's associated token account for the wrapped mint
-    let recipient_token =
-        spl_associated_token_account::get_associated_token_address(l2_recipient, &l2_mint_pda);
-
-    let mut data = vec![IX_MINT_WRAPPED];
-    let params = MintWrappedParams {
+    let mut data = vec![IX_RELEASE_BRIDGED];
+    let params = ReleaseBridgedParams {
         l1_deposit_nonce: deposit_nonce,
         recipient: *l2_recipient,
         amount,
-        l1_mint: *l1_token_mint,
         l1_tx_signature: *l1_tx_signature,
     };
     params.serialize(&mut data).unwrap();
 
-    // Account order must match process_mint_wrapped in bridge-l2:
-    //   0. [signer]          relayer
+    // Account order must match process_release_bridged in bridge-l2:
+    //   0. [signer]           relayer
     //   1. [signer, writable] payer
     //   2. []                 l2_bridge_config PDA
-    //   3. []                 wrapped_token_info PDA
-    //   4. [writable]         l2_mint account
-    //   5. [writable]         recipient token account (ATA)
-    //   6. [writable]         processed_deposit PDA
-    //   7. []                 token_program
-    //   8. []                 system_program
+    //   3. [writable]         bridge_reserve PDA
+    //   4. [writable]         recipient
+    //   5. [writable]         processed_deposit PDA
+    //   6. []                 system_program
     Instruction {
         program_id: *bridge_l2_program,
         accounts: vec![
             AccountMeta::new_readonly(*relayer, true),           // 0. relayer (signer)
             AccountMeta::new(*relayer, true),                    // 1. payer (signer, writable)
-            AccountMeta::new_readonly(config_pda, false),        // 2. l2_bridge_config PDA
-            AccountMeta::new_readonly(wrapped_info_pda, false),  // 3. wrapped_token_info PDA
-            AccountMeta::new(l2_mint_pda, false),                // 4. l2_mint (writable)
-            AccountMeta::new(recipient_token, false),            // 5. recipient token account (writable)
-            AccountMeta::new(processed_pda, false),              // 6. processed_deposit PDA (writable)
-            AccountMeta::new_readonly(spl_token::id(), false),   // 7. token_program
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false), // 8. system_program
+            AccountMeta::new(*config_pda, false),                // 2. l2_bridge_config PDA (writable for accounting)
+            AccountMeta::new(reserve_pda, false),                // 3. bridge_reserve PDA (writable)
+            AccountMeta::new(*l2_recipient, false),              // 4. recipient (writable)
+            AccountMeta::new(processed_pda, false),              // 5. processed_deposit PDA (writable)
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false), // 6. system_program
         ],
         data,
     }
@@ -288,11 +280,11 @@ fn parse_deposit_events(logs: &[String]) -> Vec<DepositEvent> {
     events
 }
 
-fn parse_burn_events(logs: &[String]) -> Vec<BurnEvent> {
+fn parse_bridge_to_l1_events(logs: &[String]) -> Vec<BridgeToL1Event> {
     let mut events = Vec::new();
     for log in logs {
-        if let Some(json_str) = log.strip_prefix("Program log: EVENT:BurnWrapped:") {
-            if let Ok(event) = serde_json::from_str::<BurnEvent>(json_str) {
+        if let Some(json_str) = log.strip_prefix("Program log: EVENT:BridgeToL1:") {
+            if let Ok(event) = serde_json::from_str::<BridgeToL1Event>(json_str) {
                 events.push(event);
             }
         }
@@ -518,18 +510,19 @@ fn poll_l1_deposits(
                 }
             };
 
-            let l1_token_mint = Pubkey::from_str(&event.token_mint)
-                .unwrap_or(solana_sdk::system_program::id());
-
             // Convert the L1 transaction signature to a 64-byte array
             let l1_tx_sig_bytes: [u8; 64] = sig.as_ref().try_into().unwrap_or([0u8; 64]);
 
-            let ix = build_mint_wrapped_ix(
+            // Scale L1 amount (6 decimals) to L2 amount (9 decimals)
+            let l2_amount = event.amount
+                .checked_mul(DECIMAL_SCALING_FACTOR)
+                .unwrap_or(event.amount);
+
+            let ix = build_release_bridged_ix(
                 &config.bridge_l2_program,
                 &config.relayer_keypair.pubkey(),
                 &l2_recipient,
-                event.amount,
-                &l1_token_mint,
+                l2_amount,
                 event.nonce,
                 &l1_tx_sig_bytes,
             );
@@ -627,9 +620,9 @@ fn poll_l2_burns(
             None => continue,
         };
 
-        let events = parse_burn_events(&logs);
+        let events = parse_bridge_to_l1_events(&logs);
         for event in events {
-            if event.burn_nonce <= state.last_burn_nonce {
+            if event.withdraw_nonce <= state.last_burn_nonce {
                 continue;
             }
 
@@ -638,23 +631,27 @@ fn poll_l2_burns(
                 Some(pk) => pk,
                 None => {
                     eprintln!(
-                        "[BURN] Invalid l1_recipient hex: {}",
+                        "[BRIDGE_TO_L1] Invalid l1_recipient hex: {}",
                         event.l1_recipient
                     );
                     continue;
                 }
             };
 
-            let l1_token_mint = Pubkey::from_str(&event.l1_mint)
-                .unwrap_or(solana_sdk::system_program::id());
+            // MYTH L1 mint address
+            let myth_l1_mint = Pubkey::from_str("5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump")
+                .unwrap();
+
+            // Scale L2 amount (9 decimals) to L1 amount (6 decimals)
+            let l1_amount = event.amount / DECIMAL_SCALING_FACTOR;
 
             let ix = build_initiate_withdrawal_ix(
                 &config.bridge_l1_program,
                 &config.relayer_keypair.pubkey(),
                 &l1_recipient,
-                event.amount,
-                &l1_token_mint,
-                event.burn_nonce,
+                l1_amount,
+                &myth_l1_mint,
+                event.withdraw_nonce,
             );
 
             let result = retry_with_backoff(
@@ -678,16 +675,16 @@ fn poll_l2_burns(
             match result {
                 Ok(tx_sig) => {
                     println!(
-                        "RELAYED BURN: nonce={} amount={} l1_recipient={} tx={}",
-                        event.burn_nonce, event.amount, l1_recipient, tx_sig
+                        "RELAYED BRIDGE_TO_L1: nonce={} amount={} l1_recipient={} tx={}",
+                        event.withdraw_nonce, event.amount, l1_recipient, tx_sig
                     );
-                    state.last_burn_nonce = event.burn_nonce;
+                    state.last_burn_nonce = event.withdraw_nonce;
                     relayed += 1;
                 }
                 Err(e) => {
                     eprintln!(
-                        "[BURN] Failed to relay nonce={}: {}",
-                        event.burn_nonce, e
+                        "[BRIDGE_TO_L1] Failed to relay nonce={}: {}",
+                        event.withdraw_nonce, e
                     );
                 }
             }

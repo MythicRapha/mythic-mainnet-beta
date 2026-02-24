@@ -13,8 +13,6 @@ cpi = ["no-entrypoint"]
 
 [dependencies]
 solana-program = { workspace = true }
-spl-token = { workspace = true }
-spl-associated-token-account = { workspace = true }
 borsh = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }

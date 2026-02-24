@@ -10,23 +10,23 @@ function detectInputType(query: string): { type: 'tx' | 'account' | 'block' | 's
 
   // Numeric = slot/block number
   if (/^\d+$/.test(trimmed)) {
-    return { type: 'block', path: `/mainnet/block/${trimmed}` }
+    return { type: 'block', path: `/block/${trimmed}` }
   }
 
   // Base58 check
   if (BASE58_RE.test(trimmed)) {
     // 87-88 chars = transaction signature
     if (trimmed.length >= 85 && trimmed.length <= 90) {
-      return { type: 'tx', path: `/mainnet/tx/${trimmed}` }
+      return { type: 'tx', path: `/tx/${trimmed}` }
     }
     // 32-44 chars = account/pubkey
     if (trimmed.length >= 32 && trimmed.length <= 44) {
-      return { type: 'account', path: `/mainnet/address/${trimmed}` }
+      return { type: 'account', path: `/address/${trimmed}` }
     }
   }
 
   // Fallback: general search
-  return { type: 'search', path: `/mainnet/address/${encodeURIComponent(trimmed)}` }
+  return { type: 'search', path: `/address/${encodeURIComponent(trimmed)}` }
 }
 
 export default function ExplorerSearch() {

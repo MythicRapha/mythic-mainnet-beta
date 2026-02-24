@@ -1,5 +1,5 @@
 // Mythic L2 — $MYTH Token Fee Distribution & Burn Program
-// Manages fee collection, distribution to validators, and token burning.
+// Manages fee collection, distribution to validators, and real token burning.
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
@@ -61,6 +61,8 @@ pub fn process_instruction(
         8 => process_get_burn_stats(program_id, accounts),
         9 => process_pause(program_id, accounts),
         10 => process_unpause(program_id, accounts),
+        11 => process_burn_foundation_fees(program_id, accounts, data),
+        12 => process_get_supply_stats(program_id, accounts),
         _ => Err(MythTokenError::InvalidInstruction.into()),
     }
 }
@@ -107,6 +109,10 @@ pub enum MythTokenError {
     NoValidators,
     #[error("Program is paused")]
     ProgramPaused,
+    #[error("Burn percentage must be between 1 and 10000 basis points")]
+    InvalidBurnPercentage,
+    #[error("Insufficient foundation balance for burn")]
+    InsufficientFoundationBalance,
 }
 
 impl From<MythTokenError> for ProgramError {
@@ -176,11 +182,19 @@ pub struct FeeConfig {
     pub total_foundation_collected: u64,
     pub is_paused: bool,
     pub bump: u8,
+    // Per-fee-type burn tracking
+    pub gas_burned: u64,
+    pub compute_burned: u64,
+    pub inference_burned: u64,
+    pub bridge_burned: u64,
+    pub subnet_burned: u64,
+    // Foundation burn tracking
+    pub total_foundation_burned: u64,
 }
 
 impl FeeConfig {
-    // 1 + 32*4 + 6*4 + 8*4 + 1 + 1 = 1 + 128 + 24 + 32 + 1 + 1 = 187
-    pub const SIZE: usize = 187;
+    // 1 + 32*4 + 6*4 + 8*4 + 1 + 1 + 8*6 = 187 + 48 = 235
+    pub const SIZE: usize = 235;
 
     pub fn get_split(&self, fee_type: FeeType) -> FeeSplit {
         match fee_type {
@@ -291,6 +305,12 @@ pub struct UpdateFeeConfigArgs {
     pub foundation_wallet: Option<Pubkey>,
 }
 
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct BurnFoundationFeesArgs {
+    /// Basis points (1-10000) of accumulated foundation fees to burn.
+    pub burn_bps: u16,
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -362,6 +382,38 @@ fn transfer_spl_tokens<'a>(
     }
 }
 
+/// Burns SPL tokens by calling spl_token::instruction::burn via invoke_signed.
+fn burn_spl_tokens<'a>(
+    token_account: &AccountInfo<'a>,
+    mint: &AccountInfo<'a>,
+    authority: &AccountInfo<'a>,
+    token_program: &AccountInfo<'a>,
+    amount: u64,
+    signer_seeds: &[&[u8]],
+) -> ProgramResult {
+    let ix = spl_token::instruction::burn(
+        token_program.key,
+        token_account.key,
+        mint.key,
+        authority.key,
+        &[],
+        amount,
+    )?;
+
+    if signer_seeds.is_empty() {
+        invoke(
+            &ix,
+            &[token_account.clone(), mint.clone(), authority.clone(), token_program.clone()],
+        )
+    } else {
+        invoke_signed(
+            &ix,
+            &[token_account.clone(), mint.clone(), authority.clone(), token_program.clone()],
+            &[signer_seeds],
+        )
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Instruction: Initialize
 // ---------------------------------------------------------------------------
@@ -426,6 +478,12 @@ fn process_initialize(
         total_foundation_collected: 0,
         is_paused: false,
         bump: config_bump,
+        gas_burned: 0,
+        compute_burned: 0,
+        inference_burned: 0,
+        bridge_burned: 0,
+        subnet_burned: 0,
+        total_foundation_burned: 0,
     };
 
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
@@ -670,7 +728,7 @@ fn process_collect_fee(
     let fee_pool_account = next_account_info(account_iter)?;
     let payer_token_account = next_account_info(account_iter)?;
     let foundation_token_account = next_account_info(account_iter)?;
-    let burn_token_account = next_account_info(account_iter)?;
+    let myth_mint = next_account_info(account_iter)?; // was burn_token_account, now mint for burn
     let fee_pool_token_account = next_account_info(account_iter)?;
     let token_program = next_account_info(account_iter)?;
     let system_program = next_account_info(account_iter)?;
@@ -750,15 +808,16 @@ fn process_collect_fee(
         )?;
     }
 
-    // Transfer burn portion to burn address
+    // Burn tokens — actually removes them from supply via spl_token::burn.
+    // Payer is the authority on their own token account, so no PDA signing needed.
     if burn_amount > 0 {
-        transfer_spl_tokens(
+        burn_spl_tokens(
             payer_token_account,
-            burn_token_account,
+            myth_mint,
             payer,
             token_program,
             burn_amount,
-            &[],
+            &[], // payer is signer, no PDA seeds needed
         )?;
     }
 
@@ -778,6 +837,26 @@ fn process_collect_fee(
         .total_foundation_collected
         .checked_add(foundation_amount)
         .ok_or(MythTokenError::Overflow)?;
+
+    // Track per-fee-type burns
+    match fee_type {
+        FeeType::Gas => {
+            config.gas_burned = config.gas_burned.checked_add(burn_amount).ok_or(MythTokenError::Overflow)?;
+        }
+        FeeType::Compute => {
+            config.compute_burned = config.compute_burned.checked_add(burn_amount).ok_or(MythTokenError::Overflow)?;
+        }
+        FeeType::Inference => {
+            config.inference_burned = config.inference_burned.checked_add(burn_amount).ok_or(MythTokenError::Overflow)?;
+        }
+        FeeType::Bridge => {
+            config.bridge_burned = config.bridge_burned.checked_add(burn_amount).ok_or(MythTokenError::Overflow)?;
+        }
+        FeeType::SubnetRegistration => {
+            config.subnet_burned = config.subnet_burned.checked_add(burn_amount).ok_or(MythTokenError::Overflow)?;
+        }
+    }
+
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
 
     msg!(
@@ -1078,10 +1157,16 @@ fn process_get_burn_stats(
     }
 
     msg!(
-        "EVENT:BurnStats:{{\"total_burned\":{},\"total_distributed\":{},\"total_foundation\":{}}}",
+        "EVENT:BurnStats:{{\"total_burned\":{},\"total_distributed\":{},\"total_foundation\":{},\"foundation_burned\":{},\"gas_burned\":{},\"compute_burned\":{},\"inference_burned\":{},\"bridge_burned\":{},\"subnet_burned\":{}}}",
         config.total_burned,
         config.total_distributed,
         config.total_foundation_collected,
+        config.total_foundation_burned,
+        config.gas_burned,
+        config.compute_burned,
+        config.inference_burned,
+        config.bridge_burned,
+        config.subnet_burned,
     );
 
     Ok(())
@@ -1160,5 +1245,150 @@ fn process_unpause(
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
 
     msg!("EVENT:Unpaused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: BurnFoundationFees (admin-only)
+// Burns a specified percentage (in BPS) of accumulated foundation fees.
+// Accounts:
+//   0 = [signer] admin
+//   1 = [writable] config PDA
+//   2 = [writable] foundation token account (owned by foundation_wallet)
+//   3 = [writable] myth_mint
+//   4 = [] foundation wallet (signer, must match config.foundation_wallet)
+//   5 = [] token program
+// ---------------------------------------------------------------------------
+
+fn process_burn_foundation_fees(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let args = BurnFoundationFeesArgs::try_from_slice(data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    if args.burn_bps == 0 || args.burn_bps > BPS_DENOMINATOR {
+        return Err(MythTokenError::InvalidBurnPercentage.into());
+    }
+
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+    let foundation_token_account = next_account_info(account_iter)?;
+    let myth_mint = next_account_info(account_iter)?;
+    let foundation_wallet = next_account_info(account_iter)?;
+    let token_program = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_writable(foundation_token_account)?;
+    assert_writable(myth_mint)?;
+    assert_owned_by(config_account, program_id)?;
+
+    let mut config = FeeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(MythTokenError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(MythTokenError::Unauthorized.into());
+    }
+
+    // Calculate burn amount from accumulated foundation fees
+    let burn_amount = (config.total_foundation_collected as u128)
+        .checked_mul(args.burn_bps as u128)
+        .ok_or(MythTokenError::Overflow)?
+        / (BPS_DENOMINATOR as u128);
+    let burn_amount = u64::try_from(burn_amount).map_err(|_| MythTokenError::Overflow)?;
+
+    if burn_amount == 0 {
+        return Err(MythTokenError::InsufficientFoundationBalance.into());
+    }
+
+    // Foundation wallet must sign to authorize the burn from its token account
+    assert_signer(foundation_wallet)?;
+    if foundation_wallet.key != &config.foundation_wallet {
+        return Err(MythTokenError::Unauthorized.into());
+    }
+
+    // Burn tokens from foundation's token account
+    burn_spl_tokens(
+        foundation_token_account,
+        myth_mint,
+        foundation_wallet,
+        token_program,
+        burn_amount,
+        &[], // foundation_wallet is signer
+    )?;
+
+    // Update stats
+    config.total_burned = config
+        .total_burned
+        .checked_add(burn_amount)
+        .ok_or(MythTokenError::Overflow)?;
+    config.total_foundation_burned = config
+        .total_foundation_burned
+        .checked_add(burn_amount)
+        .ok_or(MythTokenError::Overflow)?;
+    config.total_foundation_collected = config
+        .total_foundation_collected
+        .checked_sub(burn_amount)
+        .ok_or(MythTokenError::Overflow)?;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:FoundationFeesBurned:{{\"admin\":\"{}\",\"burn_bps\":{},\"amount\":{},\"total_burned\":{}}}",
+        admin.key,
+        args.burn_bps,
+        burn_amount,
+        config.total_burned,
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: GetSupplyStats (read-only)
+// Returns total_supply, total_burned, circulating_supply, and per-fee-type
+// burn breakdown.
+// Accounts:
+//   0 = [] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_get_supply_stats(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let config_account = next_account_info(account_iter)?;
+
+    assert_owned_by(config_account, program_id)?;
+
+    let config = FeeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(MythTokenError::NotInitialized.into());
+    }
+
+    // Total supply is 1 billion MYTH in base units (9 decimals)
+    let total_supply: u64 = 1_000_000_000_000_000_000; // 1B * 10^9
+    let circulating = total_supply
+        .checked_sub(config.total_burned)
+        .ok_or(MythTokenError::Overflow)?;
+
+    msg!(
+        "EVENT:SupplyStats:{{\"total_supply\":{},\"total_burned\":{},\"circulating\":{},\"total_distributed\":{},\"total_foundation_collected\":{},\"total_foundation_burned\":{},\"gas_burned\":{},\"compute_burned\":{},\"inference_burned\":{},\"bridge_burned\":{},\"subnet_burned\":{}}}",
+        total_supply,
+        config.total_burned,
+        circulating,
+        config.total_distributed,
+        config.total_foundation_collected,
+        config.total_foundation_burned,
+        config.gas_burned,
+        config.compute_burned,
+        config.inference_burned,
+        config.bridge_burned,
+        config.subnet_burned,
+    );
+
     Ok(())
 }

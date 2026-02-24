@@ -50,7 +50,7 @@ export default function HomePage() {
           {/* CTAs — brand-kit .btn pattern */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href="https://pump.fun"
+              href="https://pump.fun/coin/5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-7 py-3 bg-[#39FF14] text-black font-display text-[0.8rem] font-bold tracking-[0.04em] hover:bg-[#66FF44] transition-colors"
@@ -292,7 +292,7 @@ export default function HomePage() {
                 <p className="text-mythic-text text-[0.82rem]">Trade the $MYTH SPL token on PumpFun or Raydium. Fair-launched with zero VC allocation. Bridge assets to use Mythic L2.</p>
               </div>
               <a
-                href="https://pump.fun"
+                href="https://pump.fun/coin/5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-shrink-0 px-6 py-2.5 bg-[#39FF14] text-black font-display text-[0.75rem] font-bold tracking-[0.04em] hover:bg-[#66FF44] transition-colors"
@@ -444,7 +444,7 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href="https://pump.fun"
+              href="https://pump.fun/coin/5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-7 py-3 bg-[#39FF14] text-black font-display text-[0.8rem] font-bold tracking-[0.04em] hover:bg-[#66FF44] transition-colors"

@@ -38,3 +38,18 @@ file.md
 production-ledger/
 testnet-ledger/
 keys/
+
+# Secrets and temp files
+extra.json
+next.json
+bot.log
+*.log
+tmp_*.py
+*-session-is-being-continued-*.txt
+pumpfun-bot/
+mythic-mainnet.txt
+mythic-brand.txt
+branding.txt
+backend.txt
+brand_research.md
+brand_strategy.md

@@ -2310,8 +2310,6 @@ dependencies = [
  "solana-program",
  "solana-program-test",
  "solana-sdk",
- "spl-associated-token-account 5.0.1",
- "spl-token",
  "thiserror 2.0.18",
  "tokio",
 ]
@@ -2321,15 +2319,9 @@ name = "mythic-bridge-l2"
 version = "0.1.0"
 dependencies = [
  "borsh 0.10.4",
- "bytemuck",
- "num-derive",
- "num-traits",
- "sha2 0.10.9",
  "solana-program",
  "solana-program-test",
  "solana-sdk",
- "spl-associated-token-account 5.0.1",
- "spl-token",
  "thiserror 2.0.18",
  "tokio",
 ]
@@ -2391,15 +2383,10 @@ dependencies = [
  "borsh 0.10.4",
  "serde",
  "serde_json",
- "sha2 0.10.9",
  "solana-client",
  "solana-program",
  "solana-sdk",
  "solana-transaction-status",
- "spl-associated-token-account 5.0.1",
- "spl-token",
- "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]
@@ -2444,6 +2431,7 @@ version = "0.1.0"
 dependencies = [
  "borsh 0.10.4",
  "solana-program",
+ "spl-associated-token-account 5.0.1",
  "spl-token",
  "thiserror 2.0.18",
 ]

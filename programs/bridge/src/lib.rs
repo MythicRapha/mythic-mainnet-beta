@@ -13,7 +13,7 @@ use solana_program::{
     system_instruction,
     sysvar::Sysvar,
 };
-use spl_token;
+use solana_program::instruction::{AccountMeta, Instruction};
 use thiserror::Error;
 
 declare_id!("oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ");
@@ -25,6 +25,65 @@ const BRIDGE_CONFIG_SEED: &[u8] = b"bridge_config";
 const VAULT_SEED: &[u8] = b"vault";
 const SOL_VAULT_SEED: &[u8] = b"sol_vault";
 const WITHDRAWAL_SEED: &[u8] = b"withdrawal";
+
+/// Native SOL mint address (sentinel for SOL deposits/withdrawals).
+const NATIVE_SOL_MINT_STR: &str = "So11111111111111111111111111111111111111112";
+
+/// Token-2022 (Token Extensions) program ID.
+/// MYTH on L1 is a Token-2022 mint, so we must accept this program in addition
+/// to the legacy SPL Token program.
+const TOKEN_2022_PROGRAM_ID: Pubkey = solana_program::pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+
+/// Legacy SPL Token program ID.
+const LEGACY_TOKEN_PROGRAM_ID: Pubkey = solana_program::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+/// Returns true if the given pubkey is either the legacy SPL Token program or Token-2022.
+fn is_valid_token_program(key: &Pubkey) -> bool {
+    *key == LEGACY_TOKEN_PROGRAM_ID || *key == TOKEN_2022_PROGRAM_ID
+}
+
+/// Build a Transfer instruction compatible with both SPL Token and Token-2022.
+/// The spl_token crate's instruction builders reject Token-2022 program IDs,
+/// so we construct the instruction manually. Format is identical for both programs.
+fn build_token_transfer_ix(
+    token_program_id: &Pubkey,
+    source: &Pubkey,
+    destination: &Pubkey,
+    authority: &Pubkey,
+    amount: u64,
+) -> Instruction {
+    let mut data = Vec::with_capacity(9);
+    data.push(3); // Transfer instruction discriminator
+    data.extend_from_slice(&amount.to_le_bytes());
+    Instruction {
+        program_id: *token_program_id,
+        accounts: vec![
+            AccountMeta::new(*source, false),
+            AccountMeta::new(*destination, false),
+            AccountMeta::new_readonly(*authority, true),
+        ],
+        data,
+    }
+}
+
+/// Build an InitializeAccount instruction compatible with both SPL Token and Token-2022.
+fn build_init_account_ix(
+    token_program_id: &Pubkey,
+    account: &Pubkey,
+    mint: &Pubkey,
+    owner: &Pubkey,
+) -> Instruction {
+    Instruction {
+        program_id: *token_program_id,
+        accounts: vec![
+            AccountMeta::new(*account, false),
+            AccountMeta::new_readonly(*mint, false),
+            AccountMeta::new_readonly(*owner, false),
+            AccountMeta::new_readonly(solana_program::sysvar::rent::id(), false),
+        ],
+        data: vec![1], // InitializeAccount instruction discriminator
+    }
+}
 
 // ── Instruction Discriminators ───────────────────────────────────────────────
 
@@ -38,6 +97,8 @@ const IX_UPDATE_CONFIG: u8 = 6;
 const IX_PAUSE_BRIDGE: u8 = 7;
 const IX_UNPAUSE_BRIDGE: u8 = 8;
 const IX_SET_LIMITS: u8 = 9;
+const IX_FINALIZE_SOL_WITHDRAWAL: u8 = 10;
+const IX_CREATE_VAULT: u8 = 11;
 
 // ── Error Codes ──────────────────────────────────────────────────────────────
 
@@ -204,6 +265,8 @@ pub fn process_instruction(
         IX_PAUSE_BRIDGE => process_pause_bridge(program_id, accounts),
         IX_UNPAUSE_BRIDGE => process_unpause_bridge(program_id, accounts),
         IX_SET_LIMITS => process_set_limits(program_id, accounts, data),
+        IX_FINALIZE_SOL_WITHDRAWAL => process_finalize_sol_withdrawal(program_id, accounts, data),
+        IX_CREATE_VAULT => process_create_vault(program_id, accounts),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
@@ -347,21 +410,20 @@ fn process_deposit(
         return Err(ProgramError::InvalidSeeds);
     }
 
-    // Validate token_program is the SPL Token program
-    if *token_program.key != spl_token::ID {
+    // Validate token_program is either legacy SPL Token or Token-2022
+    if !is_valid_token_program(token_program.key) {
         return Err(ProgramError::IncorrectProgramId);
     }
 
     // Transfer tokens from depositor to vault
     invoke(
-        &spl_token::instruction::transfer(
+        &build_token_transfer_ix(
             token_program.key,
             depositor_token.key,
             vault_token.key,
             depositor.key,
-            &[],
             params.amount,
-        )?,
+        ),
         &[
             depositor_token.clone(),
             vault_token.clone(),
@@ -469,8 +531,8 @@ fn process_deposit_sol(
 
     let l2_hex = hex_encode(&params.l2_recipient);
     msg!(
-        "EVENT:DepositSOL:{{\"depositor\":\"{}\",\"l2_recipient\":\"{}\",\"amount\":{},\"nonce\":{}}}",
-        depositor.key, l2_hex, params.amount, nonce
+        "EVENT:DepositSOL:{{\"depositor\":\"{}\",\"l2_recipient\":\"{}\",\"amount\":{},\"token_mint\":\"{}\",\"nonce\":{}}}",
+        depositor.key, l2_hex, params.amount, NATIVE_SOL_MINT_STR, nonce
     );
 
     Ok(())
@@ -714,8 +776,8 @@ fn process_finalize_withdrawal(
         return Err(ProgramError::Custom(ERROR_BRIDGE_PAUSED));
     }
 
-    // Validate token_program
-    if *token_program.key != spl_token::ID {
+    // Validate token_program is either legacy SPL Token or Token-2022
+    if !is_valid_token_program(token_program.key) {
         return Err(ProgramError::IncorrectProgramId);
     }
 
@@ -759,15 +821,16 @@ fn process_finalize_withdrawal(
         return Err(ProgramError::InvalidSeeds);
     }
 
+    // The vault PDA is the authority for the token account
+    // We need a separate reference to pass as authority
     invoke_signed(
-        &spl_token::instruction::transfer(
+        &build_token_transfer_ix(
             token_program.key,
             vault_token.key,
             recipient_token.key,
             &vault_pda,
-            &[],
             withdrawal.amount,
-        )?,
+        ),
         &[
             vault_token.clone(),
             recipient_token.clone(),
@@ -783,6 +846,115 @@ fn process_finalize_withdrawal(
     msg!(
         "EVENT:FinalizeWithdrawal:{{\"recipient\":\"{}\",\"amount\":{},\"token_mint\":\"{}\",\"nonce\":{}}}",
         withdrawal.recipient, withdrawal.amount, withdrawal.token_mint, withdrawal.nonce
+    );
+
+    Ok(())
+}
+
+// ── Finalize SOL Withdrawal ──────────────────────────────────────────────────
+// Called after a native SOL withdrawal's challenge period expires.
+// Transfers SOL from the sol_vault PDA back to the recipient.
+// Accounts:
+//   0. [signer, writable] payer / anyone can finalize
+//   1. [writable] withdrawal_request PDA
+//   2. [writable] sol_vault PDA
+//   3. [writable] recipient (receives native SOL)
+//   4. [] bridge_config PDA
+//   5. [] system_program
+
+fn process_finalize_sol_withdrawal(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let payer = next_account_info(accounts_iter)?;
+    let withdrawal_account = next_account_info(accounts_iter)?;
+    let sol_vault = next_account_info(accounts_iter)?;
+    let recipient = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+    let system_program = next_account_info(accounts_iter)?;
+
+    if !payer.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !withdrawal_account.is_writable || !sol_vault.is_writable || !recipient.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let params = FinalizeWithdrawalParams::try_from_slice(data)?;
+
+    // Validate config
+    let (config_pda, _) = Pubkey::find_program_address(&[BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+    let config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeError::UninitializedAccount.into());
+    }
+    if config.paused {
+        return Err(ProgramError::Custom(ERROR_BRIDGE_PAUSED));
+    }
+
+    // Validate withdrawal PDA
+    let nonce_bytes = params.withdrawal_nonce.to_le_bytes();
+    let (withdrawal_pda, _) =
+        Pubkey::find_program_address(&[WITHDRAWAL_SEED, &nonce_bytes], program_id);
+    if withdrawal_pda != *withdrawal_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if withdrawal_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let mut withdrawal =
+        WithdrawalRequest::try_from_slice(&withdrawal_account.data.borrow())?;
+
+    if withdrawal.status != WithdrawalStatus::Pending {
+        return Err(BridgeError::WithdrawalAlreadyFinalized.into());
+    }
+    if withdrawal.amount == 0 {
+        return Err(BridgeError::InsufficientFunds.into());
+    }
+
+    // Verify recipient matches the withdrawal request
+    if *recipient.key != withdrawal.recipient {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let clock = Clock::get()?;
+    if clock.unix_timestamp < withdrawal.challenge_deadline {
+        return Err(BridgeError::ChallengePeriodActive.into());
+    }
+
+    // Validate SOL vault PDA
+    let (vault_pda, vault_bump) = Pubkey::find_program_address(&[SOL_VAULT_SEED], program_id);
+    if vault_pda != *sol_vault.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    // Ensure vault has sufficient SOL
+    if sol_vault.lamports() < withdrawal.amount {
+        return Err(BridgeError::InsufficientFunds.into());
+    }
+
+    // Transfer SOL from vault to recipient using invoke_signed
+    invoke_signed(
+        &system_instruction::transfer(sol_vault.key, recipient.key, withdrawal.amount),
+        &[sol_vault.clone(), recipient.clone(), system_program.clone()],
+        &[&[SOL_VAULT_SEED, &[vault_bump]]],
+    )?;
+
+    withdrawal.status = WithdrawalStatus::Finalized;
+    withdrawal.serialize(&mut &mut withdrawal_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:FinalizeSOLWithdrawal:{{\"recipient\":\"{}\",\"amount\":{},\"nonce\":{}}}",
+        withdrawal.recipient, withdrawal.amount, withdrawal.nonce
     );
 
     Ok(())
@@ -978,6 +1150,120 @@ fn process_set_limits(
     msg!(
         "EVENT:SetLimits:{{\"min_deposit\":{},\"max_deposit\":{},\"daily_limit\":{}}}",
         params.min_deposit_lamports, params.max_deposit_lamports, params.daily_limit_lamports
+    );
+
+    Ok(())
+}
+
+// ── Create Vault ─────────────────────────────────────────────────────────────
+// Admin-only: creates a token account at the vault PDA address for a given mint.
+// Must be called once per token mint before deposits of that token can be accepted.
+//
+// The vault PDA is derived from [VAULT_SEED, mint_pubkey] and the token account
+// is owned (authority) by the vault PDA itself, allowing the program to sign
+// transfers out of it via invoke_signed.
+//
+// Accounts:
+//   0. [signer, writable] admin (payer for rent)
+//   1. [writable] vault PDA (will become a token account)
+//   2. [] token mint
+//   3. [] bridge_config PDA
+//   4. [] token_program (spl-token or token-2022)
+//   5. [] system_program
+//   6. [] rent sysvar
+
+fn process_create_vault(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let admin = next_account_info(accounts_iter)?;
+    let vault_account = next_account_info(accounts_iter)?;
+    let token_mint = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+    let token_program = next_account_info(accounts_iter)?;
+    let system_program = next_account_info(accounts_iter)?;
+    let rent_sysvar = next_account_info(accounts_iter)?;
+
+    if !admin.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !admin.is_writable || !vault_account.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    // Validate config & admin
+    let (config_pda, _) = Pubkey::find_program_address(&[BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+    let config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeError::UninitializedAccount.into());
+    }
+    if *admin.key != config.admin {
+        return Err(BridgeError::InvalidAuthority.into());
+    }
+
+    // Validate vault PDA
+    let (vault_pda, vault_bump) =
+        Pubkey::find_program_address(&[VAULT_SEED, token_mint.key.as_ref()], program_id);
+    if vault_pda != *vault_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    // Guard: vault must not already exist
+    if !vault_account.data_is_empty() {
+        return Err(BridgeError::AlreadyInitialized.into());
+    }
+
+    // Validate token_program
+    if !is_valid_token_program(token_program.key) {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    // SPL Token account size is 165 bytes for both legacy and Token-2022
+    let space: u64 = 165;
+    let rent = Rent::get()?;
+    let lamports = rent.minimum_balance(space as usize);
+
+    // Create the account at the vault PDA address, owned by the token program
+    invoke_signed(
+        &system_instruction::create_account(
+            admin.key,
+            vault_account.key,
+            lamports,
+            space,
+            token_program.key,
+        ),
+        &[admin.clone(), vault_account.clone(), system_program.clone()],
+        &[&[VAULT_SEED, token_mint.key.as_ref(), &[vault_bump]]],
+    )?;
+
+    // Initialize it as a token account with the vault PDA as its own authority
+    invoke_signed(
+        &build_init_account_ix(
+            token_program.key,
+            vault_account.key,
+            token_mint.key,
+            &vault_pda, // owner/authority = the vault PDA itself
+        ),
+        &[
+            vault_account.clone(),
+            token_mint.clone(),
+            vault_account.clone(), // authority ref
+            rent_sysvar.clone(),
+            token_program.clone(), // required for CPI into token program
+        ],
+        &[&[VAULT_SEED, token_mint.key.as_ref(), &[vault_bump]]],
+    )?;
+
+    msg!(
+        "EVENT:CreateVault:{{\"admin\":\"{}\",\"mint\":\"{}\",\"vault\":\"{}\"}}",
+        admin.key, token_mint.key, vault_pda
     );
 
     Ok(())

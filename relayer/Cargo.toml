@@ -2,7 +2,7 @@
 name = "mythic-relayer"
 version = "0.1.0"
 edition = "2021"
-description = "Mythic L2 — Bridge relayer: watches L1 events, triggers L2 minting"
+description = "Mythic L2 — Bridge relayer: watches L1 deposits, triggers L2 native transfers"
 
 [[bin]]
 name = "mythic-relayer"
@@ -13,11 +13,6 @@ solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 solana-transaction-status = { workspace = true }
 solana-program = { workspace = true }
-spl-token = { workspace = true }
-spl-associated-token-account = { workspace = true }
-tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true }
 borsh = { workspace = true }
-thiserror = { workspace = true }

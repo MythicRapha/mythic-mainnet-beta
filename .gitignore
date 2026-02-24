@@ -53,3 +53,14 @@ branding.txt
 backend.txt
 brand_research.md
 brand_strategy.md
+
+# Environment files
+.env
+.env.*
+\!.env.example
+production-ledger-backup*
+target/
+ledger/
+*.tar.gz
+*.tar.zst
+production-ledger-backup-*

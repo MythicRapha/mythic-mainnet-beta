@@ -25,7 +25,12 @@ export default function BridgePage() {
           <p className="text-mythic-text text-[0.95rem] max-w-[480px] mx-auto mb-6">
             Bridge assets between Solana L1 and Mythic L2. Deposit MYTH, USDC, or native SOL to get started. Withdrawals have a ~42 hour challenge period.
           </p>
-          <BridgeLiveStats />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-mythic-violet/30 bg-mythic-violet/5">
+            <span className="w-1.5 h-1.5 bg-mythic-violet animate-pulse" />
+            <span className="font-mono text-[0.55rem] tracking-[0.1em] uppercase text-mythic-violet">
+              Bridge Live &mdash; MYTH, SOL &amp; USDC
+            </span>
+          </div>
         </div>
 
         {/* Bridge Card */}

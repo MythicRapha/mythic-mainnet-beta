@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
-import { Connection } from '@solana/web3.js'
+import { useState, useMemo } from 'react'
 import { PublicKey } from '@solana/web3.js'
 import { useWalletContext } from '@/providers/WalletProvider'
 import { useBridge } from '@/hooks/useBridge'
@@ -34,28 +33,6 @@ export default function BridgeCard() {
   const [amount, setAmount] = useState('')
   const [l1Recipient, setL1Recipient] = useState('')
   const [showAssetPicker, setShowAssetPicker] = useState(false)
-
-  // L2 network liveness metrics
-  const [l2Slot, setL2Slot] = useState<number | null>(null)
-  const [l2Latency, setL2Latency] = useState<number | null>(null)
-
-  const fetchL2Status = useCallback(async () => {
-    try {
-      const l2Rpc = process.env.NEXT_PUBLIC_L2_RPC_URL || 'https://rpc.mythic.sh'
-      const conn = new Connection(l2Rpc, 'confirmed')
-      const start = performance.now()
-      const slot = await conn.getSlot()
-      const latency = Math.round(performance.now() - start)
-      setL2Slot(slot)
-      setL2Latency(latency)
-    } catch { /* L2 unreachable */ }
-  }, [])
-
-  useEffect(() => {
-    fetchL2Status()
-    const interval = setInterval(fetchL2Status, 10_000)
-    return () => clearInterval(interval)
-  }, [fetchL2Status])
 
   const parsedAmount = useMemo(() => {
     const n = parseFloat(amount.replace(/,/g, ''))
@@ -172,8 +149,8 @@ export default function BridgeCard() {
           )}
           {l2Latency !== null && (
             <div className="text-right">
-              <span className="font-mono text-[0.5rem] tracking-[0.1em] uppercase text-mythic-text-muted block">Latency</span>
-              <span className={`font-mono text-[0.65rem] ${l2Latency < 500 ? 'text-[#39FF14]' : l2Latency < 1500 ? 'text-mythic-amber' : 'text-mythic-error'}`}>{l2Latency}ms</span>
+              <span className="font-mono text-[0.5rem] tracking-[0.1em] uppercase text-mythic-text-muted block">Deposits</span>
+              <span className="font-mono text-[0.65rem] text-white">{stats.depositNonce}</span>
             </div>
           )}
         </div>

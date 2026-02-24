@@ -1,0 +1,63 @@
+{
+  "mythMint": "7sfazeMxmuoDkuU5fHkDGin8uYuaTkZrRSwJM1CHXvDq",
+  "launchpadProgram": "MythPad111111111111111111111111111111111111",
+  "configPDA": "Bzh9VM5cbBXCmaN1MRutQn3AhUHms75WjeXrRsKaNwXi",
+  "tokens": [
+    {
+      "name": "NeuralNet",
+      "symbol": "NEURAL",
+      "mint": "HKPpYakmMw85awRzkG9zqjJ1omdhe7DTEFde5GJ13B8w",
+      "launch": "7Ntuy3Z3ucSCTsMkE186yLj8VqC6srTgh8QayuGVGGZy",
+      "launchIndex": "0"
+    },
+    {
+      "name": "GPT-Chain",
+      "symbol": "GPTC",
+      "mint": "4ujpDwi14XqfTqR5EBdUsBwexcKzsPxipuwyPcLLAYJN",
+      "launch": "C5SdkuYmMkt1Bg33VRrZu6vYhXTETmjnE6onnVwCjBFH",
+      "launchIndex": "1"
+    },
+    {
+      "name": "AI Agent",
+      "symbol": "AGENT",
+      "mint": "CD5mjbEBCccxyYF8Gsn2PDA7SVn8u53sVtFBendDMuBH",
+      "launch": "5hWm57YetcLPn7EmwdyXpuYg8RVzMGXqP9yMZQLqSNy",
+      "launchIndex": "2"
+    },
+    {
+      "name": "Tensor",
+      "symbol": "TENSOR",
+      "mint": "4wjorptgEDLgQcaHajXjbdRchLhQGC5Rq1oiy8xUa52T",
+      "launch": "BAunvbNSJkFKFKXx5nZGZzi6U2iPXrHY5sJqh4mpc6Sr",
+      "launchIndex": "3"
+    },
+    {
+      "name": "CompuToken",
+      "symbol": "COMPU",
+      "mint": "6uMw8AaHVeq3phe8JN7r22WDFD75TgHZbdpn7HU49vNP",
+      "launch": "rrf8xm15bDmmaGkomUECEjaGrJKf6XVLLXRR6fdC87i",
+      "launchIndex": "4"
+    },
+    {
+      "name": "InferAI",
+      "symbol": "INFER",
+      "mint": "32udzGyUQ4dsTFdHWdWDWuMmQpZLDvyemxhuqykqCSoi",
+      "launch": "4oTUvvfwmwEF2KTCyu9KvKaq7vjEHPdntByb3wfkkSrX",
+      "launchIndex": "5"
+    },
+    {
+      "name": "AgentSwarm",
+      "symbol": "SWARM",
+      "mint": "5Pujtv6rkgX4mGX19y1Ri8sc6iBExKuVwDU9jcfgDVtK",
+      "launch": "3XfPnuVBpVwNxQHz4ACqQVNGFLt2o1PbUXrpNYja9m5m",
+      "launchIndex": "6"
+    },
+    {
+      "name": "MythicBot",
+      "symbol": "MBOT",
+      "mint": "FpoQfMqqdSuVJCgRyUATYz9rXejxUjftcNc6yrHThBgs",
+      "launch": "D5hQcUsgitHoPYDHCtet2tjaC8BAec7ZXqpYRqaVZKub",
+      "launchIndex": "7"
+    }
+  ]
+}

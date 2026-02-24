@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const L1_RPC_URL = 'http://20.81.176.84:8899'
+const L1_RPC_URL = process.env.L1_RPC_URL || 'https://api.mainnet-beta.solana.com'
 
 export async function POST(request: NextRequest) {
   try {

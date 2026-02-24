@@ -35,7 +35,6 @@ const sectionGroups: { label: string; sections: DocSection[] }[] = [
         children: [
           { id: 'quickstart-network', title: 'Network Info' },
           { id: 'quickstart-wallet', title: 'Connect Wallet' },
-          { id: 'quickstart-faucet', title: 'Get Testnet $MYTH' },
         ],
       },
     ],
@@ -118,9 +117,7 @@ const sectionGroups: { label: string; sections: DocSection[] }[] = [
         title: 'MythicSwap',
         icon: '🔄',
         children: [
-          { id: 'swap-overview', title: 'Overview' },
-          { id: 'swap-trading', title: 'Trading' },
-          { id: 'swap-liquidity', title: 'Liquidity Pools' },
+          { id: 'swap-overview', title: 'Overview — Coming Soon' },
         ],
       },
       {
@@ -128,9 +125,7 @@ const sectionGroups: { label: string; sections: DocSection[] }[] = [
         title: 'mythic.money',
         icon: '🚀',
         children: [
-          { id: 'pad-overview', title: 'Overview' },
-          { id: 'pad-projects', title: 'For Projects' },
-          { id: 'pad-users', title: 'For Users' },
+          { id: 'pad-overview', title: 'Overview — Coming Soon' },
         ],
       },
     ],
@@ -152,11 +147,6 @@ const sectionGroups: { label: string; sections: DocSection[] }[] = [
         id: 'security',
         title: 'Security',
         icon: '🛡️',
-        children: [
-          { id: 'sec-audit', title: 'Audit Status' },
-          { id: 'sec-pause', title: 'Emergency Pause' },
-          { id: 'sec-bounty', title: 'Bug Bounty' },
-        ],
       },
     ],
   },

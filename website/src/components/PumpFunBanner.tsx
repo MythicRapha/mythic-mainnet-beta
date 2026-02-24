@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-const PUMPFUN_CONTRACT = 'MYTH1111111111111111111111111111111111111111'
+const PUMPFUN_CONTRACT = '5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump'
 const PUMPFUN_URL = 'https://pump.fun/coin/'
 
 export default function PumpFunBanner() {

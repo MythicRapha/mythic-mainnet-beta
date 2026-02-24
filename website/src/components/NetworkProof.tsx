@@ -189,10 +189,10 @@ function NetworkCard({ net }: { net: NetworkData }) {
 
           <div>
             <div className="font-mono text-[0.45rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-1">
-              Capacity
+              Peak Capacity
             </div>
             <div className="font-display text-[1.15rem] font-bold text-[#39FF14] tabular-nums">
-              {net.online ? '1M+' : '\u2014'}
+              {net.online ? '1M+ TPS' : '\u2014'}
             </div>
           </div>
 

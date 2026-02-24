@@ -6,7 +6,6 @@ export const revalidate = 0
 
 const NETWORKS = [
   { id: 'mainnet', label: 'Mainnet', rpcUrl: 'https://rpc.mythic.sh', publicUrl: 'rpc.mythic.sh' },
-  { id: 'testnet', label: 'Testnet', rpcUrl: 'https://rpc.mythic.sh', publicUrl: 'testnet.mythic.sh' },
 ]
 
 async function rpcCall(url: string, method: string, params: unknown[] = [], signal: AbortSignal) {

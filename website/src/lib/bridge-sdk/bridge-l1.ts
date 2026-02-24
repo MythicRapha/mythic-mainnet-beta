@@ -5,7 +5,7 @@ import {
   TransactionInstruction,
   Transaction,
 } from '@solana/web3.js'
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token'
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import {
   BRIDGE_L1_PROGRAM_ID,
   L1_IX,
@@ -18,18 +18,6 @@ import {
   deriveTokenFeeVault,
   deriveWithdrawalRequest,
 } from './accounts'
-
-// ── Borsh Serialization Helpers ─────────────────────────────────────────────
-
-function serializeU64(value: bigint): Buffer {
-  const buf = Buffer.alloc(8)
-  buf.writeBigUInt64LE(value)
-  return buf
-}
-
-function serializePubkey(key: PublicKey): Buffer {
-  return key.toBuffer()
-}
 
 // ── Deposit SOL ─────────────────────────────────────────────────────────────
 // Accounts:

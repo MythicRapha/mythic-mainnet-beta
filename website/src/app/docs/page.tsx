@@ -303,7 +303,7 @@ function BridgeDocsSection() {
         </div>
       </div>
       <InfoBox title="Deposit Fee">
-        A 0.25% (25 bps) fee is applied to deposits. For example, depositing 10 SOL credits 9.975 MYTH on L2. Fees are distributed through the MYTH fee structure: 50% to validators, 10% to the foundation, and 40% burned.
+        A 0.1% (10 bps) fee is applied to deposits. For example, depositing 10 SOL credits ~9.99 MYTH on L2. Fees are distributed through the MYTH fee structure: 50% to validators, 10% to the foundation, and 40% burned.
       </InfoBox>
 
       {/* Withdrawal Flow */}
@@ -311,7 +311,7 @@ function BridgeDocsSection() {
         <SubHeading>Withdrawal Flow (L2 → L1)</SubHeading>
       </div>
       <Paragraph>
-        Withdrawals move assets from Mythic L2 back to Solana L1. Because Mythic uses an optimistic rollup model, withdrawals include a 42-hour challenge period to allow fraud proof submission before funds are released.
+        Withdrawals move assets from Mythic L2 back to Solana L1. Because Mythic uses an optimistic rollup model, withdrawals include a 7-day challenge period to allow fraud proof submission before funds are released.
       </Paragraph>
       <div className="bg-[#08080C] border border-white/[0.06] p-5 mb-6 space-y-3">
         <div className="flex items-center gap-3 text-[0.82rem]">
@@ -324,7 +324,7 @@ function BridgeDocsSection() {
         </div>
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">3.</span>
-          <span className="text-mythic-text">Challenge period begins: 42 hours (151,200 seconds)</span>
+          <span className="text-mythic-text">Challenge period begins: 7 days (604,800 seconds)</span>
         </div>
         <div className="flex items-center gap-3 text-[0.82rem]">
           <span className="text-mythic-violet font-mono">4.</span>
@@ -336,7 +336,7 @@ function BridgeDocsSection() {
         </div>
       </div>
       <InfoBox title="Challenge Period">
-        The 42-hour challenge period is a security measure. During this window, any honest observer can submit a fraud proof to the L1 settlement contract if the withdrawal is based on an invalid L2 state. This protects all bridge users from fraudulent state transitions.
+        The 7-day challenge period is a security measure. During this window, any honest observer can submit a fraud proof to the L1 settlement contract if the withdrawal is based on an invalid L2 state. This protects all bridge users from fraudulent state transitions.
       </InfoBox>
 
       {/* Bridge Addresses */}
@@ -384,8 +384,8 @@ function BridgeDocsSection() {
           { label: 'Min Deposit', value: '0.01 SOL' },
           { label: 'Max Deposit', value: '1,000 SOL' },
           { label: 'Daily Limit', value: '10,000 SOL' },
-          { label: 'Challenge Period', value: '42 hours' },
-          { label: 'Bridge Fee', value: '25 bps (0.25%)' },
+          { label: 'Challenge Period', value: '7 days' },
+          { label: 'Bridge Fee', value: '10 bps (0.1%)' },
           { label: 'Supported Assets', value: 'SOL' },
         ].map((item) => (
           <div key={item.label} className="bg-[#08080C] border border-white/[0.06] p-4">
@@ -449,7 +449,7 @@ function BridgeDocsSection() {
       </Paragraph>
       <ul className="space-y-3 mb-6">
         {[
-          'Optimistic rollup model -- state transitions are assumed valid unless challenged within the 42-hour window',
+          'Optimistic rollup model -- state transitions are assumed valid unless challenged within the 7-day window',
           'Settlement roots posted to Solana L1 every 100 slots, verifiable by anyone',
           'Any honest observer can submit a fraud proof to the L1 settlement contract',
           'Successful fraud proof challengers are rewarded from the sequencer bond',
@@ -474,7 +474,7 @@ function BridgeDocsSection() {
         <SubHeading>Fee Structure</SubHeading>
       </div>
       <Paragraph>
-        Bridge operations incur a 25 basis point (0.25%) fee on deposits. This fee is distributed through the standard MYTH fee allocation model, contributing to network security and deflationary pressure.
+        Bridge operations incur a 10 basis point (0.1%) fee on deposits. This fee is distributed through the standard MYTH fee allocation model, contributing to network security and deflationary pressure.
       </Paragraph>
       <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden mb-6">
         <table className="w-full">

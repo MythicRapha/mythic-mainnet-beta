@@ -3,7 +3,7 @@ import { PublicKey } from '@solana/web3.js'
 // ── Program IDs (deployed) ──────────────────────────────────────────────────
 
 export const BRIDGE_L1_PROGRAM_ID = new PublicKey('oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ')
-export const BRIDGE_L2_PROGRAM_ID = new PublicKey('3HsETxbcFZ5DnGiLWy3fEvpwQFzb2ThqLXY1eWQjjMLS')
+export const BRIDGE_L2_PROGRAM_ID = new PublicKey('MythBrdgL2111111111111111111111111111111111')
 
 // ── PDA Seeds ───────────────────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ export const VAULT_SEED = Buffer.from('vault')
 export const SOL_VAULT_SEED = Buffer.from('sol_vault')
 export const WITHDRAWAL_SEED = Buffer.from('withdrawal')
 export const L2_BRIDGE_CONFIG_SEED = Buffer.from('l2_bridge_config')
-export const WRAPPED_MINT_SEED = Buffer.from('wrapped_mint')
+export const BRIDGE_RESERVE_SEED = Buffer.from('bridge_reserve')
 export const PROCESSED_SEED = Buffer.from('processed')
 export const MINT_SEED = Buffer.from('mint')
 export const FEE_VAULT_SEED = Buffer.from('bridge_vault')
@@ -34,9 +34,9 @@ export const L1_IX = {
 
 export const L2_IX = {
   INITIALIZE: 0,
-  REGISTER_WRAPPED_TOKEN: 1,
-  MINT_WRAPPED: 2,
-  BURN_WRAPPED: 3,
+  FUND_RESERVE: 1,
+  RELEASE_BRIDGED: 2,
+  BRIDGE_TO_L1: 3,
   UPDATE_CONFIG: 4,
   PAUSE_BRIDGE: 5,
   UNPAUSE_BRIDGE: 6,
@@ -64,16 +64,17 @@ export interface BridgeConfig {
   totalSolFeesCollected: bigint
 }
 
+/** L2 bridge config — native transfer model (92 bytes) */
 export interface L2BridgeConfig {
   admin: PublicKey
   relayer: PublicKey
-  burnNonce: bigint
+  withdrawNonce: bigint
+  totalReleased: bigint
+  totalReceived: bigint
   isInitialized: boolean
   bump: number
   paused: boolean
-  bridgeFeeBps: bigint
-  totalFeesCollected: bigint
-  totalFeesWithdrawn: bigint
+  reserveBump: number
 }
 
 export enum WithdrawalStatus {
@@ -91,13 +92,6 @@ export interface WithdrawalRequest {
   challengeDeadline: bigint
   status: WithdrawalStatus
   nonce: bigint
-  bump: number
-}
-
-export interface WrappedTokenInfo {
-  l1Mint: PublicKey
-  l2Mint: PublicKey
-  isActive: boolean
   bump: number
 }
 
@@ -123,12 +117,12 @@ export interface DepositRecord {
 }
 
 export interface WithdrawalRecord {
-  burnNonce: number
+  withdrawNonce: number
   amount: number
   token: string
   l1Recipient: string
   timestamp: number
-  status: 'burned' | 'initiated' | 'challenged' | 'finalized'
+  status: 'sent' | 'initiated' | 'challenged' | 'finalized'
   challengeDeadline?: number
 }
 
@@ -147,10 +141,12 @@ export interface BridgeStats {
 // ── Constants ───────────────────────────────────────────────────────────────
 
 export const LAMPORTS_PER_SOL = 1_000_000_000
+export const LAMPORTS_PER_MYTH = 1_000_000_000  // L2 MYTH has 9 decimals
 export const DAILY_RESET_SLOTS = 216_000
 export const CHALLENGE_PERIOD_SECONDS = 604_800 // 7 days
 export const BPS_DENOMINATOR = 10_000
 export const MIN_FEE_LAMPORTS = 5_000 // 0.000005 SOL minimum fee
+export const DECIMAL_SCALING_FACTOR = 1_000 // L1=6 dec, L2=9 dec → amounts must be divisible by 1000
 
 export const SUPPORTED_ASSETS: BridgeAsset[] = [
   {

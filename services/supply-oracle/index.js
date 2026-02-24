@@ -46,8 +46,10 @@ const L2_RPC_URL = process.env.L2_RPC_URL || "http://127.0.0.1:8899";
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || "10000", 10);
 
 // MYTH token addresses
-const L1_MYTH_MINT = process.env.L1_MYTH_MINT || "22XjKMYtQhNX3wETXFXFK5gvSfXHCxt9gj8DBKZaai3C";
-const L2_MYTH_MINT = process.env.L2_MYTH_MINT || "7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf";
+const L1_MYTH_MINT = process.env.L1_MYTH_MINT || "5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump";
+// L2 MYTH is the NATIVE chain token (like SOL), not an SPL mint
+// This variable is kept for backwards compat but L2 supply is fetched via getSupply RPC
+const L2_MYTH_MINT = process.env.L2_MYTH_MINT || "native";
 
 // Programs
 const L1_BRIDGE_PROGRAM = process.env.L1_BRIDGE_PROGRAM || "oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ";
@@ -369,16 +371,18 @@ async function fetchL1Supply() {
 }
 
 async function fetchL2Supply() {
+  // L2 MYTH is the native chain token (like SOL on Solana), not an SPL token.
+  // Use getSupply RPC to get total native token supply on L2.
   try {
     const conn = new Connection(L2_RPC_URL, "confirmed");
-    const mintInfo = await withTimeout(conn.getParsedAccountInfo(new PublicKey(L2_MYTH_MINT)), 8000);
-    if (mintInfo.value && "parsed" in mintInfo.value.data) {
-      const parsed = mintInfo.value.data.parsed;
-      return { supply: parseFloat(parsed.info.supply) / (10 ** parsed.info.decimals), error: null };
+    const supplyResp = await withTimeout(conn.getSupply(), 8000);
+    if (supplyResp && supplyResp.value) {
+      const totalLamports = supplyResp.value.total;
+      return { supply: totalLamports / 1e9, error: null };
     }
-    return { supply: 0, error: null };
+    return { supply: 0, error: "Could not fetch L2 supply" };
   } catch (err) {
-    return { supply: 0, error: null };
+    return { supply: 0, error: err.message };
   }
 }
 

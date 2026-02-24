@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 interface LiveStats {
   slot: number
   epoch: number
-  tps: number | null
+  blockTimeMs: number | null
   transactionCount: number
   online: boolean
 }
@@ -67,7 +67,7 @@ export default function StatsBar() {
       setStats({
         slot: slotVal ?? 0,
         epoch: epochVal?.epoch ?? 0,
-        tps: blockTimeMs,
+        blockTimeMs: blockTimeMs,
         transactionCount: txCountVal ?? epochVal?.transactionCount ?? 0,
         online: slotVal !== null && slotVal !== undefined,
       })
@@ -117,7 +117,7 @@ export default function StatsBar() {
     },
     {
       label: 'Block Time',
-      value: stats?.online && stats.tps !== null ? `~${stats.tps}ms` : '...',
+      value: stats?.online && stats.blockTimeMs !== null ? `~${stats.blockTimeMs}ms` : '...',
       accent: 'text-mythic-violet',
     },
     {

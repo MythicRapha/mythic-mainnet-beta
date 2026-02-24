@@ -6,7 +6,9 @@ import {
   fetchBridgeConfig,
   fetchL2BridgeConfig,
   fetchSolVaultBalance,
+  fetchBridgeReserveBalance,
   buildDepositSOLTransaction,
+  buildBridgeToL1Transaction,
   BridgeStats,
   BridgeDirection,
   DepositRecord,
@@ -14,6 +16,8 @@ import {
   BPS_DENOMINATOR,
   MIN_FEE_LAMPORTS,
   BRIDGE_L1_PROGRAM_ID,
+  DECIMAL_SCALING_FACTOR,
+  LAMPORTS_PER_MYTH,
 } from '@/lib/bridge-sdk'
 import { useWalletContext } from '@/providers/WalletProvider'
 
@@ -31,6 +35,7 @@ export function useBridge() {
   const [error, setError] = useState<string | null>(null)
   const [deposits, setDeposits] = useState<DepositRecord[]>([])
   const [solVaultTvl, setSolVaultTvl] = useState<number>(0)
+  const [l2ReserveBalance, setL2ReserveBalance] = useState<number>(0)
 
   const l1ConnRef = useRef<Connection | null>(null)
   const l2ConnRef = useRef<Connection | null>(null)
@@ -88,6 +93,14 @@ export function useBridge() {
       const vaultBalance = await fetchSolVaultBalance(l2Conn)
       setSolVaultTvl(vaultBalance / LAMPORTS_PER_SOL)
 
+      // Load L2 bridge reserve balance
+      try {
+        const reserveBalance = await fetchBridgeReserveBalance(l2Conn)
+        setL2ReserveBalance(reserveBalance / LAMPORTS_PER_MYTH)
+      } catch {
+        // reserve may not exist yet
+      }
+
       // Check L2 bridge pause status
       try {
         const l2Config = await fetchL2BridgeConfig(l2Conn)
@@ -97,8 +110,8 @@ export function useBridge() {
       } catch {
         // L2 config may not exist yet
       }
-    } catch (err) {
-      console.error('Failed to load bridge stats:', err)
+    } catch {
+      // silently handle - UI shows loading state
     }
   }, [])
 
@@ -162,8 +175,8 @@ export function useBridge() {
       }
 
       setDeposits(bridgeDeposits)
-    } catch (err) {
-      console.error('Failed to load deposits:', err)
+    } catch {
+      // silently handle - UI shows empty state
     }
   }, [publicKey])
 
@@ -224,15 +237,56 @@ export function useBridge() {
     }
   }, [publicKey, stats, signAndSendTransaction, loadStats, loadDeposits, refreshBalances])
 
-  // ── Withdraw from L2 (burn wrapped tokens) ───────────────────────────────
-  // Users burn MYTH on L2. The sequencer then initiates
-  // the withdrawal on L1 after observing the burn event.
-  // This is a placeholder — full withdraw requires L2 wallet signing.
+  // ── Withdraw from L2 (bridge native MYTH to L1) ────────────────────────────
+  // User sends native MYTH to the bridge reserve PDA on L2.
+  // The relayer watches for EVENT:BridgeToL1 and initiates
+  // a withdrawal on L1 after observing the event.
 
-  const withdrawFromL2 = useCallback(async (_amountSol: number): Promise<string> => {
-    setError('Withdrawals require connecting to the Mythic L2 network. Coming soon.')
-    throw new Error('L2 withdrawal not yet supported in this UI')
-  }, [])
+  const withdrawFromL2 = useCallback(async (amountMyth: number, l1Recipient?: PublicKey): Promise<string> => {
+    if (!publicKey) throw new Error('Wallet not connected')
+
+    setLoading(true)
+    setError(null)
+    setTxSignature(null)
+
+    try {
+      if (l2Paused) throw new Error('L2 bridge is currently paused')
+      if (amountMyth <= 0) throw new Error('Amount must be greater than zero')
+
+      const amountLamports = BigInt(Math.round(amountMyth * LAMPORTS_PER_MYTH))
+
+      // Validate divisibility for L2→L1 decimal alignment
+      if (amountLamports % BigInt(DECIMAL_SCALING_FACTOR) !== BigInt(0)) {
+        throw new Error(`Amount must be divisible by ${DECIMAL_SCALING_FACTOR / LAMPORTS_PER_MYTH} MYTH for L1 compatibility`)
+      }
+
+      const l2Conn = getL2Connection()
+
+      const tx = await buildBridgeToL1Transaction(
+        l2Conn,
+        publicKey,
+        amountLamports,
+        l1Recipient || publicKey,
+      )
+      const { signature } = await signAndSendTransaction(tx)
+
+      setTxSignature(signature)
+
+      // Wait for confirmation on L2
+      await l2Conn.confirmTransaction(signature, 'confirmed')
+
+      // Refresh
+      await Promise.all([loadStats(), loadDeposits(), refreshBalances(publicKey)])
+
+      return signature
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Withdrawal failed'
+      setError(message)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [publicKey, l2Paused, signAndSendTransaction, loadStats, loadDeposits, refreshBalances])
 
   return {
     direction,

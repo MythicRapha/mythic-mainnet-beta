@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const RELAYER_URL = 'http://localhost:4003' // mythic-relayer
-const EXPLORER_API = 'http://localhost:4000'
+const RELAYER_URL = process.env.RELAYER_URL || 'http://localhost:4003'
+const EXPLORER_API = process.env.EXPLORER_API || 'http://localhost:4000'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -42,11 +42,12 @@ export async function GET(request: NextRequest) {
     } catch {}
 
     return NextResponse.json({
-      totalDeposits: 847,
-      totalWithdrawals: 234,
-      tvl: 2_450_000,
-      activeBridges: 12,
-      avgBridgeTime: '~2 min',
+      totalDeposits: 0,
+      totalWithdrawals: 0,
+      tvl: 0,
+      activeBridges: 0,
+      avgBridgeTime: 'N/A',
+      error: 'Bridge stats unavailable',
     })
   }
 
@@ -72,14 +73,11 @@ export async function POST(request: NextRequest) {
         }
       } catch {}
 
-      // Relayer unavailable — return simulated response
-      const sig = `bridge_deposit_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-      return NextResponse.json({
-        signature: sig,
-        status: 'pending',
-        message: 'Deposit queued. Funds will appear on Mythic L2 in ~2 minutes.',
-        estimatedTime: 120,
-      })
+      // Relayer unavailable — return error
+      return NextResponse.json(
+        { error: 'Bridge relayer is temporarily unavailable. Please try again later.' },
+        { status: 503 },
+      )
     }
 
     if (action === 'withdraw') {
@@ -95,13 +93,10 @@ export async function POST(request: NextRequest) {
         }
       } catch {}
 
-      const sig = `bridge_withdraw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-      return NextResponse.json({
-        signature: sig,
-        status: 'pending',
-        message: 'Withdrawal initiated. 7-day challenge period begins now.',
-        challengeDeadline: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      })
+      return NextResponse.json(
+        { error: 'Bridge relayer is temporarily unavailable. Please try again later.' },
+        { status: 503 },
+      )
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })

@@ -31,12 +31,12 @@ export async function GET() {
   } catch (err) {
     return NextResponse.json(
       {
-        supply: { totalSupply: 1_000_000_000, burned: 0, circulating: 1_000_000_000, burnRate24h: 0, decimals: 9 },
-        stats: { feeBreakdown: { gas: { burned: 0 }, compute: { burned: 0 }, inference: { burned: 0 }, bridge: { burned: 0 }, subnet: { burned: 0 } }, totalBurned: 0, validatorRewards: 0, foundationTreasury: { collected: 0, balance: 0 }, currentEpoch: 0 },
+        supply: null,
+        stats: null,
         fetchedAt: new Date().toISOString(),
         error: 'Supply oracle unavailable',
       },
-      { status: 200, headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } },
+      { status: 503, headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } },
     )
   }
 }

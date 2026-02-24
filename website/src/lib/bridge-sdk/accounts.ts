@@ -7,7 +7,7 @@ import {
   VAULT_SEED,
   WITHDRAWAL_SEED,
   L2_BRIDGE_CONFIG_SEED,
-  WRAPPED_MINT_SEED,
+  BRIDGE_RESERVE_SEED,
   MINT_SEED,
   PROCESSED_SEED,
   FEE_VAULT_SEED,
@@ -15,7 +15,6 @@ import {
   L2BridgeConfig,
   WithdrawalRequest,
   WithdrawalStatus,
-  WrappedTokenInfo,
 } from './types'
 
 // ── PDA Derivation ──────────────────────────────────────────────────────────
@@ -50,12 +49,8 @@ export function deriveL2BridgeConfig(): [PublicKey, number] {
   return PublicKey.findProgramAddressSync([L2_BRIDGE_CONFIG_SEED], BRIDGE_L2_PROGRAM_ID)
 }
 
-export function deriveWrappedTokenInfo(l1Mint: PublicKey): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync([WRAPPED_MINT_SEED, l1Mint.toBuffer()], BRIDGE_L2_PROGRAM_ID)
-}
-
-export function deriveL2Mint(l1Mint: PublicKey): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync([MINT_SEED, l1Mint.toBuffer()], BRIDGE_L2_PROGRAM_ID)
+export function deriveBridgeReserve(): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([BRIDGE_RESERVE_SEED], BRIDGE_L2_PROGRAM_ID)
 }
 
 export function deriveProcessedDeposit(nonce: bigint): [PublicKey, number] {
@@ -118,23 +113,30 @@ export function deserializeBridgeConfig(data: Buffer): BridgeConfig {
 }
 
 export function deserializeL2BridgeConfig(data: Buffer): L2BridgeConfig {
+  // L2BridgeConfig struct (92 bytes):
+  //   admin: Pubkey (32)
+  //   relayer: Pubkey (32)
+  //   withdraw_nonce: u64 (8)
+  //   total_released: u64 (8)
+  //   total_received: u64 (8)
+  //   is_initialized: bool (1)
+  //   bump: u8 (1)
+  //   paused: bool (1)
+  //   reserve_bump: u8 (1)
   let offset = 0
   const admin = readPubkey(data, offset); offset += 32
   const relayer = readPubkey(data, offset); offset += 32
-  const burnNonce = readU64(data, offset); offset += 8
+  const withdrawNonce = readU64(data, offset); offset += 8
+  const totalReleased = readU64(data, offset); offset += 8
+  const totalReceived = readU64(data, offset); offset += 8
   const isInitialized = readBool(data, offset); offset += 1
   const bump = readU8(data, offset); offset += 1
   const paused = readBool(data, offset); offset += 1
-
-  // Fee fields added in v2 (99 bytes). Old format is 75 bytes.
-  const hasV2Fields = data.length >= 99
-  const bridgeFeeBps = hasV2Fields ? readU64(data, offset) : BigInt(10); offset += hasV2Fields ? 8 : 0
-  const totalFeesCollected = hasV2Fields ? readU64(data, offset) : BigInt(0); offset += hasV2Fields ? 8 : 0
-  const totalFeesWithdrawn = hasV2Fields ? readU64(data, offset) : BigInt(0)
+  const reserveBump = readU8(data, offset)
 
   return {
-    admin, relayer, burnNonce, isInitialized, bump, paused,
-    bridgeFeeBps, totalFeesCollected, totalFeesWithdrawn,
+    admin, relayer, withdrawNonce, totalReleased, totalReceived,
+    isInitialized, bump, paused, reserveBump,
   }
 }
 
@@ -152,16 +154,6 @@ export function deserializeWithdrawalRequest(data: Buffer): WithdrawalRequest {
   const status = statusByte as WithdrawalStatus
 
   return { recipient, amount, tokenMint, merkleProof, challengeDeadline, status, nonce, bump }
-}
-
-export function deserializeWrappedTokenInfo(data: Buffer): WrappedTokenInfo {
-  let offset = 0
-  const l1Mint = readPubkey(data, offset); offset += 32
-  const l2Mint = readPubkey(data, offset); offset += 32
-  const isActive = readBool(data, offset); offset += 1
-  const bump = readU8(data, offset)
-
-  return { l1Mint, l2Mint, isActive, bump }
 }
 
 // ── Fetch Functions ─────────────────────────────────────────────────────────
@@ -190,14 +182,10 @@ export async function fetchWithdrawalRequest(
   return deserializeWithdrawalRequest(Buffer.from(info.data))
 }
 
-export async function fetchWrappedTokenInfo(
-  connection: Connection,
-  l1Mint: PublicKey,
-): Promise<WrappedTokenInfo | null> {
-  const [pda] = deriveWrappedTokenInfo(l1Mint)
-  const info = await connection.getAccountInfo(pda)
-  if (!info || !info.data) return null
-  return deserializeWrappedTokenInfo(Buffer.from(info.data))
+export async function fetchBridgeReserveBalance(connection: Connection): Promise<number> {
+  const [reserve] = deriveBridgeReserve()
+  const balance = await connection.getBalance(reserve)
+  return balance
 }
 
 export async function fetchSolVaultBalance(connection: Connection): Promise<number> {

@@ -326,7 +326,7 @@ export default function WhitepaperPage() {
         {/* =============== 5. BRIDGE =============== */}
         <H2 id="bridge">5. Bridge &amp; Settlement</H2>
         <P>
-          The Mythic Bridge is a trust-minimized system for moving assets between Solana L1 and Mythic L2. It supports SOL, $MYTH, and USDC, with additional assets added through governance.
+          The Mythic Bridge is a trust-minimized system for moving assets between Solana L1 and Mythic L2. It currently supports SOL, with additional assets (including USDC and Token-2022 tokens) added through governance.
         </P>
 
         <H3>5.1 Deposits (L1 → L2)</H3>

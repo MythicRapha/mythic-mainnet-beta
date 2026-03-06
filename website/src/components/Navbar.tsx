@@ -139,7 +139,7 @@ export default function Navbar() {
             Wallet
           </a>
           <a
-            href="https://github.com/MythicL2"
+            href="https://github.com/MythicFoundation"
             target="_blank"
             rel="noopener noreferrer"
             className="px-[14px] py-[19px] text-mythic-text-dim hover:text-white transition-colors"
@@ -269,7 +269,7 @@ export default function Navbar() {
               Wallet
             </a>
             <div className="flex items-center gap-4 px-3 py-2.5">
-              <a href="https://github.com/MythicL2" target="_blank" rel="noopener noreferrer" className="text-mythic-text-dim hover:text-white transition-colors" aria-label="GitHub">
+              <a href="https://github.com/MythicFoundation" target="_blank" rel="noopener noreferrer" className="text-mythic-text-dim hover:text-white transition-colors" aria-label="GitHub">
                 <FaGithub className="w-[18px] h-[18px]" />
               </a>
               <a href="https://x.com/Mythic_L2" target="_blank" rel="noopener noreferrer" className="text-mythic-text-dim hover:text-white transition-colors" aria-label="X">

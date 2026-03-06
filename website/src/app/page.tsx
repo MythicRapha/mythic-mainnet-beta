@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import FeatureCard from '@/components/FeatureCard'
 import StatsBar from '@/components/StatsBar'
 import TokenomicsTable from '@/components/TokenomicsTable'
 import ExplorerSearch from '@/components/ExplorerSearch'
-import NetworkProof from '@/components/NetworkProof'
+import LiveProof from '@/components/LiveProof'
+import HeroGem from '@/components/HeroGem'
 
 export default function HomePage() {
   return (
@@ -14,17 +14,8 @@ export default function HomePage() {
         <div className="grid-overlay absolute inset-0" />
 
         <div className="relative max-w-[1280px] mx-auto px-5 sm:px-10 text-center">
-          {/* Convergence Mark */}
-          <div className="mb-10">
-            <Image
-              src="/brand/mark-glow.svg"
-              alt="Mythic"
-              width={80}
-              height={80}
-              className="mx-auto"
-              priority
-            />
-          </div>
+          {/* Convergence Crystal */}
+          <HeroGem />
 
           {/* Heading — Sora, uppercase, huge tracking */}
           <h1 className="font-display font-extrabold text-[2.8rem] sm:text-[3.6rem] lg:text-[4.8rem] tracking-[0.18em] uppercase text-white leading-[1.05] mb-6">
@@ -44,11 +35,41 @@ export default function HomePage() {
 
           {/* Description — Inter body */}
           <p className="text-[0.95rem] text-mythic-text max-w-[560px] mx-auto mb-12 leading-relaxed">
-            A Solana SVM Layer 2 built on Firedancer. AI consensus. Decentralized compute. 1M+ TPS.
+            A Solana SVM Layer 2 built on Firedancer. AI consensus. Decentralized compute.{' '}
+            <span className="relative inline-flex items-center gap-1 group/tps cursor-default">
+              <span className="text-white font-semibold">1M+ peak TPS</span>
+              <svg className="w-3.5 h-3.5 text-mythic-text-dim group-hover/tps:text-mythic-violet transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4M12 8h.01" />
+              </svg>
+              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[260px] px-3 py-2 bg-mythic-card border border-white/10 text-[0.65rem] text-mythic-text leading-relaxed opacity-0 group-hover/tps:opacity-100 transition-opacity z-50 font-mono">
+                <span className="text-white font-semibold block mb-1">Firedancer Peak Throughput</span>
+                Theoretical peak: 1M+ TPS via Firedancer&apos;s optimized networking stack. Live throughput scales with network load, validator count, and transaction complexity. Current load: ~9K TPS.
+                <span className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-white/10" />
+              </span>
+            </span>
           </p>
+
+          {/* BRIDGE POINTS BANNER — High urgency CTA */}
+          <Link
+            href="/bridge"
+            className="group relative inline-flex items-center gap-3 px-6 py-3 mb-6 border border-mythic-violet/40 bg-mythic-violet/[0.08] hover:bg-mythic-violet/[0.15] hover:border-mythic-violet/60 transition-all"
+          >
+            <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-[#39FF14] text-black font-mono text-[0.5rem] font-bold tracking-[0.1em] uppercase animate-pulse">LIVE</span>
+            <span className="font-mono text-[0.65rem] tracking-[0.08em] text-mythic-violet-bright">
+              Bridge now &rarr; Earn up to <span className="text-[#39FF14] font-bold">5x Genesis Points</span>
+            </span>
+          </Link>
 
           {/* CTAs — brand-kit .btn pattern */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/bridge"
+              className="w-full sm:w-auto px-7 py-3.5 bg-mythic-violet text-white font-display text-[0.85rem] font-bold tracking-[0.04em] hover:bg-mythic-violet-bright transition-colors relative overflow-hidden group"
+            >
+              <span className="relative z-10">Bridge to L2 &mdash; Earn Points</span>
+              <span className="absolute inset-0 bg-gradient-to-r from-mythic-violet via-[#9B5FFF] to-mythic-violet opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
             <a
               href="https://pump.fun/coin/5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump"
               target="_blank"
@@ -58,12 +79,6 @@ export default function HomePage() {
               Buy $MYTH on PumpFun
             </a>
             <Link
-              href="/bridge"
-              className="w-full sm:w-auto px-7 py-3 bg-mythic-violet text-white font-display text-[0.8rem] font-semibold tracking-[0.04em] hover:bg-mythic-violet-bright transition-colors"
-            >
-              Bridge to L2
-            </Link>
-            <Link
               href="/docs"
               className="w-full sm:w-auto px-7 py-3 border border-white/[0.12] text-white font-display text-[0.8rem] font-semibold tracking-[0.04em] hover:border-white/[0.24] hover:bg-white/[0.03] transition-colors"
             >
@@ -71,16 +86,31 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* Whitepaper link */}
-          <div className="mt-6">
+          {/* Trust verification strip */}
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
+            <Link
+              href="/proof"
+              className="inline-flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.12em] uppercase text-[#39FF14]/60 hover:text-[#39FF14] transition-colors"
+            >
+              <span className="w-1.5 h-1.5 bg-[#39FF14] animate-pulse" />
+              Network Verification
+            </Link>
+            <a
+              href="https://mythic.foundation"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.12em] uppercase text-mythic-violet/60 hover:text-mythic-violet transition-colors"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Wyoming DUNA — Filing #2026-001904245
+            </a>
             <Link
               href="/whitepaper"
-              className="inline-flex items-center gap-2 font-mono text-[0.7rem] tracking-[0.08em] text-mythic-violet hover:text-mythic-violet-bright transition-colors"
+              className="inline-flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.12em] uppercase text-mythic-text-dim hover:text-white transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-              Read the Whitepaper
+              Whitepaper
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>
@@ -95,8 +125,8 @@ export default function HomePage() {
       {/* ===== STATS ===== */}
       <StatsBar />
 
-      {/* ===== NETWORK PROOF ===== */}
-      <NetworkProof />
+      {/* ===== LIVE PROOF ===== */}
+      <LiveProof />
 
       {/* ===== FEATURES ===== */}
       <section className="py-[100px] sm:py-[120px]">
@@ -140,7 +170,7 @@ export default function HomePage() {
                 </svg>
               }
               title="Built on Firedancer"
-              description="The fastest SVM runtime. 1M+ TPS networking from day one. Full Solana program compatibility."
+              description="The fastest SVM runtime. 1M+ TPS peak capacity via Firedancer. Full Solana program compatibility."
             />
           </div>
         </div>
@@ -280,7 +310,7 @@ export default function HomePage() {
               $MYTH — Native L2 Currency
             </h2>
             <p className="text-mythic-text text-[0.95rem] max-w-[640px] leading-relaxed">
-              $MYTH is the native gas currency of the Mythic L2 chain. Fixed supply of 1B. Every transaction burns a portion. No inflation. No VC unlocks.
+              $MYTH is the native gas currency of the Mythic L2 chain. Fixed supply of ~999M. Every transaction burns a portion. No inflation. No VC unlocks.
             </p>
           </div>
 
@@ -308,7 +338,7 @@ export default function HomePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#08080C] border border-white/[0.06] p-6">
                   <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Total Supply</div>
-                  <div className="font-display text-[2rem] font-bold text-white">1B</div>
+                  <div className="font-display text-[2rem] font-bold text-white">~999M</div>
                 </div>
                 <div className="bg-[#08080C] border border-white/[0.06] p-6">
                   <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Type</div>
@@ -423,7 +453,7 @@ export default function HomePage() {
               </div>
               <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Foundation</div>
               <h4 className="font-display text-white font-semibold text-[1rem] mb-2 group-hover:text-[#A855F7] transition-colors">mythic.foundation</h4>
-              <p className="text-mythic-text text-[0.75rem] leading-relaxed">Grants, governance, and ecosystem development.</p>
+              <p className="text-mythic-text text-[0.75rem] leading-relaxed">Grants, governance, and ecosystem development. A Wyoming DUNA.</p>
             </a>
           </div>
         </div>

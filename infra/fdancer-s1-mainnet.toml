@@ -1,0 +1,133 @@
+# ============================================================================
+# Frankendancer Config — Server 1 L2 Mainnet (Bootstrap Validator)
+# Server: 20.96.180.64
+# Role: Bootstrap validator, primary sequencer, full RPC
+# ============================================================================
+
+[name]
+  name = "mythic-l2-mainnet-s1"
+
+# ── Identity ───────────────────────────────────────────────────────────────
+[consensus]
+  identity_path       = "/mnt/data/mythic-l2/production-ledger/validator-keypair.json"
+  vote_account_path   = "/mnt/data/mythic-l2/production-ledger/vote-account-keypair.json"
+  expected_genesis_hash = ""
+  wait_for_supermajority_at_slot = 0
+  known_validators    = []
+  snapshot_fetch      = false
+  genesis_fetch       = false
+  snapshot_interval_slots = 100
+
+# ── Ledger ─────────────────────────────────────────────────────────────────
+[ledger]
+  path                = "/mnt/data/mythic-l2/production-ledger"
+  limit_size          = 50000000
+  accounts_path       = "/mnt/data/mythic-l2/production-ledger/accounts"
+  require_tower       = false
+
+# ── RPC ────────────────────────────────────────────────────────────────────
+[rpc]
+  port                = 8899
+  bind_address        = "0.0.0.0"
+  pubsub_port         = 8900
+  full_api            = true
+  private_rpc         = false
+  transaction_history = true
+  bigtable_upload     = false
+
+  # Extended RPC support
+  enable_rpc_pubsub_block_subscription = true
+  enable_rpc_pubsub_vote_subscription  = true
+  account_indexes     = ["program-id", "spl-token-owner", "spl-token-mint"]
+
+# ── Gossip ─────────────────────────────────────────────────────────────────
+[gossip]
+  port                = 8001
+  entrypoints         = []
+  host                = "20.96.180.64"
+
+# ── Network ────────────────────────────────────────────────────────────────
+[net]
+  dynamic_port_range  = "8100-8200"
+
+# ── Log ────────────────────────────────────────────────────────────────────
+[log]
+  path                = "/mnt/data/mythic-l2/logs/fdancer-mainnet.log"
+  level_logfile       = "INFO"
+  level_stderr        = "WARN"
+
+# ── Tiles ──────────────────────────────────────────────────────────────────
+[tiles]
+  layout = "1 net, 1 quic, 2 verify, 1 dedup, 1 resolv, 1 pack, 4 bank, 1 poh, 1 shred, 1 store, 1 metric, 1 sign, 1 plugin"
+
+# ── Snapshots ──────────────────────────────────────────────────────────────
+[snapshots]
+  incremental_path    = "/mnt/data/mythic-l2/production-ledger/snapshots"
+  full_snapshot_interval_slots     = 25000
+  incremental_snapshot_interval_slots = 100
+
+# ── BPF Programs (Loaded at Genesis / Runtime) ─────────────────────────────
+#
+# Frankendancer loads BPF programs that were baked into genesis.
+# These programs are already in the ledger state from solana-test-validator genesis.
+# If migrating from a fresh genesis, use fdctl with --bpf-program flags.
+#
+# Program IDs loaded in genesis:
+#   MythBrdg11111111111111111111111111111111111  = mythic_bridge.so
+#   MythBrdgL2111111111111111111111111111111111  = mythic_bridge_l2.so
+#   CT1yUSX8n5uid5PyrPYnoG5H6Pp2GoqYGEKmMehq3uWJ = mythic_ai_precompiles.so
+#   AVWSp12ji5yoiLeC9whJv5i34RGF5LZozQin6T58vaEh = mythic_compute_market.so
+#   MythSett1ement11111111111111111111111111111  = mythic_settlement.so
+#   MythToken1111111111111111111111111111111111  = mythic_token.so
+#   MythPad111111111111111111111111111111111111  = mythic_launchpad.so
+#   MythSwap11111111111111111111111111111111111  = mythic_swap.so
+#   MythStak11111111111111111111111111111111111  = mythic_staking.so
+#   MythGov111111111111111111111111111111111111  = mythic_governance.so
+#   MythDrop11111111111111111111111111111111111  = mythic_airdrop.so
+#   3QB8S38ouuREEDPxnaaGeujLsUhwFoRbLAejKywtEgv7 = mythic_swap.so (deployed, upgradeable)
+#
+# BPF .so paths (for reference / fresh genesis):
+
+[[bpf_program]]
+  program_id = "MythBrdg11111111111111111111111111111111111"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_bridge.so"
+
+[[bpf_program]]
+  program_id = "MythBrdgL2111111111111111111111111111111111"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_bridge_l2.so"
+
+[[bpf_program]]
+  program_id = "CT1yUSX8n5uid5PyrPYnoG5H6Pp2GoqYGEKmMehq3uWJ"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_ai_precompiles.so"
+
+[[bpf_program]]
+  program_id = "AVWSp12ji5yoiLeC9whJv5i34RGF5LZozQin6T58vaEh"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_compute_market.so"
+
+[[bpf_program]]
+  program_id = "MythSett1ement11111111111111111111111111111"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_settlement.so"
+
+[[bpf_program]]
+  program_id = "MythToken1111111111111111111111111111111111"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_token.so"
+
+[[bpf_program]]
+  program_id = "MythPad111111111111111111111111111111111111"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_launchpad.so"
+
+[[bpf_program]]
+  program_id = "MythSwap11111111111111111111111111111111111"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_swap.so"
+
+[[bpf_program]]
+  program_id = "MythStak11111111111111111111111111111111111"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_staking.so"
+
+[[bpf_program]]
+  program_id = "MythGov111111111111111111111111111111111111"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_governance.so"
+
+[[bpf_program]]
+  program_id = "MythDrop11111111111111111111111111111111111"
+  so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_airdrop.so"

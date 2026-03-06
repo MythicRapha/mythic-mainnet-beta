@@ -4,6 +4,7 @@ import {
   SystemProgram,
   TransactionInstruction,
   Transaction,
+  ComputeBudgetProgram,
 } from '@solana/web3.js'
 import {
   BRIDGE_L2_PROGRAM_ID,
@@ -61,6 +62,19 @@ export function createBridgeToL1Instruction(
   })
 }
 
+// ── Fetch dynamic fee from oracle ───────────────────────────────────────────
+
+export async function fetchRecommendedPriorityFee(): Promise<number> {
+  try {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+    const res = await fetch(baseUrl + '/api/fee-oracle')
+    const data = await res.json()
+    return data?.recommendedPriorityFee || 0
+  } catch {
+    return 0
+  }
+}
+
 // ── Build Full Bridge-to-L1 Transaction ─────────────────────────────────────
 
 export async function buildBridgeToL1Transaction(
@@ -71,8 +85,17 @@ export async function buildBridgeToL1Transaction(
 ): Promise<Transaction> {
   const recipient = l1Recipient || sender
 
+  const tx = new Transaction()
+
+  // Add dynamic priority fee from fee oracle (makes L2 fees ~1 MYTH)
+  const priorityFee = await fetchRecommendedPriorityFee()
+  if (priorityFee > 0) {
+    tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }))
+    tx.add(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityFee }))
+  }
+
   const ix = createBridgeToL1Instruction(sender, amountLamports, recipient)
-  const tx = new Transaction().add(ix)
+  tx.add(ix)
   tx.feePayer = sender
   tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash
   return tx

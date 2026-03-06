@@ -26,14 +26,11 @@ export interface MythPrice {
 const MYTH_MINT = '5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump'
 const SOL_MINT = 'So11111111111111111111111111111111111111112'
 
-// Jupiter Price API v2 — aggregates all on-chain AMM/CLMM pools
-const JUPITER_PRICE_USD_URL = `https://api.jup.ag/price/v2?ids=${MYTH_MINT},${SOL_MINT}`
-
-// DexScreener as final fallback
+// DexScreener as fallback
 const DEXSCREENER_URL = `https://api.dexscreener.com/latest/dex/tokens/${MYTH_MINT}`
 
-// Helius RPC for direct pool reading
-const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY || ''}`
+// Route all L1 RPC calls through server-side proxy (no API key in client bundle)
+const L1_RPC_PROXY = '/api/l1-rpc'
 
 // PumpSwap AMM Program ID
 const PUMPSWAP_AMM = 'pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA'
@@ -60,9 +57,10 @@ function encodeBase58(bytes: Uint8Array): string {
   return encoded || '1'
 }
 
-/** Helper: call Solana RPC */
+/** Helper: call Solana RPC via server-side proxy */
 async function rpc(method: string, params: unknown[]) {
-  const res = await fetch(HELIUS_RPC, {
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const res = await fetch(baseUrl + L1_RPC_PROXY, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -157,34 +155,6 @@ async function fetchPriceFromPumpSwapRPC(): Promise<{
 }
 
 /**
- * Fetch MYTH price from Jupiter Price API v2.
- */
-async function fetchPriceFromJupiter(): Promise<{
-  priceSOL: number
-  priceUsd: number
-  solPriceUsd: number
-} | null> {
-  try {
-    const res = await fetch(JUPITER_PRICE_USD_URL)
-    if (!res.ok) return null
-    const data = await res.json()
-
-    const mythData = data?.data?.[MYTH_MINT]
-    const solData = data?.data?.[SOL_MINT]
-
-    if (!mythData?.price) return null
-
-    const priceUsd = parseFloat(mythData.price)
-    const solPriceUsd = solData?.price ? parseFloat(solData.price) : 0
-    const priceSOL = solPriceUsd > 0 ? priceUsd / solPriceUsd : 0
-
-    return { priceSOL, priceUsd, solPriceUsd }
-  } catch {
-    return null
-  }
-}
-
-/**
  * Fetch MYTH price from DexScreener (API fallback)
  */
 async function fetchPriceFromDexScreener(): Promise<{
@@ -237,12 +207,13 @@ export function useMythPrice() {
 
   const fetchPrice = useCallback(async () => {
     try {
-      // Get SOL/USD price from Jupiter first (needed for all sources)
+      // Get SOL/USD price via server-side proxy (avoids CoinGecko CORS/rate-limits)
       let solPriceUsd = 0
       try {
-        const solRes = await fetch(`https://api.jup.ag/price/v2?ids=${SOL_MINT}`)
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+        const solRes = await fetch(baseUrl + '/api/sol-price')
         const solData = await solRes.json()
-        solPriceUsd = parseFloat(solData?.data?.[SOL_MINT]?.price || '0')
+        solPriceUsd = solData?.solana?.usd || 0
       } catch { /* use 0 */ }
 
       // Get DexScreener metadata (volume, liquidity, change) in parallel
@@ -294,28 +265,7 @@ export function useMythPrice() {
         return
       }
 
-      // ── 2. Jupiter (fast API fallback) ────────────────────────────
-      const jupiter = await fetchPriceFromJupiter()
-      if (jupiter && jupiter.priceUsd > 0) {
-        const dex = await dexPromise
-
-        setPrice({
-          priceUsd: jupiter.priceUsd,
-          priceSOL: jupiter.priceSOL,
-          solPriceUsd: jupiter.solPriceUsd,
-          change24h: dex?.change24h || 0,
-          volume24h: dex?.volume24h || 0,
-          liquidity: dex?.liquidity || 0,
-          source: 'jupiter',
-          confidence: 'high',
-          lastUpdated: Date.now(),
-        })
-        setError(null)
-        setLoading(false)
-        return
-      }
-
-      // ── 3. DexScreener (fallback) ─────────────────────────────────
+      // ── 2. DexScreener (fallback) ─────────────────────────────────
       const dex = await dexPromise
       if (dex && dex.priceUsd > 0) {
         setPrice({

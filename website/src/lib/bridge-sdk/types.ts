@@ -50,6 +50,7 @@ export const L2_IX = {
 
 // ── On-chain State Types ────────────────────────────────────────────────────
 
+/** L1 bridge config — matches on-chain BridgeConfig struct (155 bytes) */
 export interface BridgeConfig {
   admin: PublicKey
   sequencer: PublicKey
@@ -63,11 +64,7 @@ export interface BridgeConfig {
   dailyLimitLamports: bigint
   dailyVolume: bigint
   lastResetSlot: bigint
-  bridgeVault: PublicKey
-  bridgeFeeBps: bigint
-  totalFeesCollected: bigint
-  totalFeesWithdrawn: bigint
-  totalSolFeesCollected: bigint
+  pendingAdmin: PublicKey
 }
 
 /** L2 bridge config — native transfer model (92 bytes) */
@@ -121,6 +118,7 @@ export interface DepositRecord {
   nonce: number
   timestamp: number
   status: 'pending' | 'confirmed' | 'minted'
+  sender?: string  // wallet address that initiated the deposit
 }
 
 export interface WithdrawalRecord {
@@ -150,7 +148,7 @@ export interface BridgeStats {
 export const LAMPORTS_PER_SOL = 1_000_000_000
 export const LAMPORTS_PER_MYTH = 1_000_000_000  // L2 MYTH has 9 decimals
 export const DAILY_RESET_SLOTS = 216_000
-export const CHALLENGE_PERIOD_SECONDS = 604_800 // 7 days
+export const CHALLENGE_PERIOD_SECONDS = 86_400 // 24 hours
 export const BPS_DENOMINATOR = 10_000
 export const MIN_FEE_LAMPORTS = 5_000 // 0.000005 SOL minimum fee
 export const DECIMAL_SCALING_FACTOR = 1_000 // L1=6 dec, L2=9 dec → amounts must be divisible by 1000
@@ -169,12 +167,5 @@ export const SUPPORTED_ASSETS: BridgeAsset[] = [
     l1Mint: new PublicKey('5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump'),
     decimals: 6,   // L1 MYTH is Token-2022 with 6 decimals
     isToken2022: true,
-  },
-  {
-    symbol: 'USDC',
-    name: 'USD Coin',
-    icon: '$',
-    l1Mint: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
-    decimals: 6,
   },
 ]

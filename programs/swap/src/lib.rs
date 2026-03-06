@@ -191,7 +191,7 @@ pub struct Pool {
 }
 
 impl Pool {
-    pub const SIZE: usize = 1 + 1 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 16 + 16 + 16 + 16 + 32 + 8 + 1; // 311
+    pub const SIZE: usize = 1 + 1 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 8 + 16 + 16 + 16 + 16 + 32 + 8 + 1; // 291
 }
 
 // ---------------------------------------------------------------------------
@@ -648,6 +648,12 @@ fn process_create_pool(
     }
     if *system_prog.key != system_program::id() {
         return Err(ProgramError::IncorrectProgramId);
+    }
+
+    // M-2 FIX: Validate config PDA derivation (not just ownership)
+    let (config_pda, _) = Pubkey::find_program_address(&[SWAP_CONFIG_SEED], program_id);
+    if config_info.key != &config_pda {
+        return Err(SwapError::InvalidPDA.into());
     }
 
     let mut config = SwapConfig::try_from_slice(&config_info.try_borrow_data()?)?;
@@ -1126,8 +1132,75 @@ fn process_add_liquidity(
             return Err(SwapError::InvalidPDA.into());
         }
 
-        // Settle any pending fees before updating position
-        // (user should harvest first, but we snapshot the current accumulated)
+        // H-2 FIX: Auto-harvest pending fees before updating position.
+        // Previously this silently forfeited unclaimed fees.
+        let delta_a = pool.accumulated_fees_per_lp_a
+            .checked_sub(position.last_accumulated_a)
+            .ok_or(SwapError::Overflow)?;
+        let pending_fee_a = delta_a
+            .checked_mul(position.lp_amount as u128)
+            .ok_or(SwapError::Overflow)?
+            .checked_div(FEE_SCALE)
+            .ok_or(SwapError::Overflow)?;
+        let pending_fee_a = u64::try_from(pending_fee_a).map_err(|_| SwapError::Overflow)?;
+
+        let delta_b = pool.accumulated_fees_per_lp_b
+            .checked_sub(position.last_accumulated_b)
+            .ok_or(SwapError::Overflow)?;
+        let pending_fee_b = delta_b
+            .checked_mul(position.lp_amount as u128)
+            .ok_or(SwapError::Overflow)?
+            .checked_div(FEE_SCALE)
+            .ok_or(SwapError::Overflow)?;
+        let pending_fee_b = u64::try_from(pending_fee_b).map_err(|_| SwapError::Overflow)?;
+
+        if pending_fee_a > 0 || pending_fee_b > 0 {
+            // We need depositor_token_a / depositor_token_b which are already available
+            let pool_seeds_harvest: &[&[u8]] = &[
+                POOL_SEED,
+                pool.mint_a.as_ref(),
+                pool.mint_b.as_ref(),
+                &[pool.bump],
+            ];
+
+            if pending_fee_a > 0 {
+                transfer_spl_tokens(
+                    vault_a_info,
+                    depositor_token_a,
+                    pool_info,
+                    token_program,
+                    pending_fee_a,
+                    pool_seeds_harvest,
+                )?;
+                // Decrement reserves to keep accounting consistent (H-1 fix)
+                pool.reserve_a = pool.reserve_a
+                    .checked_sub(pending_fee_a)
+                    .ok_or(SwapError::Overflow)?;
+            }
+
+            if pending_fee_b > 0 {
+                transfer_spl_tokens(
+                    vault_b_info,
+                    depositor_token_b,
+                    pool_info,
+                    token_program,
+                    pending_fee_b,
+                    pool_seeds_harvest,
+                )?;
+                pool.reserve_b = pool.reserve_b
+                    .checked_sub(pending_fee_b)
+                    .ok_or(SwapError::Overflow)?;
+            }
+
+            msg!(
+                "EVENT:FeesAutoHarvested:{{\"depositor\":\"{}\",\"pool\":\"{}\",\"amount_a\":{},\"amount_b\":{}}}",
+                depositor.key,
+                pool_info.key,
+                pending_fee_a,
+                pending_fee_b,
+            );
+        }
+
         position.last_accumulated_a = pool.accumulated_fees_per_lp_a;
         position.last_accumulated_b = pool.accumulated_fees_per_lp_b;
         position.lp_amount = position.lp_amount
@@ -1398,6 +1471,12 @@ fn process_swap(
 
     if *token_program.key != spl_token::id() {
         return Err(ProgramError::IncorrectProgramId);
+    }
+
+    // M-1 FIX: Validate config PDA derivation (not just ownership)
+    let (config_pda, _) = Pubkey::find_program_address(&[SWAP_CONFIG_SEED], program_id);
+    if config_info.key != &config_pda {
+        return Err(SwapError::InvalidPDA.into());
     }
 
     let config = SwapConfig::try_from_slice(&config_info.try_borrow_data()?)?;
@@ -1697,7 +1776,7 @@ fn process_harvest_fees(
         return Err(ProgramError::IncorrectProgramId);
     }
 
-    let pool = Pool::try_from_slice(&pool_info.try_borrow_data()?)?;
+    let mut pool = Pool::try_from_slice(&pool_info.try_borrow_data()?)?;
     if !pool.is_initialized {
         return Err(SwapError::NotInitialized.into());
     }
@@ -1777,6 +1856,18 @@ fn process_harvest_fees(
         )?;
     }
 
+    // H-1 FIX: Decrement pool reserves when fees are harvested so that
+    // reserve tracking stays consistent with actual vault balances.
+    // LP fees stay in the vault mixed with reserves during swaps, so we
+    // must subtract harvested amounts from reserves here.
+    pool.reserve_a = pool.reserve_a
+        .checked_sub(claimable_a)
+        .ok_or(SwapError::Overflow)?;
+    pool.reserve_b = pool.reserve_b
+        .checked_sub(claimable_b)
+        .ok_or(SwapError::Overflow)?;
+    pool.serialize(&mut &mut pool_info.try_borrow_mut_data()?[..])?;
+
     // Update position checkpoint
     position.last_accumulated_a = pool.accumulated_fees_per_lp_a;
     position.last_accumulated_b = pool.accumulated_fees_per_lp_b;
@@ -1836,6 +1927,12 @@ fn process_withdraw_protocol_fees(
 
     if *token_program.key != spl_token::id() {
         return Err(ProgramError::IncorrectProgramId);
+    }
+
+    // Validate config PDA derivation
+    let (config_pda, _) = Pubkey::find_program_address(&[SWAP_CONFIG_SEED], program_id);
+    if config_info.key != &config_pda {
+        return Err(SwapError::InvalidPDA.into());
     }
 
     let config = SwapConfig::try_from_slice(&config_info.try_borrow_data()?)?;
@@ -1910,6 +2007,12 @@ fn process_update_config(
     assert_signer(authority)?;
     assert_writable(config_info)?;
     assert_owned_by(config_info, program_id)?;
+
+    // Validate config PDA derivation
+    let (config_pda, _) = Pubkey::find_program_address(&[SWAP_CONFIG_SEED], program_id);
+    if config_info.key != &config_pda {
+        return Err(SwapError::InvalidPDA.into());
+    }
 
     let mut config = SwapConfig::try_from_slice(&config_info.try_borrow_data()?)?;
     if !config.is_initialized {

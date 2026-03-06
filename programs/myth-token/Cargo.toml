@@ -19,3 +19,4 @@ thiserror = { workspace = true }
 bytemuck = { workspace = true }
 num-derive = { workspace = true }
 num-traits = { workspace = true }
+getrandom = { workspace = true }

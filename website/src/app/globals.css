@@ -46,10 +46,10 @@
   --error: #F87171;
   --info: #60A5FA;
 
-  /* Typography */
-  --font-display: 'Sora', sans-serif;
-  --font-body: 'Inter', -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /* Typography — next/font injects --font-sora, --font-inter, --font-jetbrains-mono */
+  --font-display: var(--font-sora), 'Sora', sans-serif;
+  --font-body: var(--font-inter), 'Inter', -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
 
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -117,9 +117,20 @@ body {
    ================================================================ */
 .glass-card {
   background: rgba(8, 8, 12, 0.8);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border-subtle);
+}
+
+@supports (backdrop-filter: blur(24px)) or (-webkit-backdrop-filter: blur(24px)) {
+  .glass-card {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+}
+
+@supports not ((backdrop-filter: blur(24px)) or (-webkit-backdrop-filter: blur(24px))) {
+  .glass-card {
+    background: rgba(8, 8, 12, 0.95);
+  }
 }
 
 /* ================================================================
@@ -167,6 +178,11 @@ body {
    ================================================================ */
 @keyframes count-up {
   from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 

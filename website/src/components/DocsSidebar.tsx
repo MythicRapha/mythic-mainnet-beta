@@ -170,6 +170,22 @@ const sectionGroups: { label: string; sections: DocSection[] }[] = [
       },
     ],
   },
+  {
+    label: 'Legal',
+    sections: [
+      {
+        id: 'legal',
+        title: 'Foundation & Governance',
+        icon: '⚖️',
+        children: [
+          { id: 'legal-duna', title: 'Wyoming DUNA' },
+          { id: 'legal-principles', title: 'Governing Principles' },
+          { id: 'legal-dao', title: 'DAO Structure' },
+          { id: 'legal-verification', title: 'On-Chain Verification' },
+        ],
+      },
+    ],
+  },
 ]
 
 interface DocsSidebarProps {
@@ -335,7 +351,7 @@ export default function DocsSidebar({ activeSection, onSectionClick }: DocsSideb
             Developer Docs →
           </a>
           <a
-            href="https://github.com/MythicL2"
+            href="https://github.com/MythicFoundation"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2.5 px-3 py-2 text-[0.76rem] text-mythic-text-muted hover:text-white transition-colors rounded"

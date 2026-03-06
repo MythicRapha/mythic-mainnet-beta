@@ -10,6 +10,7 @@
 //                      Total usable supply across both chains = 1B MYTH
 
 use borsh::{BorshDeserialize, BorshSerialize};
+use sha2::{Digest, Sha256};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     clock::Clock,
@@ -47,6 +48,7 @@ const IX_BRIDGE_TO_L1: u8 = 3;
 const IX_UPDATE_CONFIG: u8 = 4;
 const IX_PAUSE_BRIDGE: u8 = 5;
 const IX_UNPAUSE_BRIDGE: u8 = 6;
+const IX_UPDATE_LIMITS: u8 = 7;
 
 // ── Error Codes ──────────────────────────────────────────────────────────────
 
@@ -68,6 +70,14 @@ pub enum BridgeL2Error {
     ZeroAmount,
     #[error("Amount not divisible by decimal scaling factor")]
     IndivisibleAmount,
+    #[error("Deposit hash mismatch")]
+    DepositHashMismatch,
+    #[error("Amount below minimum release")]
+    AmountBelowMinRelease,
+    #[error("Amount above maximum release")]
+    AmountAboveMaxRelease,
+    #[error("Daily release limit exceeded")]
+    DailyReleaseLimitExceeded,
 }
 
 impl From<BridgeL2Error> for ProgramError {
@@ -91,11 +101,17 @@ pub struct L2BridgeConfig {
     pub bump: u8,
     pub paused: bool,
     pub reserve_bump: u8,
+    // C-04: Rate limit fields (appended for backward compatibility)
+    pub min_release: u64,
+    pub max_release: u64,
+    pub daily_release_limit: u64,
+    pub daily_released: u64,
+    pub last_reset_slot: u64,
 }
 
 impl L2BridgeConfig {
-    // 32 + 32 + 8 + 8 + 8 + 1 + 1 + 1 + 1 = 92
-    pub const LEN: usize = 92;
+    // 32 + 32 + 8 + 8 + 8 + 1 + 1 + 1 + 1 + 8 + 8 + 8 + 8 + 8 = 132
+    pub const LEN: usize = 132;
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
@@ -128,6 +144,9 @@ pub struct ReleaseBridgedParams {
     pub recipient: Pubkey,
     pub amount: u64,
     pub l1_tx_signature: [u8; 64],
+    /// C-02: SHA-256 deposit hash = sha256(l1_tx_signature || nonce || amount || recipient)
+    /// The relayer must compute this hash and pass it; the program verifies it matches.
+    pub deposit_hash: [u8; 32],
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -139,6 +158,13 @@ pub struct BridgeToL1Params {
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct UpdateConfigParams {
     pub new_relayer: Option<Pubkey>,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct UpdateLimitsParams {
+    pub min_release: u64,
+    pub max_release: u64,
+    pub daily_release_limit: u64,
 }
 
 // ── Entrypoint ───────────────────────────────────────────────────────────────
@@ -164,6 +190,7 @@ pub fn process_instruction(
         IX_UPDATE_CONFIG => process_update_config(program_id, accounts, data),
         IX_PAUSE_BRIDGE => process_pause_bridge(program_id, accounts),
         IX_UNPAUSE_BRIDGE => process_unpause_bridge(program_id, accounts),
+        IX_UPDATE_LIMITS => process_update_limits(program_id, accounts, data),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
@@ -234,6 +261,12 @@ fn process_initialize(
         bump,
         paused: false,
         reserve_bump,
+        // C-04: Default rate limits (L2 native lamports / MYTH 9 decimals)
+        min_release: 10_000_000,                // 0.01 MYTH
+        max_release: 1_000_000_000_000,         // 1000 MYTH
+        daily_release_limit: 10_000_000_000_000, // 10,000 MYTH
+        daily_released: 0,
+        last_reset_slot: 0,
     };
 
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
@@ -382,6 +415,21 @@ fn process_release_bridged(
         return Err(BridgeL2Error::InvalidRelayer.into());
     }
 
+    // C-02: Verify deposit hash = sha256(l1_tx_signature || nonce || amount || recipient)
+    // This ensures the relayer cannot fabricate release parameters without a real L1 deposit.
+    {
+        let mut hasher = Sha256::new();
+        hasher.update(&params.l1_tx_signature);
+        hasher.update(&params.l1_deposit_nonce.to_le_bytes());
+        hasher.update(&params.amount.to_le_bytes());
+        hasher.update(params.recipient.as_ref());
+        let computed_hash: [u8; 32] = hasher.finalize().into();
+        if computed_hash != params.deposit_hash {
+            msg!("ERROR: deposit_hash mismatch — computed vs provided");
+            return Err(BridgeL2Error::DepositHashMismatch.into());
+        }
+    }
+
     // Validate recipient matches params
     if *recipient.key != params.recipient {
         return Err(ProgramError::InvalidAccountData);
@@ -392,6 +440,28 @@ fn process_release_bridged(
         Pubkey::find_program_address(&[BRIDGE_RESERVE_SEED], program_id);
     if reserve_pda != *reserve_account.key {
         return Err(ProgramError::InvalidSeeds);
+    }
+
+    // C-04: Enforce rate limits
+    let clock = Clock::get()?;
+    let current_slot = clock.slot;
+    if params.amount < config.min_release {
+        return Err(BridgeL2Error::AmountBelowMinRelease.into());
+    }
+    if params.amount > config.max_release {
+        return Err(BridgeL2Error::AmountAboveMaxRelease.into());
+    }
+    // Reset daily volume if >216000 slots have passed (~24hrs at 400ms/slot)
+    if current_slot.saturating_sub(config.last_reset_slot) > 216_000 {
+        config.daily_released = 0;
+        config.last_reset_slot = current_slot;
+    }
+    config.daily_released = config
+        .daily_released
+        .checked_add(params.amount)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    if config.daily_released > config.daily_release_limit {
+        return Err(BridgeL2Error::DailyReleaseLimitExceeded.into());
     }
 
     // Ensure reserve has sufficient balance (leave rent-exempt minimum)
@@ -446,7 +516,6 @@ fn process_release_bridged(
         &[&[PROCESSED_SEED, &nonce_bytes, &[processed_bump]]],
     )?;
 
-    let clock = Clock::get()?;
     let processed = ProcessedDeposit {
         nonce: params.l1_deposit_nonce,
         l1_tx_signature: params.l1_tx_signature,
@@ -463,8 +532,8 @@ fn process_release_bridged(
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
 
     msg!(
-        "EVENT:ReleaseBridged:{{\"recipient\":\"{}\",\"amount\":{},\"l1_deposit_nonce\":{},\"reserve_balance\":{}}}",
-        params.recipient, params.amount, params.l1_deposit_nonce, reserve_account.lamports()
+        "EVENT:ReleaseBridged:{{\"recipient\":\"{}\",\"amount\":{},\"l1_deposit_nonce\":{},\"deposit_hash\":\"{}\",\"reserve_balance\":{}}}",
+        params.recipient, params.amount, params.l1_deposit_nonce, hex_encode(&params.deposit_hash), reserve_account.lamports()
     );
 
     Ok(())
@@ -697,6 +766,69 @@ fn process_unpause_bridge(
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
 
     msg!("EVENT:UnpauseBridge:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ── Update Limits (C-04) ─────────────────────────────────────────────────────
+// Admin-only: updates the rate limit configuration for L2 releases.
+// Accounts:
+//   0. [signer] admin
+//   1. [writable] l2_bridge_config PDA
+
+fn process_update_limits(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let admin = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+
+    if !admin.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !config_account.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[L2_BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let mut config = L2BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeL2Error::UninitializedAccount.into());
+    }
+    if *admin.key != config.admin {
+        return Err(BridgeL2Error::InvalidAuthority.into());
+    }
+
+    let params = UpdateLimitsParams::try_from_slice(data)?;
+
+    // Sanity check: min <= max <= daily
+    if params.min_release > params.max_release {
+        return Err(ProgramError::InvalidArgument);
+    }
+    if params.max_release > params.daily_release_limit {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    config.min_release = params.min_release;
+    config.max_release = params.max_release;
+    config.daily_release_limit = params.daily_release_limit;
+
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:UpdateLimits:{{\"admin\":\"{}\",\"min_release\":{},\"max_release\":{},\"daily_release_limit\":{}}}",
+        admin.key, params.min_release, params.max_release, params.daily_release_limit
+    );
+
     Ok(())
 }
 

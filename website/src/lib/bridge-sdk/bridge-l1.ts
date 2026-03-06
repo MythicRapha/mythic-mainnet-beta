@@ -13,23 +13,21 @@ import {
 import {
   BRIDGE_L1_PROGRAM_ID,
   L1_IX,
+  TOKEN_2022_PROGRAM_ID,
 } from './types'
 import {
   deriveBridgeConfig,
   deriveSolVault,
   deriveTokenVault,
-  deriveFeeVault,
-  deriveTokenFeeVault,
   deriveWithdrawalRequest,
 } from './accounts'
 
 // ── Deposit SOL ─────────────────────────────────────────────────────────────
-// Accounts:
+// Accounts (must match on-chain process_deposit_sol):
 //   0. [signer, writable] depositor
 //   1. [writable] sol_vault PDA
 //   2. [writable] bridge_config PDA
 //   3. [] system_program
-//   4. [writable] fee_vault PDA
 
 export function createDepositSOLInstruction(
   depositor: PublicKey,
@@ -38,7 +36,6 @@ export function createDepositSOLInstruction(
 ): TransactionInstruction {
   const [configPda] = deriveBridgeConfig()
   const [solVault] = deriveSolVault()
-  const [feeVault] = deriveFeeVault()
 
   // l2_recipient defaults to depositor's pubkey
   const recipient = l2Recipient || depositor
@@ -56,29 +53,27 @@ export function createDepositSOLInstruction(
       { pubkey: solVault, isSigner: false, isWritable: true },
       { pubkey: configPda, isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: feeVault, isSigner: false, isWritable: true },
     ],
     data,
   })
 }
 
 // ── Deposit SPL Token ───────────────────────────────────────────────────────
-// Accounts:
+// Accounts (must match on-chain process_deposit):
 //   0. [signer] depositor
 //   1. [writable] depositor token account
-//   2. [writable] vault token account (PDA-owned ATA)
+//   2. [writable] vault token account (PDA-owned)
 //   3. [] token mint
 //   4. [writable] bridge_config PDA
-//   5. [] token_program
-//   6. [writable] fee_vault token account
+//   5. [] token_program (SPL Token OR Token-2022)
 
 export function createDepositSPLInstruction(
   depositor: PublicKey,
   depositorTokenAccount: PublicKey,
   vaultTokenAccount: PublicKey,
-  feeVaultTokenAccount: PublicKey,
   mint: PublicKey,
   amountTokens: bigint,
+  tokenProgramId: PublicKey = TOKEN_PROGRAM_ID,
   l2Recipient?: PublicKey,
 ): TransactionInstruction {
   const [configPda] = deriveBridgeConfig()
@@ -98,22 +93,21 @@ export function createDepositSPLInstruction(
       { pubkey: vaultTokenAccount, isSigner: false, isWritable: true },
       { pubkey: mint, isSigner: false, isWritable: false },
       { pubkey: configPda, isSigner: false, isWritable: true },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: feeVaultTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: tokenProgramId, isSigner: false, isWritable: false },
     ],
     data,
   })
 }
 
 // ── Finalize Withdrawal ─────────────────────────────────────────────────────
-// Accounts:
+// Accounts (must match on-chain process_finalize_withdrawal):
 //   0. [signer, writable] payer
 //   1. [writable] withdrawal_request PDA
 //   2. [writable] vault token account
 //   3. [writable] recipient token account
 //   4. [] token mint
 //   5. [] bridge_config PDA
-//   6. [] token_program
+//   6. [] token_program (SPL Token OR Token-2022)
 
 export function createFinalizeWithdrawalInstruction(
   payer: PublicKey,
@@ -121,6 +115,7 @@ export function createFinalizeWithdrawalInstruction(
   vaultTokenAccount: PublicKey,
   recipientTokenAccount: PublicKey,
   tokenMint: PublicKey,
+  tokenProgramId: PublicKey = TOKEN_PROGRAM_ID,
 ): TransactionInstruction {
   const [configPda] = deriveBridgeConfig()
   const [withdrawalPda] = deriveWithdrawalRequest(withdrawalNonce)
@@ -139,7 +134,7 @@ export function createFinalizeWithdrawalInstruction(
       { pubkey: recipientTokenAccount, isSigner: false, isWritable: true },
       { pubkey: tokenMint, isSigner: false, isWritable: false },
       { pubkey: configPda, isSigner: false, isWritable: false },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: tokenProgramId, isSigner: false, isWritable: false },
     ],
     data,
   })
@@ -171,7 +166,7 @@ export async function buildDepositSPLTransaction(
   l2Recipient?: PublicKey,
 ): Promise<Transaction> {
   const tokenProgramId = isToken2022
-    ? new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
+    ? TOKEN_2022_PROGRAM_ID
     : TOKEN_PROGRAM_ID
 
   // Derive user's ATA
@@ -182,62 +177,51 @@ export async function buildDepositSPLTransaction(
     tokenProgramId,
   )
 
-  // Derive vault ATA (owned by the bridge config PDA)
-  const [configPda] = deriveBridgeConfig()
-  const vaultAta = getAssociatedTokenAddressSync(
-    mint,
-    configPda,
-    true, // PDA-owned
-    tokenProgramId,
-  )
-
-  // Derive fee vault ATA (owned by the fee vault PDA)
-  const [feeVaultPda] = deriveFeeVault()
-  const feeVaultAta = getAssociatedTokenAddressSync(
-    mint,
-    feeVaultPda,
-    true,
-    tokenProgramId,
-  )
+  // Derive vault token account (PDA-derived from [vault, mint])
+  // The on-chain program validates: PDA = findProgramAddress([VAULT_SEED, mint], programId)
+  const [vaultPda] = deriveTokenVault(mint)
 
   const tx = new Transaction()
 
-  // Create vault ATA if it doesn't exist
-  const vaultInfo = await connection.getAccountInfo(vaultAta)
+  // Create vault token account if it doesn't exist
+  // Note: The vault is a raw PDA, not an ATA. If it doesn't exist yet,
+  // the admin must call CreateVault (IX 11) before deposits can occur.
+  // We check here to provide a better error message.
+  const vaultInfo = await connection.getAccountInfo(vaultPda)
   if (!vaultInfo) {
-    tx.add(
-      createAssociatedTokenAccountInstruction(
-        depositor,
-        vaultAta,
-        configPda,
-        mint,
-        tokenProgramId,
-      ),
+    // The vault PDA doesn't exist. For ATA-based vaults, we could create it,
+    // but the on-chain program uses a raw PDA vault initialized via CreateVault.
+    // We'll try to create an ATA owned by the vault PDA as a fallback for
+    // compatibility with the existing deployment.
+    const [configPda] = deriveBridgeConfig()
+    const vaultAta = getAssociatedTokenAddressSync(
+      mint,
+      configPda,
+      true, // PDA-owned
+      tokenProgramId,
     )
-  }
-
-  // Create fee vault ATA if it doesn't exist
-  const feeInfo = await connection.getAccountInfo(feeVaultAta)
-  if (!feeInfo) {
-    tx.add(
-      createAssociatedTokenAccountInstruction(
-        depositor,
-        feeVaultAta,
-        feeVaultPda,
-        mint,
-        tokenProgramId,
-      ),
-    )
+    const vaultAtaInfo = await connection.getAccountInfo(vaultAta)
+    if (!vaultAtaInfo) {
+      tx.add(
+        createAssociatedTokenAccountInstruction(
+          depositor,
+          vaultAta,
+          configPda,
+          mint,
+          tokenProgramId,
+        ),
+      )
+    }
   }
 
   // Add the deposit instruction
   const ix = createDepositSPLInstruction(
     depositor,
     depositorAta,
-    vaultAta,
-    feeVaultAta,
+    vaultPda,
     mint,
     amountTokens,
+    tokenProgramId,
     l2Recipient,
   )
   tx.add(ix)

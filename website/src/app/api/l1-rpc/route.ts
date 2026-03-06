@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const L1_RPC_URL = process.env.L1_RPC_URL || 'https://api.mainnet-beta.solana.com'
+const HELIUS_KEY = process.env.HELIUS_API_KEY || ''
+const L1_RPC_URL = process.env.HELIUS_RPC_URL
+  || process.env.L1_RPC_URL
+  || (HELIUS_KEY ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_KEY}` : '')
+  || 'https://api.mainnet-beta.solana.com'
 
 export async function POST(request: NextRequest) {
   try {

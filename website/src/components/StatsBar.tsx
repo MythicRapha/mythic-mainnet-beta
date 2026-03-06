@@ -6,13 +6,13 @@ interface LiveStats {
   slot: number
   epoch: number
   blockTimeMs: number | null
+  validatorCount: number
   transactionCount: number
   online: boolean
 }
 
-interface BurnStats {
-  burned: number
-  circulating: number
+interface L1Supply {
+  amount: number   // raw token amount (human-readable)
 }
 
 function formatNumber(n: number): string {
@@ -22,52 +22,56 @@ function formatNumber(n: number): string {
   return n.toLocaleString()
 }
 
-function formatBurn(n: number): string {
-  if (n === 0) return '0'
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(2) + 'K'
-  return n.toFixed(2)
-}
-
-const RPC_URL = 'https://rpc.mythic.sh'
-
 async function rpcCall(method: string, params: unknown[] = []) {
-  const res = await fetch(RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  })
-  const data = await res.json()
-  return data.result
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 8000)
+  try {
+    const res = await fetch('/api/l2-rpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      signal: controller.signal,
+    })
+    const data = await res.json()
+    return data.result
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 export default function StatsBar() {
   const [stats, setStats] = useState<LiveStats | null>(null)
-  const [burn, setBurn] = useState<BurnStats | null>(null)
+  const [l1Supply, setL1Supply] = useState<L1Supply | null>(null)
   const [visible, setVisible] = useState(false)
 
   const fetchStats = useCallback(async () => {
     try {
-      const [slot, epochInfo, samples, txCount] = await Promise.allSettled([
+      const [slot, epochInfo, samples, txCount, voteAccounts] = await Promise.allSettled([
         rpcCall('getSlot'),
         rpcCall('getEpochInfo'),
         rpcCall('getRecentPerformanceSamples', [1]),
         rpcCall('getTransactionCount'),
+        rpcCall('getVoteAccounts'),
       ])
 
       const slotVal = slot.status === 'fulfilled' ? slot.value : null
       const epochVal = epochInfo.status === 'fulfilled' ? epochInfo.value : null
       const samplesVal = samples.status === 'fulfilled' ? samples.value : null
       const txCountVal = txCount.status === 'fulfilled' ? txCount.value : null
+      const voteVal = voteAccounts.status === 'fulfilled' ? voteAccounts.value : null
 
-      const blockTimeMs = samplesVal?.[0]
-        ? Math.round((samplesVal[0].samplePeriodSecs / samplesVal[0].numSlots) * 1000)
+      const sample = samplesVal?.[0]
+      const blockTimeMs = sample
+        ? Math.round((sample.samplePeriodSecs / sample.numSlots) * 1000)
         : null
+
+      const validatorCount = (voteVal?.current?.length ?? 0) + (voteVal?.delinquent?.length ?? 0)
 
       setStats({
         slot: slotVal ?? 0,
         epoch: epochVal?.epoch ?? 0,
         blockTimeMs: blockTimeMs,
+        validatorCount,
         transactionCount: txCountVal ?? epochVal?.transactionCount ?? 0,
         online: slotVal !== null && slotVal !== undefined,
       })
@@ -76,15 +80,14 @@ export default function StatsBar() {
     }
   }, [])
 
-  const fetchBurn = useCallback(async () => {
+  const fetchL1Supply = useCallback(async () => {
     try {
-      const res = await fetch('/api/supply')
-      if (!res.ok) return
+      // Server-side route — no CORS, no client env issues
+      const res = await fetch('/api/myth-supply')
       const data = await res.json()
-      setBurn({
-        burned: data.supply?.burned ?? 0,
-        circulating: data.supply?.circulating ?? 1_000_000_000,
-      })
+      if (data?.supply && data.supply > 0) {
+        setL1Supply({ amount: data.supply })
+      }
     } catch {
       // keep previous data
     }
@@ -92,16 +95,16 @@ export default function StatsBar() {
 
   useEffect(() => {
     fetchStats()
-    fetchBurn()
+    fetchL1Supply()
     const statsInterval = setInterval(fetchStats, 5000)
-    const burnInterval = setInterval(fetchBurn, 15000)
+    const burnInterval = setInterval(fetchL1Supply, 30000)
     const timer = setTimeout(() => setVisible(true), 300)
     return () => {
       clearInterval(statsInterval)
       clearInterval(burnInterval)
       clearTimeout(timer)
     }
-  }, [fetchStats, fetchBurn])
+  }, [fetchStats, fetchL1Supply])
 
   const items = [
     {
@@ -116,14 +119,14 @@ export default function StatsBar() {
       accent: 'text-white',
     },
     {
-      label: 'Block Time',
-      value: stats?.online && stats.blockTimeMs !== null ? `~${stats.blockTimeMs}ms` : '...',
+      label: 'Validators',
+      value: stats?.online ? (stats.validatorCount > 0 ? String(stats.validatorCount) : '...') : '...',
       accent: 'text-mythic-violet',
     },
     {
-      label: 'Burned',
-      value: burn ? formatBurn(burn.burned) + ' MYTH' : '...',
-      accent: 'text-[#FF4444]',
+      label: 'MYTH Supply',
+      value: l1Supply ? formatNumber(l1Supply.amount) : '...',
+      accent: 'text-mythic-violet',
     },
   ]
 

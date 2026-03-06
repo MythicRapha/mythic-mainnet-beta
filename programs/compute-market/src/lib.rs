@@ -36,6 +36,14 @@ const UNSTAKE_COOLDOWN_EPOCHS: u64 = 100;
 const GRACE_PERIOD_HOURS: u32 = 1;
 const BPS_DENOMINATOR: u64 = 10_000;
 
+/// Default dispute deadline: disputes must be filed within this many slots
+/// after a job is completed. 0 means use dispute_window_slots from config.
+const DEFAULT_DISPUTE_DEADLINE_SLOTS: u64 = 216_000; // ~24 hours
+
+/// Auto-resolve timeout: if admin doesn't resolve within 72 hours, dispute
+/// auto-resolves in the client's favor.
+const DISPUTE_AUTO_RESOLVE_SLOTS: u64 = 648_000; // ~72 hours
+
 // ---------------------------------------------------------------------------
 // Entrypoint
 // ---------------------------------------------------------------------------
@@ -64,6 +72,8 @@ pub enum ComputeInstruction {
     SlashProvider = 11,
     Pause = 12,
     Unpause = 13,
+    ProviderCounter = 14,
+    CloseJob = 15,
 }
 
 impl TryFrom<u8> for ComputeInstruction {
@@ -84,6 +94,8 @@ impl TryFrom<u8> for ComputeInstruction {
             11 => Ok(Self::SlashProvider),
             12 => Ok(Self::Pause),
             13 => Ok(Self::Unpause),
+            14 => Ok(Self::ProviderCounter),
+            15 => Ok(Self::CloseJob),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }
@@ -175,13 +187,14 @@ pub struct ComputeRequest {
     pub status: RequestStatus,
     pub created_at: i64,
     pub nonce: u64,
+    pub dispute_deadline: u64,          // slot deadline for filing disputes after completion
     pub bump: u8,
 }
 
 impl ComputeRequest {
     pub const SEED: &'static [u8] = b"request";
-    // 32 + 2*4 + 4 + 8 + 1 + 32 + 8 + 1 + 8 + 8 + 1 = ~111
-    pub const LEN: usize = 32 + 2 + 2 + 2 + 2 + 4 + 8 + 1 + 32 + 8 + 1 + 8 + 8 + 1; // 111
+    // 32 + 2*4 + 4 + 8 + 1 + 32 + 8 + 1 + 8 + 8 + 8 + 1 = 119
+    pub const LEN: usize = 32 + 2 + 2 + 2 + 2 + 4 + 8 + 1 + 32 + 8 + 1 + 8 + 8 + 8 + 1; // 119
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq, Copy)]
@@ -221,6 +234,9 @@ pub struct Dispute {
     pub requester: Pubkey,
     pub reason_hash: [u8; 32],
     pub created_at: i64,
+    pub created_at_slot: u64,           // slot when dispute was created (for auto-resolve timeout)
+    pub counter_evidence_hash: [u8; 32], // provider's counter-evidence (zeroed until submitted)
+    pub counter_submitted: bool,         // whether provider has submitted counter-evidence
     pub resolved: bool,
     pub provider_at_fault: bool,
     pub bump: u8,
@@ -228,7 +244,8 @@ pub struct Dispute {
 
 impl Dispute {
     pub const SEED: &'static [u8] = b"dispute";
-    pub const LEN: usize = 32 + 32 + 32 + 8 + 1 + 1 + 1; // 107
+    // 32 + 32 + 32 + 8 + 8 + 32 + 1 + 1 + 1 + 1 = 148
+    pub const LEN: usize = 32 + 32 + 32 + 8 + 8 + 32 + 1 + 1 + 1 + 1; // 148
 }
 
 // ---------------------------------------------------------------------------
@@ -291,6 +308,11 @@ pub struct ResolveDisputeArgs {
     pub provider_at_fault: bool,
 }
 
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct ProviderCounterArgs {
+    pub counter_evidence_hash: [u8; 32],
+}
+
 // ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
@@ -337,6 +359,14 @@ pub enum MarketError {
     Overflow,
     #[error("Program is paused")]
     ProgramPaused,
+    #[error("Dispute deadline has passed")]
+    DisputeDeadlinePassed,
+    #[error("Counter-evidence already submitted")]
+    CounterAlreadySubmitted,
+    #[error("Job is not closed-eligible (must be completed and paid out)")]
+    JobNotCloseable,
+    #[error("Dispute auto-resolve timeout not reached")]
+    AutoResolveNotReached,
 }
 
 impl From<MarketError> for ProgramError {
@@ -383,6 +413,10 @@ pub fn process_instruction(
         ComputeInstruction::SlashProvider => process_slash_provider(program_id, accounts, rest),
         ComputeInstruction::Pause => process_pause(program_id, accounts),
         ComputeInstruction::Unpause => process_unpause(program_id, accounts),
+        ComputeInstruction::ProviderCounter => {
+            process_provider_counter(program_id, accounts, rest)
+        }
+        ComputeInstruction::CloseJob => process_close_job(program_id, accounts, rest),
     }
 }
 
@@ -570,6 +604,15 @@ fn process_register_provider(
         return Err(MarketError::InvalidPDA.into());
     }
 
+    // Validate stake vault PDA
+    let (expected_stake_vault, _) = Pubkey::find_program_address(
+        &[b"stake_vault", authority.key.as_ref()],
+        program_id,
+    );
+    if *stake_vault.key != expected_stake_vault {
+        return Err(MarketError::InvalidPDA.into());
+    }
+
     // Transfer stake
     let stake = config.min_provider_stake;
     transfer_lamports_cpi(authority, stake_vault, stake, system_prog)?;
@@ -743,6 +786,15 @@ fn process_withdraw_stake(
         return Err(MarketError::Unauthorized.into());
     }
 
+    // Validate stake vault PDA
+    let (expected_stake_vault, _) = Pubkey::find_program_address(
+        &[b"stake_vault", authority.key.as_ref()],
+        program_id,
+    );
+    if *stake_vault.key != expected_stake_vault {
+        return Err(MarketError::InvalidPDA.into());
+    }
+
     if provider.is_active {
         return Err(MarketError::ProviderStillActive.into());
     }
@@ -821,6 +873,15 @@ fn process_request_compute(
         return Err(MarketError::InvalidPDA.into());
     }
 
+    // Validate escrow vault PDA
+    let (expected_escrow, _) = Pubkey::find_program_address(
+        &[b"escrow", request_pda.as_ref()],
+        program_id,
+    );
+    if *escrow_vault.key != expected_escrow {
+        return Err(MarketError::InvalidPDA.into());
+    }
+
     // Calculate max escrow: max_price_per_hour * duration_hours
     let escrow_amount = args
         .max_price_per_hour
@@ -856,6 +917,7 @@ fn process_request_compute(
         status: RequestStatus::Open,
         created_at: clock.unix_timestamp,
         nonce,
+        dispute_deadline: DEFAULT_DISPUTE_DEADLINE_SLOTS,
         bump,
     };
 
@@ -1063,6 +1125,15 @@ fn process_verify_and_release(
     assert_owned_by(provider_info, program_id)?;
     assert_owned_by(config_info, program_id)?;
 
+    // Validate escrow vault PDA
+    let (expected_escrow, _) = Pubkey::find_program_address(
+        &[b"escrow", request_info.key.as_ref()],
+        program_id,
+    );
+    if *escrow_vault.key != expected_escrow {
+        return Err(MarketError::InvalidPDA.into());
+    }
+
     let config = MarketConfig::try_from_slice(&config_info.try_borrow_data()?)?;
     if !config.is_initialized {
         return Err(MarketError::NotInitialized.into());
@@ -1177,22 +1248,27 @@ fn process_dispute_lease(
     _data: &[u8],
 ) -> ProgramResult {
     let iter = &mut accounts.iter();
-    let requester = next_account_info(iter)?;
+    let initiator = next_account_info(iter)?;
     let lease_info = next_account_info(iter)?;
     let dispute_info = next_account_info(iter)?;
     let config_info = next_account_info(iter)?;
+    let request_info = next_account_info(iter)?;
     let system_prog = next_account_info(iter)?;
 
-    assert_signer(requester)?;
+    assert_signer(initiator)?;
     assert_writable(lease_info)?;
     assert_writable(dispute_info)?;
     assert_owned_by(lease_info, program_id)?;
     assert_owned_by(config_info, program_id)?;
+    assert_owned_by(request_info, program_id)?;
 
     let config = MarketConfig::try_from_slice(&config_info.try_borrow_data()?)?;
+    let req = ComputeRequest::try_from_slice(&request_info.try_borrow_data()?)?;
 
     let mut lease = Lease::try_from_slice(&lease_info.try_borrow_data()?)?;
-    if lease.requester != *requester.key {
+
+    // Allow either the job requester (client) or the admin to initiate disputes
+    if lease.requester != *initiator.key && config.admin != *initiator.key {
         return Err(MarketError::Unauthorized.into());
     }
     if lease.status != LeaseStatus::ProofSubmitted {
@@ -1204,6 +1280,12 @@ fn process_dispute_lease(
     let slots_since_proof = clock.slot.saturating_sub(lease.proof_submitted_at as u64);
     if slots_since_proof > config.dispute_window_slots {
         return Err(MarketError::DisputeWindowExpired.into());
+    }
+
+    // Check dispute deadline: disputes must be filed within N slots of job completion
+    let deadline = req.dispute_deadline;
+    if deadline > 0 && slots_since_proof > deadline {
+        return Err(MarketError::DisputeDeadlinePassed.into());
     }
 
     if *system_prog.key != system_program::id() {
@@ -1221,7 +1303,7 @@ fn process_dispute_lease(
 
     let seeds: &[&[u8]] = &[Dispute::SEED, lease_info.key.as_ref(), &[bump]];
     create_pda_account(
-        requester,
+        initiator,
         Dispute::LEN,
         program_id,
         system_prog,
@@ -1231,9 +1313,12 @@ fn process_dispute_lease(
 
     let dispute = Dispute {
         lease: *lease_info.key,
-        requester: *requester.key,
+        requester: lease.requester,
         reason_hash: [0u8; 32], // could accept reason data
         created_at: clock.unix_timestamp,
+        created_at_slot: clock.slot,
+        counter_evidence_hash: [0u8; 32],
+        counter_submitted: false,
         resolved: false,
         provider_at_fault: false,
         bump,
@@ -1245,9 +1330,10 @@ fn process_dispute_lease(
     lease.serialize(&mut &mut lease_info.try_borrow_mut_data()?[..])?;
 
     msg!(
-        "EVENT:LeaseDisputed:{{\"lease\":\"{}\",\"requester\":\"{}\"}}",
+        "EVENT:LeaseDisputed:{{\"lease\":\"{}\",\"initiator\":\"{}\",\"slot\":{}}}",
         lease_info.key,
-        requester.key
+        initiator.key,
+        clock.slot
     );
 
     Ok(())
@@ -1264,7 +1350,7 @@ fn process_resolve_dispute(
 ) -> ProgramResult {
     let args = ResolveDisputeArgs::try_from_slice(data)?;
     let iter = &mut accounts.iter();
-    let admin = next_account_info(iter)?;
+    let caller = next_account_info(iter)?;
     let config_info = next_account_info(iter)?;
     let dispute_info = next_account_info(iter)?;
     let lease_info = next_account_info(iter)?;
@@ -1273,7 +1359,7 @@ fn process_resolve_dispute(
     let escrow_vault = next_account_info(iter)?;
     let requester_info = next_account_info(iter)?;
 
-    assert_signer(admin)?;
+    assert_signer(caller)?;
     assert_writable(dispute_info)?;
     assert_writable(lease_info)?;
     assert_writable(request_info)?;
@@ -1285,14 +1371,36 @@ fn process_resolve_dispute(
     assert_owned_by(request_info, program_id)?;
     assert_owned_by(provider_info, program_id)?;
 
-    let config = MarketConfig::try_from_slice(&config_info.try_borrow_data()?)?;
-    if config.admin != *admin.key {
-        return Err(MarketError::Unauthorized.into());
+    // Validate escrow vault PDA
+    let (expected_escrow, _) = Pubkey::find_program_address(
+        &[b"escrow", request_info.key.as_ref()],
+        program_id,
+    );
+    if *escrow_vault.key != expected_escrow {
+        return Err(MarketError::InvalidPDA.into());
     }
+
+    let config = MarketConfig::try_from_slice(&config_info.try_borrow_data()?)?;
 
     let mut dispute = Dispute::try_from_slice(&dispute_info.try_borrow_data()?)?;
     if dispute.resolved {
         return Err(MarketError::InvalidLeaseStatus.into());
+    }
+
+    let clock = Clock::get()?;
+    let slots_since_dispute = clock.slot
+        .checked_sub(dispute.created_at_slot)
+        .ok_or(MarketError::Overflow)?;
+
+    // Auto-resolve path: if DISPUTE_AUTO_RESOLVE_SLOTS have passed without admin
+    // resolution, anyone can call this to auto-resolve in client's favor (refund).
+    let is_auto_resolve = slots_since_dispute >= DISPUTE_AUTO_RESOLVE_SLOTS;
+
+    // If not auto-resolve, only admin can resolve
+    if !is_auto_resolve {
+        if config.admin != *caller.key {
+            return Err(MarketError::Unauthorized.into());
+        }
     }
 
     let mut lease = Lease::try_from_slice(&lease_info.try_borrow_data()?)?;
@@ -1308,9 +1416,12 @@ fn process_resolve_dispute(
     }
 
     dispute.resolved = true;
-    dispute.provider_at_fault = args.provider_at_fault;
 
-    if args.provider_at_fault {
+    // For auto-resolve, always resolve in client's favor
+    let provider_at_fault = if is_auto_resolve { true } else { args.provider_at_fault };
+    dispute.provider_at_fault = provider_at_fault;
+
+    if provider_at_fault {
         // Slash provider stake, refund requester
         let slash_amount = provider.stake_amount / 2;
         provider.stake_amount = provider
@@ -1331,10 +1442,11 @@ fn process_resolve_dispute(
         lease.status = LeaseStatus::Slashed;
 
         msg!(
-            "EVENT:DisputeResolved:{{\"lease\":\"{}\",\"provider_at_fault\":true,\"slashed\":{},\"refunded\":{}}}",
+            "EVENT:DisputeResolved:{{\"lease\":\"{}\",\"provider_at_fault\":true,\"slashed\":{},\"refunded\":{},\"auto_resolve\":{}}}",
             lease_info.key,
             slash_amount,
-            refund
+            refund,
+            is_auto_resolve
         );
     } else {
         // Frivolous dispute — requester loses dispute bond (escrow proceeds normally)
@@ -1380,6 +1492,15 @@ fn process_slash_provider(
     assert_owned_by(lease_info, program_id)?;
     assert_owned_by(request_info, program_id)?;
     assert_owned_by(provider_info, program_id)?;
+
+    // Validate escrow vault PDA
+    let (expected_escrow, _) = Pubkey::find_program_address(
+        &[b"escrow", request_info.key.as_ref()],
+        program_id,
+    );
+    if *escrow_vault.key != expected_escrow {
+        return Err(MarketError::InvalidPDA.into());
+    }
 
     let mut lease = Lease::try_from_slice(&lease_info.try_borrow_data()?)?;
     if lease.status != LeaseStatus::Active {
@@ -1512,5 +1633,128 @@ fn process_unpause(
     config.serialize(&mut &mut config_info.try_borrow_mut_data()?[..])?;
 
     msg!("EVENT:Unpaused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// 14 — ProviderCounter
+// ---------------------------------------------------------------------------
+// Provider submits counter-evidence before dispute resolution.
+// Accounts:
+//   0. [signer]   provider authority
+//   1. [writable] dispute PDA
+//   2. []         lease PDA
+
+fn process_provider_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let args = ProviderCounterArgs::try_from_slice(data)?;
+    let iter = &mut accounts.iter();
+    let provider_authority = next_account_info(iter)?;
+    let dispute_info = next_account_info(iter)?;
+    let lease_info = next_account_info(iter)?;
+
+    assert_signer(provider_authority)?;
+    assert_writable(dispute_info)?;
+    assert_owned_by(dispute_info, program_id)?;
+    assert_owned_by(lease_info, program_id)?;
+
+    let lease = Lease::try_from_slice(&lease_info.try_borrow_data()?)?;
+    if lease.provider != *provider_authority.key {
+        return Err(MarketError::Unauthorized.into());
+    }
+    if lease.status != LeaseStatus::Disputed {
+        return Err(MarketError::InvalidLeaseStatus.into());
+    }
+
+    // Validate dispute PDA
+    let (dispute_pda, _) = Pubkey::find_program_address(
+        &[Dispute::SEED, lease_info.key.as_ref()],
+        program_id,
+    );
+    if dispute_pda != *dispute_info.key {
+        return Err(MarketError::InvalidPDA.into());
+    }
+
+    let mut dispute = Dispute::try_from_slice(&dispute_info.try_borrow_data()?)?;
+    if dispute.resolved {
+        return Err(MarketError::InvalidLeaseStatus.into());
+    }
+    if dispute.counter_submitted {
+        return Err(MarketError::CounterAlreadySubmitted.into());
+    }
+
+    dispute.counter_evidence_hash = args.counter_evidence_hash;
+    dispute.counter_submitted = true;
+    dispute.serialize(&mut &mut dispute_info.try_borrow_mut_data()?[..])?;
+
+    msg!(
+        "EVENT:ProviderCounterSubmitted:{{\"lease\":\"{}\",\"provider\":\"{}\"}}",
+        lease_info.key,
+        provider_authority.key
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// 15 — CloseJob
+// ---------------------------------------------------------------------------
+// Closes a completed-and-paid-out job, zeroing account data and refunding
+// rent lamports to the job creator.
+// Accounts:
+//   0. [signer]   creator (requester of the job)
+//   1. [writable] request PDA (must be Completed with escrowed_amount == 0)
+//   2. [writable] creator (receives lamports)
+
+fn process_close_job(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    _data: &[u8],
+) -> ProgramResult {
+    let iter = &mut accounts.iter();
+    let creator = next_account_info(iter)?;
+    let request_info = next_account_info(iter)?;
+
+    assert_signer(creator)?;
+    assert_writable(request_info)?;
+    assert_owned_by(request_info, program_id)?;
+
+    let req = ComputeRequest::try_from_slice(&request_info.try_borrow_data()?)?;
+
+    // Only the original requester can close
+    if req.requester != *creator.key {
+        return Err(MarketError::Unauthorized.into());
+    }
+
+    // Only completed and paid-out jobs can be closed
+    if req.status != RequestStatus::Completed || req.escrowed_amount != 0 {
+        return Err(MarketError::JobNotCloseable.into());
+    }
+
+    // Zero account data
+    let data_len = request_info.data_len();
+    let mut data = request_info.try_borrow_mut_data()?;
+    for byte in data[..data_len].iter_mut() {
+        *byte = 0;
+    }
+    drop(data);
+
+    // Transfer all lamports to creator (closes the account)
+    let lamports = request_info.lamports();
+    **request_info.try_borrow_mut_lamports()? = 0;
+    **creator.try_borrow_mut_lamports()? = creator
+        .lamports()
+        .checked_add(lamports)
+        .ok_or(MarketError::Overflow)?;
+
+    msg!(
+        "EVENT:JobClosed:{{\"creator\":\"{}\",\"lamports_refunded\":{}}}",
+        creator.key,
+        lamports
+    );
+
     Ok(())
 }

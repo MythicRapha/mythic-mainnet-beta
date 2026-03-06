@@ -85,7 +85,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="https://github.com/MythicL2"
+                  href="https://github.com/MythicFoundation"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-mythic-text hover:text-white transition-colors text-[0.82rem]"
@@ -117,12 +117,27 @@ export default function Footer() {
                   Whitepaper
                 </Link>
               </li>
+              <li>
+                <a href="https://mythic.foundation" target="_blank" rel="noopener noreferrer" className="text-mythic-text hover:text-white transition-colors text-[0.82rem]">
+                  Mythic Foundation ↗
+                </a>
+              </li>
             </ul>
           </div>
         </div>
 
+        {/* DUNA legal notice */}
+        <div className="mt-12 pt-8 border-t border-white/[0.06]">
+          <p className="font-mono text-[0.58rem] tracking-[0.08em] uppercase text-mythic-text-muted leading-relaxed">
+            Mythic Foundation Inc. — Wyoming Non-Profit Corporation &amp; Decentralized Unincorporated Nonprofit Association (DUNA)
+          </p>
+          <p className="font-mono text-[0.55rem] tracking-[0.06em] uppercase text-mythic-text-dim mt-1">
+            Filing #2026-001904245 | Formed under Wyoming Statutes §§ 17-36-101 through 17-36-115
+          </p>
+        </div>
+
         {/* Bottom bar */}
-        <div className="mt-16 pt-8 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-6 pt-6 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="font-mono text-[0.6rem] tracking-[0.1em] uppercase text-mythic-text-muted">
             Built by <a href="https://mythiclabs.io" target="_blank" rel="noopener noreferrer" className="text-mythic-text hover:text-white transition-colors">Mythic Labs</a>. All rights reserved.
           </p>
@@ -139,7 +154,7 @@ export default function Footer() {
               </svg>
             </a>
             <a
-              href="https://github.com/MythicL2"
+              href="https://github.com/MythicFoundation"
               target="_blank"
               rel="noopener noreferrer"
               className="text-mythic-text-dim hover:text-white transition-colors"

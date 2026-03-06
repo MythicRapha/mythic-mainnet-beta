@@ -66,7 +66,7 @@ function OverviewSection() {
       <SubHeading>Key Features</SubHeading>
       <ul className="space-y-3 mb-6">
         {[
-          '1,000,000+ TPS throughput via Firedancer networking stack',
+          '1M+ TPS peak capacity via Firedancer networking stack (scales with network load and validators)',
           '400ms block times for near-instant confirmation',
           'Full Solana program compatibility (deploy existing Solana programs without modification)',
           'AI-native precompiles for inference, model verification, and logit validation',
@@ -720,7 +720,7 @@ function ValidatorsSection() {
 
       <SubHeading>Validator Setup</SubHeading>
       <CodeBlock>{`# Clone the Mythic validator repository
-git clone https://github.com/MythicL2/mythic-validator.git
+git clone https://github.com/MythicFoundation/mythic-validator.git
 cd mythic-validator
 
 # Install dependencies (requires Rust 1.93+ and Solana CLI 3.0+)
@@ -860,6 +860,173 @@ function RoadmapSection() {
   )
 }
 
+/* ========================= LEGAL SECTION ========================= */
+
+function LegalSection() {
+  return (
+    <section>
+      <SectionHeading id="legal">Foundation and Governance</SectionHeading>
+
+      <Paragraph>
+        The Mythic protocol is stewarded by <strong className="text-white">Mythic Foundation, a Wyoming Decentralized Unincorporated Nonprofit Association (DUNA)</strong>, formed under Wyoming Statutes 17-36-101 through 17-36-115. The DUNA structure was purpose-built by Wyoming to give decentralized autonomous organizations a formal legal personality — enabling the Foundation to hold assets, enter contracts, and represent the interests of $MYTH token holders without requiring a centralized governing board.
+      </Paragraph>
+
+      <SubHeading id="legal-duna">Wyoming DUNA</SubHeading>
+      <Paragraph>
+        Wyoming{"'"}s Decentralized Unincorporated Nonprofit Association Act (W.S. 17-36-101 to 17-36-115) is the first U.S. legal framework designed specifically for DAOs. Key provisions that apply to Mythic Foundation:
+      </Paragraph>
+      <ul className="space-y-3 mb-6">
+        {[
+          'Legal personhood — the DUNA can sue, be sued, hold property, and sign contracts in its own name.',
+          'Member-managed — governance is exercised directly by $MYTH token holders through on-chain voting; no board of directors is required.',
+          'Limited liability — members and participants are not personally liable for DUNA obligations solely by reason of their membership or token holdings.',
+          'Non-profit purpose — the DUNA exists to promote the Mythic protocol, fund ecosystem development, and advance open, decentralized AI infrastructure; it does not distribute profits to members.',
+          'Smart-contract governance — the DUNA governing documents may delegate decision-making to on-chain smart contracts (the Mythic Governance program).',
+        ].map((item) => (
+          <li key={item} className="flex items-start gap-3 text-[0.82rem] text-mythic-text">
+            <svg className="w-4 h-4 text-mythic-violet mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {item}
+          </li>
+        ))}
+      </ul>
+
+      <InfoBox title="Official Registration">
+        <strong className="text-white">Mythic Foundation Inc.</strong> is registered as a Wyoming Non-Profit Public Benefit Corporation (Filing #2026-001904245, February 25, 2026) with the Wyoming Secretary of State. The corporation operates as the administrative arm of Mythic Foundation, a Wyoming DUNA. Verify at{' '}
+        <a href="https://wyobiz.wyo.gov" target="_blank" rel="noopener noreferrer" className="text-mythic-violet hover:text-mythic-violet-bright">wyobiz.wyo.gov</a>.
+      </InfoBox>
+
+      <div className="bg-black border border-white/[0.06] p-4 mb-6">
+        <div className="font-mono text-[0.6rem] tracking-[0.1em] uppercase text-mythic-text-muted mb-2">
+          Governing Principles — SHA-256 Hash
+        </div>
+        <code className="font-mono text-[0.72rem] text-[#39FF14] break-all">
+          1b00324c274789d2cb96913e223c9491a07b8cd57becef5f5c2b541d40b3e60d
+        </code>
+        <div className="font-mono text-[0.55rem] text-mythic-text-muted mt-2">
+          This cryptographic hash anchors the governing document on-chain. Any modification to the governing principles would produce a different hash, providing tamper-proof verification.
+        </div>
+      </div>
+
+      <SubHeading id="legal-principles">Governing Principles</SubHeading>
+      <Paragraph>
+        The following principles govern Mythic Foundation{"'"}s activities and cannot be amended without a supermajority on-chain vote ({"≥"} 67% of staked $MYTH):
+      </Paragraph>
+
+      <div className="space-y-4 mb-6">
+        {[
+          {
+            num: '1',
+            title: 'Open Protocol',
+            body: 'The core Mythic L2 protocol — including the bridge, settlement layer, and AI precompiles — shall remain open-source under the BUSL-1.1 license (converting to MIT on 2028-02-28). No participant may patent or restrict the base protocol.',
+          },
+          {
+            num: '2',
+            title: 'Token Holder Sovereignty',
+            body: '$MYTH token holders govern all material protocol parameters through on-chain proposals and stake-weighted voting. The Foundation executes the will of token holders and does not unilaterally alter protocol rules.',
+          },
+          {
+            num: '3',
+            title: 'Deflationary Integrity',
+            body: 'The 1,000,000,000 $MYTH hard cap shall not be raised. The burn mechanism — destroying a portion of every transaction fee — may only be reduced by a supermajority vote and only after a 30-day public comment period.',
+          },
+          {
+            num: '4',
+            title: 'Non-Profit Purpose',
+            body: 'Foundation treasury funds are used exclusively for grants, audits, validator incentives, developer relations, and infrastructure. Surplus funds may not be distributed to members or advisors.',
+          },
+          {
+            num: '5',
+            title: 'Transparency',
+            body: 'All Foundation treasury transactions are on-chain and publicly verifiable. An annual transparency report is published covering grant recipients, protocol upgrades, and treasury balances.',
+          },
+          {
+            num: '6',
+            title: 'Security First',
+            body: 'Any protocol upgrade that touches the bridge, settlement contract, or validator reward logic must undergo an independent security audit before deployment to mainnet.',
+          },
+        ].map((principle) => (
+          <div key={principle.num} className="bg-[#08080C] border border-white/[0.06] p-6 hover:border-mythic-violet/20 transition-colors">
+            <div className="flex items-start gap-4">
+              <span className="font-display text-mythic-violet font-bold text-[1rem] w-6 flex-shrink-0">{principle.num}.</span>
+              <div>
+                <h4 className="font-display text-white font-semibold text-[0.9rem] mb-2">{principle.title}</h4>
+                <p className="text-mythic-text text-[0.82rem] leading-relaxed">{principle.body}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <SubHeading id="legal-dao">DAO Structure</SubHeading>
+      <Paragraph>
+        The Foundation{"'"}s on-chain governance is powered by the Mythic Governance program (deployed at{' '}
+        <code className="text-mythic-violet font-mono text-[0.8em]">MythGov111111111111111111111111111111111111</code> on Mythic L2). Proposals follow a structured lifecycle:
+      </Paragraph>
+      <div className="overflow-x-auto mb-6">
+        <table className="w-full text-[0.82rem]">
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              <th className="text-left font-mono text-[0.6rem] tracking-[0.1em] uppercase text-mythic-text-muted pb-3 pr-6">Stage</th>
+              <th className="text-left font-mono text-[0.6rem] tracking-[0.1em] uppercase text-mythic-text-muted pb-3 pr-6">Duration</th>
+              <th className="text-left font-mono text-[0.6rem] tracking-[0.1em] uppercase text-mythic-text-muted pb-3">Description</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.04]">
+            {[
+              { stage: 'Draft', duration: 'Unlimited', desc: 'Community discussion on the Mythic governance forum.' },
+              { stage: 'Proposal', duration: '7 days', desc: 'Formal on-chain proposal requiring 100,000 staked $MYTH to submit.' },
+              { stage: 'Voting', duration: '5 days', desc: 'Stake-weighted vote. Quorum: 5% of total staked supply.' },
+              { stage: 'Timelock', duration: '2 days', desc: 'Mandatory delay before execution, allowing emergency vetoes.' },
+              { stage: 'Execution', duration: '\u2014', desc: 'Proposal executed on-chain via the governance program.' },
+            ].map((row) => (
+              <tr key={row.stage}>
+                <td className="py-3 pr-6 font-mono text-mythic-violet text-[0.78rem]">{row.stage}</td>
+                <td className="py-3 pr-6 text-mythic-text-muted">{row.duration}</td>
+                <td className="py-3 text-mythic-text">{row.desc}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <SubHeading id="legal-security-model">Security Model Transparency</SubHeading>
+      <Paragraph>
+        We believe in honest disclosure. Here is the current security posture of Mythic L2 at launch, including known limitations:
+      </Paragraph>
+      <div className="space-y-3 mb-6">
+        {[
+          { label: 'Sequencer', status: 'Centralized at launch', note: 'Same model as Arbitrum, Optimism, and Base at their respective launches. Shared sequencing planned for Q3 2026.', color: '#FF9500' },
+          { label: 'Fraud Proofs', status: 'Admin-resolved', note: 'Challenge period enforced on-chain. Dispute resolution currently requires admin intervention. Cryptographic fraud proofs planned for Q2 2026.', color: '#FF9500' },
+          { label: 'Bridge Rate Limits', status: 'Active', note: 'Daily volume cap: 10,000 SOL. Per-transaction: 0.01-1,000 SOL. Conservative by design.', color: '#39FF14' },
+          { label: 'Program Upgrades', status: 'Admin-controlled', note: 'Upgrade authority held by deployer. Migration to multi-sig planned before validator decentralization.', color: '#FF9500' },
+          { label: 'Source Code', status: 'Open source', note: '6 public repos on GitHub under MythicFoundation. BUSL-1.1 license (MIT in 2028).', color: '#39FF14' },
+          { label: 'Formal Audit', status: 'In progress', note: 'Internal audit complete. Engagement with tier-1 firms (OtterSec, Neodyme, Halborn) underway.', color: '#FF9500' },
+        ].map((item) => (
+          <div key={item.label} className="flex items-start gap-4 bg-[#08080C] border border-white/[0.06] p-4">
+            <div className="w-2 h-2 mt-1.5 flex-shrink-0" style={{ backgroundColor: item.color }} />
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-white text-[0.78rem] font-medium">{item.label}</span>
+                <span className="font-mono text-[0.55rem] tracking-[0.08em] uppercase px-2 py-0.5 border" style={{ color: item.color, borderColor: `${item.color}33`, backgroundColor: `${item.color}10` }}>
+                  {item.status}
+                </span>
+              </div>
+              <p className="text-mythic-text text-[0.78rem] mt-1">{item.note}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <InfoBox title="Legal Disclaimer">
+        Nothing in this documentation constitutes legal, financial, or investment advice. $MYTH is a utility token that grants governance rights and pays gas fees on the Mythic L2 network. Participation in governance does not constitute ownership of any share or equity in Mythic Foundation or any related entity. Consult qualified legal and financial advisors before making any decisions.
+      </InfoBox>
+    </section>
+  )
+}
+
+
 /* ========================= MAIN PAGE ========================= */
 
 export default function DocsPage() {
@@ -894,6 +1061,8 @@ export default function DocsPage() {
           <ValidatorsSection />
           <hr className="border-white/[0.06]" />
           <RoadmapSection />
+          <hr className="border-white/[0.06]" />
+          <LegalSection />
         </div>
       </div>
     </div>

@@ -1,8 +1,30 @@
 import type { Metadata } from 'next'
+import { Sora, Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
-import { WalletProvider } from '@/providers/WalletProvider'
+import { Providers } from './providers'
+
+const sora = Sora({
+  subsets: ['latin'],
+  weight: ['100', '200', '300', '400', '500', '600', '700', '800'],
+  variable: '--font-sora',
+  display: 'swap',
+})
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  variable: '--font-inter',
+  display: 'swap',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-jetbrains-mono',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://mythic.sh'),
@@ -38,7 +60,7 @@ export const metadata: Metadata = {
     title: 'Mythic | Solana SVM Layer 2 built on Firedancer. AI consensus. Decentralized compute. 1M+ TPS.',
     description: 'Solana SVM Layer 2 built on Firedancer with AI consensus, decentralized compute, and 1M+ TPS throughput.',
     images: [{
-      url: '/brand/og.svg',
+      url: '/brand/og.png',
       width: 1200,
       height: 630,
       alt: 'Mythic | Solana SVM Layer 2 built on Firedancer. AI consensus. Decentralized compute. 1M+ TPS.',
@@ -49,7 +71,7 @@ export const metadata: Metadata = {
     title: 'Mythic | Solana SVM Layer 2 built on Firedancer. AI consensus. Decentralized compute. 1M+ TPS.',
     description: 'Solana SVM Layer 2 built on Firedancer with AI consensus, decentralized compute, and 1M+ TPS throughput.',
     creator: '@Mythic_L2',
-    images: ['/brand/og.svg'],
+    images: ['/brand/og.png'],
   },
   alternates: {
     canonical: 'https://mythic.sh',
@@ -63,11 +85,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={`dark ${sora.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Sora:wght@100;200;300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -89,13 +108,13 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-mythic-bg text-white antialiased font-sans">
-        <WalletProvider>
+        <Providers>
           <Navbar />
           <main className="min-h-[calc(100vh-4rem)]">
             {children}
           </main>
           <Footer />
-        </WalletProvider>
+        </Providers>
       </body>
     </html>
   )

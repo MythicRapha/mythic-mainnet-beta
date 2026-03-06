@@ -46,9 +46,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ['Sora', 'sans-serif'],
-        sans: ['Inter', '-apple-system', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        display: ['var(--font-sora)', 'Sora', 'sans-serif'],
+        sans: ['var(--font-inter)', 'Inter', '-apple-system', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-jetbrains-mono)', 'JetBrains Mono', 'monospace'],
       },
       borderRadius: {
         none: '0',

@@ -25,7 +25,29 @@ function getProvider(name: WalletName): WalletProvider | null {
 
   if (name === 'mythic') {
     const mythic = (window as any).mythic
-    return mythic?.isMythicWallet ? (mythic as WalletProvider) : null
+    if (!mythic?.isMythicWallet) return null
+    // Wrap Mythic provider to normalize PublicKey handling
+    return {
+      get publicKey() {
+        if (!mythic.publicKey) return null
+        if (typeof mythic.publicKey === 'string') {
+          try { return new PublicKey(mythic.publicKey) } catch { return null }
+        }
+        return mythic.publicKey
+      },
+      async connect() {
+        const result = await mythic.connect()
+        const pk = typeof result.publicKey === 'string'
+          ? new PublicKey(result.publicKey)
+          : result.publicKey
+        return { publicKey: pk }
+      },
+      disconnect: () => mythic.disconnect(),
+      signTransaction: (tx: Transaction) => mythic.signTransaction(tx),
+      signAndSendTransaction: (tx: Transaction) => mythic.signAndSendTransaction(tx),
+      on: (event: string, cb: (...args: unknown[]) => void) => mythic.on(event, cb),
+      off: (event: string, cb: (...args: unknown[]) => void) => mythic.off(event, cb),
+    } as WalletProvider
   }
   if (name === 'phantom') {
     const solana = (window as any).solana
@@ -51,19 +73,54 @@ export function detectAvailableWallets(): { mythic: boolean; phantom: boolean; s
 }
 
 /**
+ * Detect wallets with retry — waits for extension providers to inject.
+ * Extensions inject via content scripts which may load after React hydrates.
+ */
+export function detectAvailableWalletsAsync(maxWaitMs = 2000): Promise<{ mythic: boolean; phantom: boolean; solflare: boolean }> {
+  return new Promise((resolve) => {
+    const result = detectAvailableWallets()
+    // If mythic already detected, return immediately
+    if (result.mythic) { resolve(result); return }
+
+    // Listen for the mythic#initialized event from the inpage script
+    const onInit = () => {
+      window.removeEventListener('mythic#initialized', onInit)
+      resolve(detectAvailableWallets())
+    }
+    window.addEventListener('mythic#initialized', onInit)
+
+    // Also poll in case we missed the event
+    let elapsed = 0
+    const interval = setInterval(() => {
+      elapsed += 100
+      const check = detectAvailableWallets()
+      if (check.mythic || elapsed >= maxWaitMs) {
+        clearInterval(interval)
+        window.removeEventListener('mythic#initialized', onInit)
+        resolve(check)
+      }
+    }, 100)
+  })
+}
+
+/**
  * Detect the first available wallet provider (used for auto-reconnect).
  */
 function detectProvider(): { provider: WalletProvider | null; name: WalletName } {
   if (typeof window === 'undefined') return { provider: null, name: null }
 
+  // For auto-reconnect, use getProvider which normalizes Mythic's publicKey
   const mythic = (window as any).mythic
-  if (mythic?.isMythicWallet) return { provider: mythic as WalletProvider, name: 'mythic' }
+  if (mythic?.isMythicWallet && mythic.isConnected) {
+    const wrapped = getProvider('mythic')
+    if (wrapped) return { provider: wrapped, name: 'mythic' }
+  }
 
   const solana = (window as any).solana
-  if (solana?.isPhantom) return { provider: solana as WalletProvider, name: 'phantom' }
+  if (solana?.isPhantom && solana.publicKey) return { provider: solana as WalletProvider, name: 'phantom' }
 
   const solflare = (window as any).solflare
-  if (solflare?.isSolflare) return { provider: solflare as WalletProvider, name: 'solflare' }
+  if (solflare?.isSolflare && solflare.publicKey) return { provider: solflare as WalletProvider, name: 'solflare' }
 
   return { provider: null, name: null }
 }
@@ -80,6 +137,7 @@ interface WalletState {
   connecting: boolean
   walletName: WalletName
   showWalletModal: boolean
+  walletError: string | null
 }
 
 export function useWallet() {
@@ -92,6 +150,7 @@ export function useWallet() {
     connecting: false,
     walletName: null,
     showWalletModal: false,
+    walletError: null,
   })
 
   const refreshBalances = useCallback(async (pubkey: PublicKey) => {
@@ -140,6 +199,7 @@ export function useWallet() {
         connecting: false,
         walletName: name,
         showWalletModal: false,
+        walletError: null,
       })
       refreshBalances(pubkey)
     }
@@ -173,6 +233,7 @@ export function useWallet() {
         connecting: false,
         walletName: name,
         showWalletModal: false,
+        walletError: null,
       })
       refreshBalances(publicKey)
     } catch {
@@ -196,21 +257,84 @@ export function useWallet() {
       connecting: false,
       walletName: null,
       showWalletModal: false,
+      walletError: null,
     })
+  }, [wallet.walletName])
+
+  const clearWalletError = useCallback(() => {
+    setWallet(prev => ({ ...prev, walletError: null }))
+  }, [])
+
+  const isMessagePortError = (err: unknown): boolean => {
+    if (err instanceof Error) {
+      const msg = err.message.toLowerCase()
+      return msg.includes('message port closed') || msg.includes('message channel closed')
+    }
+    return String(err).toLowerCase().includes('message port closed')
+  }
+
+  const handleWalletSignError = useCallback((err: unknown) => {
+    if (isMessagePortError(err)) {
+      const fallback = wallet.walletName === 'mythic'
+        ? 'Wallet connection lost. Try again, or use Phantom or Solflare for a more stable signing experience.'
+        : 'Wallet connection lost. Please try again.'
+      setWallet(prev => ({ ...prev, walletError: fallback }))
+    }
   }, [wallet.walletName])
 
   const signAndSendTransaction = useCallback(async (tx: Transaction): Promise<{ signature: string }> => {
     const provider = wallet.walletName ? getProvider(wallet.walletName) : null
     if (!provider) throw new Error('Wallet not connected')
-    const { signature } = await provider.signAndSendTransaction(tx)
-    return { signature }
-  }, [wallet.walletName])
+    setWallet(prev => ({ ...prev, walletError: null }))
+
+    try {
+      const { signature } = await provider.signAndSendTransaction(tx)
+      return { signature }
+    } catch (err) {
+      // Retry once on message port error
+      if (isMessagePortError(err)) {
+        try {
+          await new Promise(r => setTimeout(r, 500))
+          const retryProvider = wallet.walletName ? getProvider(wallet.walletName) : null
+          if (retryProvider) {
+            const { signature } = await retryProvider.signAndSendTransaction(tx)
+            return { signature }
+          }
+        } catch (retryErr) {
+          handleWalletSignError(retryErr)
+          throw retryErr
+        }
+      }
+      handleWalletSignError(err)
+      throw err
+    }
+  }, [wallet.walletName, handleWalletSignError])
 
   const signTransaction = useCallback(async (tx: Transaction): Promise<Transaction> => {
     const provider = wallet.walletName ? getProvider(wallet.walletName) : null
     if (!provider) throw new Error('Wallet not connected')
-    return provider.signTransaction(tx)
-  }, [wallet.walletName])
+    setWallet(prev => ({ ...prev, walletError: null }))
+
+    try {
+      return await provider.signTransaction(tx)
+    } catch (err) {
+      // Retry once on message port error
+      if (isMessagePortError(err)) {
+        try {
+          await new Promise(r => setTimeout(r, 500))
+          const retryProvider = wallet.walletName ? getProvider(wallet.walletName) : null
+          if (retryProvider) {
+            return await retryProvider.signTransaction(tx)
+          }
+        } catch (retryErr) {
+          handleWalletSignError(retryErr)
+          throw retryErr
+        }
+      }
+      handleWalletSignError(err)
+      throw err
+    }
+  }, [wallet.walletName, handleWalletSignError])
 
   const shortAddress = wallet.address
     ? `${wallet.address.slice(0, 4)}...${wallet.address.slice(-4)}`
@@ -226,5 +350,6 @@ export function useWallet() {
     signAndSendTransaction,
     signTransaction,
     refreshBalances,
+    clearWalletError,
   }
 }

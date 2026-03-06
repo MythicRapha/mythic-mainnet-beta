@@ -1,6 +1,6 @@
 // MythicPad — AI Token Bonding Curve Launchpad for Mythic L2
-// PumpFun-style launchpad: create tokens with bonding curves, buy/sell on curve,
-// auto-graduate to MythicSwap DEX when threshold is reached.
+// Constant-product (x*y=k) bonding curve launchpad: create tokens with virtual AMM,
+// buy/sell on curve, auto-graduate to MythicSwap DEX when threshold is reached.
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
@@ -22,7 +22,7 @@ use solana_program::{
 // Program ID
 // ---------------------------------------------------------------------------
 
-solana_program::declare_id!("62dVNKTPhChmGVzQu7YzK19vVtTk371Zg7iHfNzk635c");
+solana_program::declare_id!("CLBeDnHqa55wcgYeQwYdFyaG7WXoBdSrJwijA7DUgNy1");
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -37,6 +37,7 @@ const MAX_TOKEN_NAME_LEN: usize = 32;
 const MAX_TOKEN_SYMBOL_LEN: usize = 10;
 const MAX_TOKEN_URI_LEN: usize = 200;
 const MAX_DESCRIPTION_LEN: usize = 256;
+const MAX_SOCIAL_LEN: usize = 64;
 const TOKEN_DECIMALS: u8 = 6;
 
 /// MYTH Token program ID — fees are routed here for unified burn/distribute.
@@ -134,6 +135,10 @@ pub enum LaunchpadError {
     InvalidProtocolFee,
     #[error("Program is paused")]
     ProgramPaused,
+    #[error("Token account mint mismatch")]
+    TokenMintMismatch,
+    #[error("Token account owner mismatch")]
+    TokenOwnerMismatch,
 }
 
 impl From<LaunchpadError> for ProgramError {
@@ -166,7 +171,7 @@ impl LaunchpadConfig {
 }
 
 // ---------------------------------------------------------------------------
-// State: TokenLaunch
+// State: TokenLaunch (constant product bonding curve)
 // ---------------------------------------------------------------------------
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Copy, PartialEq)]
@@ -200,23 +205,34 @@ pub struct TokenLaunch {
     pub description: [u8; 256],        // 256
     pub ai_model_hash: [u8; 32],       // 32
     pub has_ai_model: bool,            // 1
-    pub base_price: u64,               // 8
-    pub slope: u64,                    // 8
+    pub virtual_base_reserve: u64,     // 8  (virtual token reserve)
+    pub virtual_quote_reserve: u64,    // 8  (virtual MYTH reserve)
     pub max_supply: u64,               // 8
     pub tokens_sold: u64,              // 8
-    pub myth_collected: u64,           // 8
+    pub myth_collected: u64,           // 8  (total real MYTH deposited into vault)
     pub status: u8,                    // 1  (LaunchStatus as u8)
     pub created_at: i64,               // 8
     pub graduated_at: i64,             // 8
     pub launch_index: u64,             // 8
-    pub creator_fee_lamports: u64,     // 8  — creator's 10% share after graduation
+    pub creator_fee_lamports: u64,     // 8
     pub creator_fee_claimed: bool,     // 1
     pub bump: u8,                      // 1
+    pub graduation_threshold: u64,     // 8  (kept for compat, = migration_quote_threshold)
+    // New fields appended for constant product curve:
+    pub k_constant: u128,              // 16
+    pub migration_quote_threshold: u64, // 8
+    pub creation_fee_lamports: u64,    // 8
+    pub initial_virtual_quote: u64,    // 8  (needed to calculate actual deposits vs virtual)
+    // Social links (v2)
+    pub twitter: [u8; 64],             // 64
+    pub telegram: [u8; 64],            // 64
+    pub website: [u8; 64],             // 64
+    pub vanity_nonce: u64,             // 8  (nonce used to grind vanity mint address)
 }
 
 impl TokenLaunch {
-    // 1+32+32+32+10+200+256+32+1+8+8+8+8+8+1+8+8+8+8+1+1 = 671
-    pub const SIZE: usize = 671;
+    // 719 + 64 + 64 + 64 + 8 = 919
+    pub const SIZE: usize = 919;
 
     pub fn get_status(&self) -> Result<LaunchStatus, ProgramError> {
         LaunchStatus::try_from(self.status)
@@ -241,22 +257,27 @@ pub struct CreateTokenArgs {
     pub token_uri: String,
     pub description: String,
     pub ai_model_hash: Option<[u8; 32]>,
-    pub base_price: u64,
-    pub slope: u64,
-    pub max_supply: u64,
-    pub creator_buy_amount: u64, // 0 = no pre-buy
+    pub max_supply: u64,              // total token supply (e.g. 1B * 10^6)
+    pub initial_virtual_quote: u64,   // initial MYTH in virtual pool (sets starting price)
+    pub migration_quote_threshold: u64, // MYTH to graduate (e.g. 20 SOL equiv, from client oracle)
+    pub creation_fee: u64,            // $2 USD in MYTH (from client oracle), 0 = no fee
+    pub creator_buy_amount: u64,      // MYTH to spend on pre-buy, 0 = no pre-buy
+    pub twitter: String,              // Twitter/X handle or URL (max 64)
+    pub telegram: String,             // Telegram group URL (max 64)
+    pub website: String,              // Website URL (max 64)
+    pub vanity_nonce: u64,            // Nonce for vanity mint address grinding
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct BuyArgs {
-    pub amount: u64,
-    pub max_cost: u64,
+    pub myth_amount: u64,       // MYTH to spend
+    pub min_tokens_out: u64,    // slippage protection
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct SellArgs {
-    pub amount: u64,
-    pub min_refund: u64,
+    pub token_amount: u64,      // tokens to sell
+    pub min_myth_out: u64,      // slippage protection
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -267,127 +288,91 @@ pub struct UpdateConfigArgs {
 }
 
 // ---------------------------------------------------------------------------
-// Bonding Curve Math
+// Constant Product Bonding Curve Math
 // ---------------------------------------------------------------------------
-// Linear bonding curve: price(x) = base_price + slope * x
-// where x = tokens_sold (in raw token units, 6 decimals)
+// Virtual AMM: x * y = k
+// where x = virtual_base_reserve (tokens), y = virtual_quote_reserve (MYTH)
 //
-// Cost to buy N tokens starting at tokens_sold = S:
-//   cost = integral from S to S+N of (base_price + slope * x) dx
-//        = N * base_price + slope * (S*N + N*(N-1)/2)
+// Buy: user deposits myth_in, receives tokens_out
+//   new_y = y + myth_in
+//   new_x = k / new_y  (rounded up to preserve k)
+//   tokens_out = x - new_x
 //
-// Refund for selling N tokens starting at tokens_sold = S:
-//   refund = integral from S-N to S of (base_price + slope * x) dx
-//          = N * base_price + slope * ((S-N)*N + N*(N-1)/2)
+// Sell: user deposits tokens_in, receives myth_out
+//   new_x = x + tokens_in
+//   new_y = k / new_x  (rounded down, user gets less)
+//   myth_out = y - new_y
 
-/// Calculate cost to buy `amount` tokens when `tokens_sold` have already been sold.
-/// All arithmetic done in u128 to prevent overflow, result fits in u64.
-fn calculate_buy_cost(
-    base_price: u64,
-    slope: u64,
-    tokens_sold: u64,
-    amount: u64,
-) -> Result<u64, ProgramError> {
-    if amount == 0 {
+/// Constant product buy: user deposits myth_in, receives tokens_out.
+/// Returns (tokens_out, new_base_reserve, new_quote_reserve).
+fn calculate_buy_output(
+    virtual_base: u64,
+    virtual_quote: u64,
+    k: u128,
+    myth_in: u64,
+) -> Result<(u64, u64, u64), ProgramError> {
+    if myth_in == 0 {
         return Err(LaunchpadError::InvalidAmount.into());
     }
 
-    let n = amount as u128;
-    let s = tokens_sold as u128;
-    let bp = base_price as u128;
-    let sl = slope as u128;
-
-    // cost = N * base_price + slope * (S * N + N * (N - 1) / 2)
-    let base_cost = n
-        .checked_mul(bp)
+    let new_quote = (virtual_quote as u128)
+        .checked_add(myth_in as u128)
+        .ok_or(LaunchpadError::Overflow)?;
+    let new_base = k
+        .checked_div(new_quote)
+        .ok_or(LaunchpadError::Overflow)?;
+    // Round up new_base to preserve k invariant
+    let new_base = if k % new_quote != 0 { new_base + 1 } else { new_base };
+    let tokens_out = (virtual_base as u128)
+        .checked_sub(new_base)
         .ok_or(LaunchpadError::Overflow)?;
 
-    let s_times_n = s
-        .checked_mul(n)
-        .ok_or(LaunchpadError::Overflow)?;
+    let tokens_out = u64::try_from(tokens_out).map_err(|_| LaunchpadError::Overflow)?;
+    let new_base = u64::try_from(new_base).map_err(|_| LaunchpadError::Overflow)?;
+    let new_quote = u64::try_from(new_quote).map_err(|_| LaunchpadError::Overflow)?;
 
-    let n_minus_1 = n.checked_sub(1).ok_or(LaunchpadError::Overflow)?;
-    let triangle = n
-        .checked_mul(n_minus_1)
-        .ok_or(LaunchpadError::Overflow)?
-        / 2;
-
-    let slope_part = s_times_n
-        .checked_add(triangle)
-        .ok_or(LaunchpadError::Overflow)?;
-
-    let slope_cost = sl
-        .checked_mul(slope_part)
-        .ok_or(LaunchpadError::Overflow)?;
-
-    let total = base_cost
-        .checked_add(slope_cost)
-        .ok_or(LaunchpadError::Overflow)?;
-
-    u64::try_from(total).map_err(|_| LaunchpadError::Overflow.into())
+    Ok((tokens_out, new_base, new_quote))
 }
 
-/// Calculate refund for selling `amount` tokens when `tokens_sold` tokens exist.
-fn calculate_sell_refund(
-    base_price: u64,
-    slope: u64,
-    tokens_sold: u64,
-    amount: u64,
-) -> Result<u64, ProgramError> {
-    if amount == 0 {
+/// Constant product sell: user deposits tokens_in, receives myth_out.
+/// Returns (myth_out, new_base_reserve, new_quote_reserve).
+fn calculate_sell_output(
+    virtual_base: u64,
+    virtual_quote: u64,
+    k: u128,
+    tokens_in: u64,
+) -> Result<(u64, u64, u64), ProgramError> {
+    if tokens_in == 0 {
         return Err(LaunchpadError::InvalidAmount.into());
     }
-    if amount > tokens_sold {
-        return Err(LaunchpadError::InvalidAmount.into());
-    }
 
-    let n = amount as u128;
-    let s = tokens_sold as u128;
-    let bp = base_price as u128;
-    let sl = slope as u128;
-
-    // refund = N * base_price + slope * ((S - N) * N + N * (N - 1) / 2)
-    let base_refund = n
-        .checked_mul(bp)
+    let new_base = (virtual_base as u128)
+        .checked_add(tokens_in as u128)
+        .ok_or(LaunchpadError::Overflow)?;
+    let new_quote = k
+        .checked_div(new_base)
+        .ok_or(LaunchpadError::Overflow)?;
+    // Round down new_quote (user gets less)
+    let myth_out = (virtual_quote as u128)
+        .checked_sub(new_quote)
         .ok_or(LaunchpadError::Overflow)?;
 
-    let s_minus_n = s
-        .checked_sub(n)
-        .ok_or(LaunchpadError::Overflow)?;
+    let myth_out = u64::try_from(myth_out).map_err(|_| LaunchpadError::Overflow)?;
+    let new_base = u64::try_from(new_base).map_err(|_| LaunchpadError::Overflow)?;
+    let new_quote = u64::try_from(new_quote).map_err(|_| LaunchpadError::Overflow)?;
 
-    let s_minus_n_times_n = s_minus_n
-        .checked_mul(n)
-        .ok_or(LaunchpadError::Overflow)?;
-
-    let n_minus_1 = n.checked_sub(1).ok_or(LaunchpadError::Overflow)?;
-    let triangle = n
-        .checked_mul(n_minus_1)
-        .ok_or(LaunchpadError::Overflow)?
-        / 2;
-
-    let slope_part = s_minus_n_times_n
-        .checked_add(triangle)
-        .ok_or(LaunchpadError::Overflow)?;
-
-    let slope_refund = sl
-        .checked_mul(slope_part)
-        .ok_or(LaunchpadError::Overflow)?;
-
-    let total = base_refund
-        .checked_add(slope_refund)
-        .ok_or(LaunchpadError::Overflow)?;
-
-    u64::try_from(total).map_err(|_| LaunchpadError::Overflow.into())
+    Ok((myth_out, new_base, new_quote))
 }
 
-/// Calculate the instantaneous price at the current tokens_sold level.
-fn calculate_current_price(base_price: u64, slope: u64, tokens_sold: u64) -> Result<u64, ProgramError> {
-    let price = (base_price as u128)
-        .checked_add(
-            (slope as u128)
-                .checked_mul(tokens_sold as u128)
-                .ok_or(LaunchpadError::Overflow)?,
-        )
+/// Calculate the instantaneous price: virtual_quote / virtual_base, scaled by 10^6.
+fn calculate_current_price(virtual_base: u64, virtual_quote: u64) -> Result<u64, ProgramError> {
+    if virtual_base == 0 {
+        return Err(LaunchpadError::Overflow.into());
+    }
+    let price = (virtual_quote as u128)
+        .checked_mul(1_000_000)
+        .ok_or(LaunchpadError::Overflow)?
+        .checked_div(virtual_base as u128)
         .ok_or(LaunchpadError::Overflow)?;
     u64::try_from(price).map_err(|_| LaunchpadError::Overflow.into())
 }
@@ -422,6 +407,26 @@ fn assert_writable(account: &AccountInfo) -> ProgramResult {
 fn assert_owned_by(account: &AccountInfo, owner: &Pubkey) -> ProgramResult {
     if account.owner != owner {
         return Err(LaunchpadError::InvalidOwner.into());
+    }
+    Ok(())
+}
+
+/// Validate that a token account has the expected mint and owner.
+/// Unpacks the SPL token account data to check.
+fn assert_token_account(
+    token_account: &AccountInfo,
+    expected_mint: &Pubkey,
+    expected_owner: &Pubkey,
+) -> ProgramResult {
+    if token_account.owner != &spl_token::id() {
+        return Err(LaunchpadError::InvalidOwner.into());
+    }
+    let account_data = spl_token::state::Account::unpack(&token_account.data.borrow())?;
+    if &account_data.mint != expected_mint {
+        return Err(LaunchpadError::TokenMintMismatch.into());
+    }
+    if &account_data.owner != expected_owner {
+        return Err(LaunchpadError::TokenOwnerMismatch.into());
     }
     Ok(())
 }
@@ -720,7 +725,7 @@ fn process_initialize(
 //   4.  [writable]          curve_vault — $MYTH ATA owned by curve_vault_authority
 //   5.  []                  curve_vault_authority — PDA (seeds: ["curve_vault", mint.key])
 //   6.  []                  myth_mint — the $MYTH token mint
-//   7.  [writable]          creator_myth_ata — creator's $MYTH token account (for pre-buy cost)
+//   7.  [writable]          creator_myth_ata — creator's $MYTH token account (for pre-buy cost + creation fee)
 //   8.  [writable]          creator_token_ata — creator's ATA for the new token (receives pre-buy)
 //   9.  [writable]          foundation_myth_ata — foundation $MYTH account (receives fees)
 //   10. []                  token_program (spl_token)
@@ -749,10 +754,19 @@ fn process_create_token(
     if args.description.len() > MAX_DESCRIPTION_LEN {
         return Err(LaunchpadError::DescriptionTooLong.into());
     }
+    if args.twitter.len() > MAX_SOCIAL_LEN {
+        return Err(LaunchpadError::DescriptionTooLong.into());
+    }
+    if args.telegram.len() > MAX_SOCIAL_LEN {
+        return Err(LaunchpadError::DescriptionTooLong.into());
+    }
+    if args.website.len() > MAX_SOCIAL_LEN {
+        return Err(LaunchpadError::DescriptionTooLong.into());
+    }
     if args.max_supply == 0 {
         return Err(LaunchpadError::InvalidAmount.into());
     }
-    if args.base_price == 0 {
+    if args.initial_virtual_quote == 0 {
         return Err(LaunchpadError::InvalidAmount.into());
     }
 
@@ -791,10 +805,11 @@ fn process_create_token(
 
     let launch_index = config.total_tokens_launched;
     let launch_index_bytes = launch_index.to_le_bytes();
+    let vanity_nonce_bytes = args.vanity_nonce.to_le_bytes();
 
-    // Derive mint PDA
+    // Derive mint PDA (includes vanity_nonce for address grinding)
     let (mint_pda, mint_bump) =
-        Pubkey::find_program_address(&[MINT_SEED, &launch_index_bytes], program_id);
+        Pubkey::find_program_address(&[MINT_SEED, &launch_index_bytes, &vanity_nonce_bytes], program_id);
     if mint_account.key != &mint_pda {
         return Err(LaunchpadError::InvalidPDA.into());
     }
@@ -838,7 +853,7 @@ fn process_create_token(
             &spl_token::id(),
         ),
         &[creator.clone(), mint_account.clone(), system_program.clone()],
-        &[&[MINT_SEED, &launch_index_bytes, &[mint_bump]]],
+        &[&[MINT_SEED, &launch_index_bytes, &vanity_nonce_bytes, &[mint_bump]]],
     )?;
 
     // Initialize the mint with the mint PDA itself as authority (the program signs via PDA)
@@ -851,7 +866,7 @@ fn process_create_token(
             TOKEN_DECIMALS,
         )?,
         &[mint_account.clone(), rent_sysvar.clone()],
-        &[&[MINT_SEED, &launch_index_bytes, &[mint_bump]]],
+        &[&[MINT_SEED, &launch_index_bytes, &vanity_nonce_bytes, &[mint_bump]]],
     )?;
 
     // 2. Create the curve vault ATA for $MYTH (owned by the vault PDA).
@@ -891,6 +906,11 @@ fn process_create_token(
         None => ([0u8; 32], false),
     };
 
+    // Compute constant product invariant
+    let k_constant = (args.max_supply as u128)
+        .checked_mul(args.initial_virtual_quote as u128)
+        .ok_or(LaunchpadError::Overflow)?;
+
     let mut launch = TokenLaunch {
         is_initialized: true,
         creator: *creator.key,
@@ -901,18 +921,27 @@ fn process_create_token(
         description: string_to_fixed::<256>(&args.description),
         ai_model_hash,
         has_ai_model,
-        base_price: args.base_price,
-        slope: args.slope,
+        virtual_base_reserve: args.max_supply,
+        virtual_quote_reserve: args.initial_virtual_quote,
         max_supply: args.max_supply,
         tokens_sold: 0,
         myth_collected: 0,
         status: LaunchStatus::Active as u8,
         created_at: clock.unix_timestamp,
         graduated_at: 0,
-        launch_index: launch_index,
+        launch_index,
         creator_fee_lamports: 0,
         creator_fee_claimed: false,
         bump: launch_bump,
+        graduation_threshold: args.migration_quote_threshold,
+        k_constant,
+        migration_quote_threshold: args.migration_quote_threshold,
+        creation_fee_lamports: args.creation_fee,
+        initial_virtual_quote: args.initial_virtual_quote,
+        twitter: string_to_fixed::<64>(&args.twitter),
+        telegram: string_to_fixed::<64>(&args.telegram),
+        website: string_to_fixed::<64>(&args.website),
+        vanity_nonce: args.vanity_nonce,
     };
 
     // 4. Update config counter
@@ -922,34 +951,44 @@ fn process_create_token(
         .ok_or(LaunchpadError::Overflow)?;
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
 
-    // 5. Handle creator pre-buy if requested
-    if args.creator_buy_amount > 0 {
-        // Validate the pre-buy doesn't exceed max supply
-        if args.creator_buy_amount > args.max_supply {
-            return Err(LaunchpadError::MaxSupplyExceeded.into());
-        }
+    // 5. Charge creation fee if specified
+    if args.creation_fee > 0 {
+        transfer_spl_tokens(
+            creator_myth_ata,
+            foundation_myth_ata,
+            creator,
+            token_program,
+            args.creation_fee,
+            &[],
+        )?;
+    }
 
-        let cost = calculate_buy_cost(
-            args.base_price,
-            args.slope,
-            0, // tokens_sold starts at 0
-            args.creator_buy_amount,
+    // 6. Handle creator pre-buy if requested (myth_amount to spend, not tokens)
+    if args.creator_buy_amount > 0 {
+        let fee = calculate_fee(args.creator_buy_amount, config.protocol_fee_bps)?;
+        let effective_myth = args.creator_buy_amount
+            .checked_sub(fee)
+            .ok_or(LaunchpadError::Overflow)?;
+
+        let (tokens_out, new_base, new_quote) = calculate_buy_output(
+            launch.virtual_base_reserve,
+            launch.virtual_quote_reserve,
+            launch.k_constant,
+            effective_myth,
         )?;
 
-        let fee = calculate_fee(cost, config.protocol_fee_bps)?;
-        let total_cost = cost.checked_add(fee).ok_or(LaunchpadError::Overflow)?;
-
-        // Transfer $MYTH from creator to curve vault
+        // Transfer MYTH from creator to curve vault (the effective portion)
         transfer_spl_tokens(
             creator_myth_ata,
             curve_vault,
             creator,
             token_program,
-            cost,
+            effective_myth,
             &[],
         )?;
 
-        // Transfer fee to foundation
+        // Transfer fee to foundation (70% protocol, 30% creator — but creator IS the buyer here,
+        // so send full fee to foundation)
         if fee > 0 {
             transfer_spl_tokens(
                 creator_myth_ata,
@@ -962,7 +1001,6 @@ fn process_create_token(
         }
 
         // Mint tokens to creator's ATA
-        // Create creator's token ATA if needed
         invoke(
             &spl_associated_token_account::instruction::create_associated_token_account_idempotent(
                 creator.key,
@@ -986,20 +1024,22 @@ fn process_create_token(
             creator_token_ata,
             mint_account, // mint authority is the mint PDA
             token_program,
-            args.creator_buy_amount,
-            &[MINT_SEED, &launch_index_bytes, &[mint_bump]],
+            tokens_out,
+            &[MINT_SEED, &launch_index_bytes, &vanity_nonce_bytes, &[mint_bump]],
         )?;
 
-        launch.tokens_sold = args.creator_buy_amount;
-        launch.myth_collected = cost;
+        launch.virtual_base_reserve = new_base;
+        launch.virtual_quote_reserve = new_quote;
+        launch.tokens_sold = tokens_out;
+        launch.myth_collected = effective_myth;
 
-        let price = calculate_current_price(args.base_price, args.slope, launch.tokens_sold)?;
+        let price = calculate_current_price(launch.virtual_base_reserve, launch.virtual_quote_reserve)?;
         msg!(
-            "EVENT:Trade:{{\"trader\":\"{}\",\"mint\":\"{}\",\"side\":\"Buy\",\"amount\":{},\"cost_or_refund\":{},\"price_per_token\":{},\"tokens_sold_after\":{}}}",
+            "EVENT:Trade:{{\"trader\":\"{}\",\"mint\":\"{}\",\"side\":\"Buy\",\"tokens\":{},\"myth_amount\":{},\"price_per_token\":{},\"tokens_sold_after\":{}}}",
             creator.key,
             mint_pda,
+            tokens_out,
             args.creator_buy_amount,
-            total_cost,
             price,
             launch.tokens_sold,
         );
@@ -1008,14 +1048,15 @@ fn process_create_token(
     launch.serialize(&mut &mut token_launch_account.data.borrow_mut()[..])?;
 
     msg!(
-        "EVENT:TokenCreated:{{\"creator\":\"{}\",\"mint\":\"{}\",\"name\":\"{}\",\"symbol\":\"{}\",\"base_price\":{},\"slope\":{},\"max_supply\":{},\"launch_index\":{}}}",
+        "EVENT:TokenCreated:{{\"creator\":\"{}\",\"mint\":\"{}\",\"name\":\"{}\",\"symbol\":\"{}\",\"max_supply\":{},\"initial_virtual_quote\":{},\"k\":{},\"migration_threshold\":{},\"launch_index\":{}}}",
         creator.key,
         mint_pda,
         args.token_name,
         args.token_symbol,
-        args.base_price,
-        args.slope,
         args.max_supply,
+        args.initial_virtual_quote,
+        k_constant,
+        args.migration_quote_threshold,
         launch_index,
     );
 
@@ -1054,7 +1095,7 @@ fn process_buy(
     let args = BuyArgs::try_from_slice(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-    if args.amount == 0 {
+    if args.myth_amount == 0 {
         return Err(LaunchpadError::InvalidAmount.into());
     }
 
@@ -1089,9 +1130,18 @@ fn process_buy(
         return Err(ProgramError::IncorrectProgramId);
     }
 
+    // Validate config PDA derivation
+    let (config_pda, _) = Pubkey::find_program_address(&[LAUNCHPAD_CONFIG_SEED], program_id);
+    if config_account.key != &config_pda {
+        return Err(LaunchpadError::InvalidPDA.into());
+    }
+
     let config = LaunchpadConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(LaunchpadError::NotInitialized.into());
+    }
+    if config.is_paused {
+        return Err(LaunchpadError::ProgramPaused.into());
     }
 
     let mut launch = TokenLaunch::try_from_slice(&token_launch_account.data.borrow())?;
@@ -1107,49 +1157,65 @@ fn process_buy(
         return Err(LaunchpadError::InvalidPDA.into());
     }
 
-    // Check max supply
-    let new_tokens_sold = launch
-        .tokens_sold
-        .checked_add(args.amount)
+    // Apply fee first: effective_myth = myth_amount - fee
+    let fee = calculate_fee(args.myth_amount, config.protocol_fee_bps)?;
+    let effective_myth = args.myth_amount
+        .checked_sub(fee)
         .ok_or(LaunchpadError::Overflow)?;
-    if new_tokens_sold > launch.max_supply {
-        return Err(LaunchpadError::MaxSupplyExceeded.into());
-    }
 
-    // Calculate cost
-    let cost = calculate_buy_cost(
-        launch.base_price,
-        launch.slope,
-        launch.tokens_sold,
-        args.amount,
+    // Calculate tokens out using constant product
+    let (tokens_out, new_base, new_quote) = calculate_buy_output(
+        launch.virtual_base_reserve,
+        launch.virtual_quote_reserve,
+        launch.k_constant,
+        effective_myth,
     )?;
 
-    let fee = calculate_fee(cost, config.protocol_fee_bps)?;
-    let total_cost = cost.checked_add(fee).ok_or(LaunchpadError::Overflow)?;
-
     // Slippage check
-    if total_cost > args.max_cost {
+    if tokens_out < args.min_tokens_out {
         return Err(LaunchpadError::SlippageExceeded.into());
     }
 
-    // Transfer $MYTH from buyer to curve vault
+    // Split fee: 70% to foundation (protocol_fee), 30% to creator
+    let creator_fee_share = fee
+        .checked_mul(30)
+        .ok_or(LaunchpadError::Overflow)?
+        .checked_div(100)
+        .ok_or(LaunchpadError::Overflow)?;
+    let protocol_fee_share = fee
+        .checked_sub(creator_fee_share)
+        .ok_or(LaunchpadError::Overflow)?;
+
+    // Transfer effective MYTH from buyer to curve vault
     transfer_spl_tokens(
         buyer_myth_ata,
         curve_vault,
         buyer,
         token_program,
-        cost,
+        effective_myth,
         &[],
     )?;
 
-    // Transfer fee to foundation
-    if fee > 0 {
+    // Transfer protocol fee portion to foundation
+    if protocol_fee_share > 0 {
         transfer_spl_tokens(
             buyer_myth_ata,
             foundation_myth_ata,
             buyer,
             token_program,
-            fee,
+            protocol_fee_share,
+            &[],
+        )?;
+    }
+
+    // Transfer creator fee share to curve vault (stored for creator)
+    if creator_fee_share > 0 {
+        transfer_spl_tokens(
+            buyer_myth_ata,
+            curve_vault,
+            buyer,
+            token_program,
+            creator_fee_share,
             &[],
         )?;
     }
@@ -1203,29 +1269,40 @@ fn process_buy(
 
     // Mint tokens to buyer — mint authority is the mint PDA
     let launch_index_bytes = launch.launch_index.to_le_bytes();
+    let vanity_nonce_bytes = launch.vanity_nonce.to_le_bytes();
     let (_, mint_bump) =
-        Pubkey::find_program_address(&[MINT_SEED, &launch_index_bytes], program_id);
+        Pubkey::find_program_address(&[MINT_SEED, &launch_index_bytes, &vanity_nonce_bytes], program_id);
 
     mint_tokens_signed(
         mint_account,
         buyer_token_ata,
         mint_account,
         token_program,
-        args.amount,
-        &[MINT_SEED, &launch_index_bytes, &[mint_bump]],
+        tokens_out,
+        &[MINT_SEED, &launch_index_bytes, &vanity_nonce_bytes, &[mint_bump]],
     )?;
 
     // Update launch state
-    launch.tokens_sold = new_tokens_sold;
+    launch.virtual_base_reserve = new_base;
+    launch.virtual_quote_reserve = new_quote;
+    launch.tokens_sold = launch
+        .tokens_sold
+        .checked_add(tokens_out)
+        .ok_or(LaunchpadError::Overflow)?;
     launch.myth_collected = launch
         .myth_collected
-        .checked_add(cost)
+        .checked_add(effective_myth)
+        .ok_or(LaunchpadError::Overflow)?;
+    // Accumulate creator fee share
+    launch.creator_fee_lamports = launch
+        .creator_fee_lamports
+        .checked_add(creator_fee_share)
         .ok_or(LaunchpadError::Overflow)?;
 
-    let price = calculate_current_price(launch.base_price, launch.slope, launch.tokens_sold)?;
+    let price = calculate_current_price(launch.virtual_base_reserve, launch.virtual_quote_reserve)?;
 
     // Check if we should auto-graduate
-    if launch.myth_collected >= config.graduation_threshold {
+    if launch.virtual_quote_reserve >= launch.migration_quote_threshold {
         launch.status = LaunchStatus::Graduated as u8;
         let clock = Clock::get()?;
         launch.graduated_at = clock.unix_timestamp;
@@ -1241,11 +1318,11 @@ fn process_buy(
     launch.serialize(&mut &mut token_launch_account.data.borrow_mut()[..])?;
 
     msg!(
-        "EVENT:Trade:{{\"trader\":\"{}\",\"mint\":\"{}\",\"side\":\"Buy\",\"amount\":{},\"cost_or_refund\":{},\"price_per_token\":{},\"tokens_sold_after\":{}}}",
+        "EVENT:Trade:{{\"trader\":\"{}\",\"mint\":\"{}\",\"side\":\"Buy\",\"tokens\":{},\"myth_amount\":{},\"price_per_token\":{},\"tokens_sold_after\":{}}}",
         buyer.key,
         launch.mint,
-        args.amount,
-        total_cost,
+        tokens_out,
+        args.myth_amount,
         price,
         launch.tokens_sold,
     );
@@ -1283,7 +1360,7 @@ fn process_sell(
     let args = SellArgs::try_from_slice(data)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-    if args.amount == 0 {
+    if args.token_amount == 0 {
         return Err(LaunchpadError::InvalidAmount.into());
     }
 
@@ -1315,6 +1392,12 @@ fn process_sell(
         return Err(ProgramError::IncorrectProgramId);
     }
 
+    // Validate config PDA derivation
+    let (config_pda, _) = Pubkey::find_program_address(&[LAUNCHPAD_CONFIG_SEED], program_id);
+    if config_account.key != &config_pda {
+        return Err(LaunchpadError::InvalidPDA.into());
+    }
+
     let config = LaunchpadConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(LaunchpadError::NotInitialized.into());
@@ -1343,29 +1426,38 @@ fn process_sell(
         return Err(LaunchpadError::InvalidPDA.into());
     }
 
-    // Check seller has enough tokens
-    if args.amount > launch.tokens_sold {
-        return Err(LaunchpadError::InvalidAmount.into());
-    }
+    // H-3 Fix: Validate seller's token account has correct mint and owner
+    assert_token_account(seller_token_ata, &launch.mint, seller.key)?;
 
-    // Calculate refund
-    let gross_refund = calculate_sell_refund(
-        launch.base_price,
-        launch.slope,
-        launch.tokens_sold,
-        args.amount,
+    // Calculate MYTH out using constant product
+    let (gross_myth_out, new_base, new_quote) = calculate_sell_output(
+        launch.virtual_base_reserve,
+        launch.virtual_quote_reserve,
+        launch.k_constant,
+        args.token_amount,
     )?;
 
-    let fee = calculate_fee(gross_refund, config.protocol_fee_bps)?;
-    let net_refund = gross_refund.checked_sub(fee).ok_or(LaunchpadError::Overflow)?;
+    // Apply fee
+    let fee = calculate_fee(gross_myth_out, config.protocol_fee_bps)?;
+    let creator_fee_share = fee
+        .checked_mul(30)
+        .ok_or(LaunchpadError::Overflow)?
+        .checked_div(100)
+        .ok_or(LaunchpadError::Overflow)?;
+    let protocol_fee_share = fee
+        .checked_sub(creator_fee_share)
+        .ok_or(LaunchpadError::Overflow)?;
+    let net_myth_out = gross_myth_out
+        .checked_sub(fee)
+        .ok_or(LaunchpadError::Overflow)?;
 
     // Slippage check
-    if net_refund < args.min_refund {
+    if net_myth_out < args.min_myth_out {
         return Err(LaunchpadError::SlippageExceeded.into());
     }
 
-    // Check vault has enough $MYTH
-    if gross_refund > launch.myth_collected {
+    // Check vault has enough $MYTH (actual deposits must cover the payout)
+    if gross_myth_out > launch.myth_collected {
         return Err(LaunchpadError::InsufficientFunds.into());
     }
 
@@ -1375,7 +1467,7 @@ fn process_sell(
         mint_account,
         seller,
         token_program,
-        args.amount,
+        args.token_amount,
         &[], // seller signs directly (they own the token account)
     )?;
 
@@ -1387,21 +1479,23 @@ fn process_sell(
         seller_myth_ata,
         curve_vault_authority,
         token_program,
-        net_refund,
+        net_myth_out,
         vault_seeds,
     )?;
 
-    // Transfer fee from curve vault to foundation
-    if fee > 0 {
+    // Transfer protocol fee from curve vault to foundation
+    if protocol_fee_share > 0 {
         transfer_spl_tokens(
             curve_vault,
             foundation_myth_ata,
             curve_vault_authority,
             token_program,
-            fee,
+            protocol_fee_share,
             vault_seeds,
         )?;
     }
+
+    // Creator fee share stays in vault (tracked in creator_fee_lamports)
 
     // Optional myth-token CPI for unified fee tracking/burning
     if fee > 0 {
@@ -1433,25 +1527,32 @@ fn process_sell(
     }
 
     // Update launch state
+    launch.virtual_base_reserve = new_base;
+    launch.virtual_quote_reserve = new_quote;
     launch.tokens_sold = launch
         .tokens_sold
-        .checked_sub(args.amount)
+        .checked_sub(args.token_amount)
         .ok_or(LaunchpadError::Overflow)?;
     launch.myth_collected = launch
         .myth_collected
-        .checked_sub(gross_refund)
+        .checked_sub(gross_myth_out)
+        .ok_or(LaunchpadError::Overflow)?;
+    // Accumulate creator fee share (stays in vault)
+    launch.creator_fee_lamports = launch
+        .creator_fee_lamports
+        .checked_add(creator_fee_share)
         .ok_or(LaunchpadError::Overflow)?;
 
     launch.serialize(&mut &mut token_launch_account.data.borrow_mut()[..])?;
 
-    let price = calculate_current_price(launch.base_price, launch.slope, launch.tokens_sold)?;
+    let price = calculate_current_price(launch.virtual_base_reserve, launch.virtual_quote_reserve)?;
 
     msg!(
-        "EVENT:Trade:{{\"trader\":\"{}\",\"mint\":\"{}\",\"side\":\"Sell\",\"amount\":{},\"cost_or_refund\":{},\"price_per_token\":{},\"tokens_sold_after\":{}}}",
+        "EVENT:Trade:{{\"trader\":\"{}\",\"mint\":\"{}\",\"side\":\"Sell\",\"tokens\":{},\"myth_amount\":{},\"price_per_token\":{},\"tokens_sold_after\":{}}}",
         seller.key,
         launch.mint,
-        args.amount,
-        net_refund,
+        args.token_amount,
+        net_myth_out,
         price,
         launch.tokens_sold,
     );
@@ -1533,8 +1634,8 @@ fn process_graduate(
         LaunchStatus::Active => {}
     }
 
-    // Verify graduation threshold is met
-    if launch.myth_collected < config.graduation_threshold {
+    // Verify graduation threshold is met (use virtual_quote_reserve vs migration threshold)
+    if launch.virtual_quote_reserve < launch.migration_quote_threshold {
         return Err(LaunchpadError::GraduationThresholdNotMet.into());
     }
 
@@ -1551,9 +1652,10 @@ fn process_graduate(
 
     let vault_seeds = &[CURVE_VAULT_SEED, launch.mint.as_ref(), &[vault_auth_bump]];
 
+    // myth_collected tracks total real MYTH deposited. Use that for splits.
     let total_myth = launch.myth_collected;
 
-    // Split: 80% to DEX, 10% to creator, 10% to foundation
+    // Split: 80% to DEX, 10% to creator, 10% to foundation/protocol
     let dex_share = total_myth
         .checked_mul(80)
         .ok_or(LaunchpadError::Overflow)?
@@ -1566,7 +1668,7 @@ fn process_graduate(
         .checked_div(100)
         .ok_or(LaunchpadError::Overflow)?;
 
-    // Foundation gets the remainder (avoids rounding dust)
+    // Protocol gets the remainder (avoids rounding dust)
     let foundation_share = total_myth
         .checked_sub(dex_share)
         .ok_or(LaunchpadError::Overflow)?
@@ -1644,20 +1746,38 @@ fn process_graduate(
         .checked_sub(launch.tokens_sold)
         .ok_or(LaunchpadError::Overflow)?;
 
-    if remaining_tokens > 0 {
-        let launch_index_bytes = launch.launch_index.to_le_bytes();
-        let (_, mint_bump) =
-            Pubkey::find_program_address(&[MINT_SEED, &launch_index_bytes], program_id);
+    let launch_index_bytes = launch.launch_index.to_le_bytes();
+    let vanity_nonce_bytes = launch.vanity_nonce.to_le_bytes();
+    let (_, mint_bump) =
+        Pubkey::find_program_address(&[MINT_SEED, &launch_index_bytes, &vanity_nonce_bytes], program_id);
+    let mint_seeds = &[MINT_SEED, launch_index_bytes.as_ref(), vanity_nonce_bytes.as_ref(), &[mint_bump]];
 
+    if remaining_tokens > 0 {
         mint_tokens_signed(
             mint_account,
             dex_token_ata,
             mint_account,
             token_program,
             remaining_tokens,
-            &[MINT_SEED, &launch_index_bytes, &[mint_bump]],
+            mint_seeds,
         )?;
     }
+
+    // I-7 Fix: Revoke mint authority after graduation — makes tokens immutable
+    let revoke_ix = spl_token::instruction::set_authority(
+        &spl_token::id(),
+        mint_account.key,
+        None, // set authority to None (revoke)
+        spl_token::instruction::AuthorityType::MintTokens,
+        mint_account.key, // current authority is the mint PDA
+        &[],
+    )?;
+    invoke_signed(
+        &revoke_ix,
+        &[mint_account.clone(), token_program.clone()],
+        &[mint_seeds],
+    )?;
+    msg!("Mint authority revoked for graduated token {}", launch.mint);
 
     // Update state
     let clock = Clock::get()?;
@@ -1915,63 +2035,90 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bonding_curve_buy_cost() {
-        // base_price = 100, slope = 1, tokens_sold = 0, buy 1000
-        // cost = 1000 * 100 + 1 * (0 * 1000 + 1000 * 999 / 2)
-        //      = 100_000 + 499_500
-        //      = 599_500
-        let cost = calculate_buy_cost(100, 1, 0, 1000).unwrap();
-        assert_eq!(cost, 599_500);
+    fn test_constant_product_buy() {
+        // virtual_base = 1_000_000, virtual_quote = 1_000
+        // k = 1_000_000 * 1_000 = 1_000_000_000
+        // Buy with myth_in = 100
+        // new_quote = 1_000 + 100 = 1_100
+        // new_base = 1_000_000_000 / 1_100 = 909_090 (rounded up to 909_091 since 1B % 1100 != 0)
+        // tokens_out = 1_000_000 - 909_091 = 90_909
+        let k: u128 = 1_000_000 * 1_000;
+        let (tokens_out, new_base, new_quote) =
+            calculate_buy_output(1_000_000, 1_000, k, 100).unwrap();
+        assert_eq!(new_quote, 1_100);
+        // k / 1100 = 909090.909... => rounded up = 909091
+        assert_eq!(new_base, 909_091);
+        assert_eq!(tokens_out, 1_000_000 - 909_091);
+        // Verify k invariant is preserved (new_base * new_quote >= k)
+        assert!((new_base as u128) * (new_quote as u128) >= k);
     }
 
     #[test]
-    fn test_bonding_curve_buy_cost_nonzero_sold() {
-        // base_price = 100, slope = 1, tokens_sold = 500, buy 500
-        // cost = 500 * 100 + 1 * (500 * 500 + 500 * 499 / 2)
-        //      = 50_000 + 1 * (250_000 + 124_750)
-        //      = 50_000 + 374_750
-        //      = 424_750
-        let cost = calculate_buy_cost(100, 1, 500, 500).unwrap();
-        assert_eq!(cost, 424_750);
+    fn test_constant_product_sell() {
+        // Start from post-buy state: base=909_091, quote=1_100
+        // k = 1_000_000_000
+        // Sell 90_909 tokens
+        // new_base = 909_091 + 90_909 = 1_000_000
+        // new_quote = 1_000_000_000 / 1_000_000 = 1_000
+        // myth_out = 1_100 - 1_000 = 100
+        let k: u128 = 1_000_000_000;
+        let (myth_out, new_base, new_quote) =
+            calculate_sell_output(909_091, 1_100, k, 90_909).unwrap();
+        assert_eq!(new_base, 1_000_000);
+        assert_eq!(new_quote, 1_000);
+        assert_eq!(myth_out, 100);
     }
 
     #[test]
-    fn test_bonding_curve_sell_refund() {
-        // Buy 1000 at 0, then sell 1000 at 1000
-        // Refund should equal original buy cost (no fees in math)
-        let cost = calculate_buy_cost(100, 1, 0, 1000).unwrap();
-        let refund = calculate_sell_refund(100, 1, 1000, 1000).unwrap();
-        assert_eq!(cost, refund);
+    fn test_constant_product_price_impact() {
+        // Larger buys have more price impact
+        let k: u128 = 1_000_000_000_000; // 1M * 1M
+        let (small_out, _, _) = calculate_buy_output(1_000_000, 1_000_000, k, 1_000).unwrap();
+        let (large_out, _, _) = calculate_buy_output(1_000_000, 1_000_000, k, 100_000).unwrap();
+        // 100x more MYTH should yield less than 100x more tokens (price impact)
+        assert!(large_out < small_out * 100);
     }
 
     #[test]
-    fn test_bonding_curve_partial_sell() {
-        // base_price = 100, slope = 1, tokens_sold = 1000, sell 500
-        // refund = 500 * 100 + 1 * ((1000 - 500) * 500 + 500 * 499 / 2)
-        //        = 50_000 + 1 * (250_000 + 124_750)
-        //        = 50_000 + 374_750
-        //        = 424_750
-        let refund = calculate_sell_refund(100, 1, 1000, 500).unwrap();
-        assert_eq!(refund, 424_750);
+    fn test_constant_product_round_trip() {
+        // Buy then sell should return slightly less due to rounding
+        let k: u128 = 1_000_000_000_000_000; // large k
+        let (tokens_out, new_base, new_quote) =
+            calculate_buy_output(1_000_000_000, 1_000_000, k, 10_000).unwrap();
+        let (myth_back, final_base, final_quote) =
+            calculate_sell_output(new_base, new_quote, k, tokens_out).unwrap();
+        // Due to rounding, we get back slightly less or equal
+        assert!(myth_back <= 10_000);
+        // Reserves should be close to original
+        assert!(final_base >= 1_000_000_000 - 1);
+        assert!(final_quote >= 1_000_000 - 1);
     }
 
     #[test]
-    fn test_bonding_curve_consistency() {
-        // Buying 500 at 0, then 500 at 500, should equal buying 1000 at 0
-        let cost_all = calculate_buy_cost(100, 1, 0, 1000).unwrap();
-        let cost_first = calculate_buy_cost(100, 1, 0, 500).unwrap();
-        let cost_second = calculate_buy_cost(100, 1, 500, 500).unwrap();
-        assert_eq!(cost_all, cost_first + cost_second);
+    fn test_buy_zero_fails() {
+        let k: u128 = 1_000_000_000;
+        let result = calculate_buy_output(1_000_000, 1_000, k, 0);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_bonding_curve_sell_consistency() {
-        // After buying 1000 tokens:
-        // Selling 500 from 1000 + selling 500 from 500 = selling 1000 from 1000
-        let refund_all = calculate_sell_refund(100, 1, 1000, 1000).unwrap();
-        let refund_first = calculate_sell_refund(100, 1, 1000, 500).unwrap();
-        let refund_second = calculate_sell_refund(100, 1, 500, 500).unwrap();
-        assert_eq!(refund_all, refund_first + refund_second);
+    fn test_sell_zero_fails() {
+        let k: u128 = 1_000_000_000;
+        let result = calculate_sell_output(1_000_000, 1_000, k, 0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_current_price() {
+        // price = virtual_quote / virtual_base * 10^6
+        let price = calculate_current_price(1_000_000, 1_000).unwrap();
+        // 1_000 / 1_000_000 * 1_000_000 = 1_000
+        assert_eq!(price, 1_000);
+
+        // After some buying, base decreases, quote increases => higher price
+        let price2 = calculate_current_price(500_000, 2_000).unwrap();
+        // 2_000 / 500_000 * 1_000_000 = 4_000
+        assert_eq!(price2, 4_000);
     }
 
     #[test]
@@ -1990,17 +2137,6 @@ mod tests {
     }
 
     #[test]
-    fn test_current_price() {
-        // At tokens_sold = 0: price = base_price
-        let p0 = calculate_current_price(100, 1, 0).unwrap();
-        assert_eq!(p0, 100);
-
-        // At tokens_sold = 1000: price = 100 + 1 * 1000 = 1100
-        let p1000 = calculate_current_price(100, 1, 1000).unwrap();
-        assert_eq!(p1000, 1100);
-    }
-
-    #[test]
     fn test_string_to_fixed() {
         let buf: [u8; 32] = string_to_fixed("Hello");
         assert_eq!(&buf[..5], b"Hello");
@@ -2015,33 +2151,6 @@ mod tests {
     }
 
     #[test]
-    fn test_buy_single_token() {
-        // Buy 1 token at tokens_sold = 0
-        // cost = 1 * 100 + 1 * (0 * 1 + 1 * 0 / 2) = 100
-        let cost = calculate_buy_cost(100, 1, 0, 1).unwrap();
-        assert_eq!(cost, 100);
-    }
-
-    #[test]
-    fn test_sell_invalid_amount() {
-        // Can't sell more than tokens_sold
-        let result = calculate_sell_refund(100, 1, 500, 501);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_zero_amount_buy() {
-        let result = calculate_buy_cost(100, 1, 0, 0);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_zero_amount_sell() {
-        let result = calculate_sell_refund(100, 1, 100, 0);
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_launch_status_roundtrip() {
         assert_eq!(LaunchStatus::try_from(0).unwrap(), LaunchStatus::Active);
         assert_eq!(LaunchStatus::try_from(1).unwrap(), LaunchStatus::Graduated);
@@ -2051,7 +2160,6 @@ mod tests {
 
     #[test]
     fn test_launchpad_config_size() {
-        // Verify our SIZE constant is correct for Borsh serialization
         let config = LaunchpadConfig {
             is_initialized: true,
             admin: Pubkey::default(),
@@ -2080,8 +2188,8 @@ mod tests {
             description: [0u8; 256],
             ai_model_hash: [0u8; 32],
             has_ai_model: false,
-            base_price: 100,
-            slope: 1,
+            virtual_base_reserve: 1_000_000_000,
+            virtual_quote_reserve: 1_000_000,
             max_supply: 1_000_000_000,
             tokens_sold: 0,
             myth_collected: 0,
@@ -2092,8 +2200,35 @@ mod tests {
             creator_fee_lamports: 0,
             creator_fee_claimed: false,
             bump: 255,
+            graduation_threshold: DEFAULT_GRADUATION_THRESHOLD,
+            k_constant: 1_000_000_000_000_000,
+            migration_quote_threshold: DEFAULT_GRADUATION_THRESHOLD,
+            creation_fee_lamports: 0,
+            initial_virtual_quote: 1_000_000,
         };
         let serialized = borsh::to_vec(&launch).unwrap();
         assert_eq!(serialized.len(), TokenLaunch::SIZE);
+    }
+
+    #[test]
+    fn test_k_invariant_preserved_after_buy() {
+        let base: u64 = 1_000_000_000; // 1B tokens
+        let quote: u64 = 30_000_000;   // 30 MYTH
+        let k: u128 = (base as u128) * (quote as u128);
+
+        let (_, new_base, new_quote) = calculate_buy_output(base, quote, k, 5_000_000).unwrap();
+        // k should be preserved or slightly larger (due to rounding up)
+        assert!((new_base as u128) * (new_quote as u128) >= k);
+    }
+
+    #[test]
+    fn test_k_invariant_preserved_after_sell() {
+        let base: u64 = 900_000_000;
+        let quote: u64 = 33_333_334;
+        let k: u128 = 30_000_000_000_000_000; // original k
+
+        let (_, new_base, new_quote) = calculate_sell_output(base, quote, k, 50_000_000).unwrap();
+        // After sell, new_base * new_quote should be <= k (rounding down quote favors protocol)
+        assert!((new_base as u128) * (new_quote as u128) <= k + (new_base as u128));
     }
 }

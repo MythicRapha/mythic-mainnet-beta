@@ -81,7 +81,15 @@ function readU8(data: Buffer, offset: number): number {
   return data[offset]
 }
 
-export function deserializeBridgeConfig(data: Buffer): BridgeConfig {
+export function deserializeBridgeConfig(data: Buffer | Uint8Array): BridgeConfig {
+  // Ensure we have a Buffer (not just Uint8Array) for readBigUInt64LE etc.
+  if (!(data instanceof Buffer)) data = Buffer.from(data)
+  // On-chain BridgeConfig layout (123 bytes without pending_admin, 155 with):
+  //   admin: Pubkey (32) + sequencer: Pubkey (32) + challenge_period: i64 (8)
+  //   + deposit_nonce: u64 (8) + is_initialized: bool (1) + bump: u8 (1)
+  //   + paused: bool (1) + min_deposit_lamports: u64 (8) + max_deposit_lamports: u64 (8)
+  //   + daily_limit_lamports: u64 (8) + daily_volume: u64 (8) + last_reset_slot: u64 (8)
+  //   + pending_admin: Pubkey (32) [optional — not present in 123-byte configs]
   let offset = 0
   const admin = readPubkey(data, offset); offset += 32
   const sequencer = readPubkey(data, offset); offset += 32
@@ -95,20 +103,14 @@ export function deserializeBridgeConfig(data: Buffer): BridgeConfig {
   const dailyLimitLamports = readU64(data, offset); offset += 8
   const dailyVolume = readU64(data, offset); offset += 8
   const lastResetSlot = readU64(data, offset); offset += 8
-
-  // Fee fields added in v2 (187 bytes). Old format is 123 bytes.
-  const hasV2Fields = data.length >= 187
-  const bridgeVault = hasV2Fields ? readPubkey(data, offset) : admin; offset += hasV2Fields ? 32 : 0
-  const bridgeFeeBps = hasV2Fields ? readU64(data, offset) : BigInt(0); offset += hasV2Fields ? 8 : 0
-  const totalFeesCollected = hasV2Fields ? readU64(data, offset) : BigInt(0); offset += hasV2Fields ? 8 : 0
-  const totalFeesWithdrawn = hasV2Fields ? readU64(data, offset) : BigInt(0); offset += hasV2Fields ? 8 : 0
-  const totalSolFeesCollected = hasV2Fields ? readU64(data, offset) : BigInt(0)
+  const pendingAdmin = data.length >= offset + 32
+    ? readPubkey(data, offset)
+    : PublicKey.default
 
   return {
     admin, sequencer, challengePeriod, depositNonce, isInitialized,
     bump, paused, minDepositLamports, maxDepositLamports, dailyLimitLamports,
-    dailyVolume, lastResetSlot, bridgeVault, bridgeFeeBps, totalFeesCollected,
-    totalFeesWithdrawn, totalSolFeesCollected,
+    dailyVolume, lastResetSlot, pendingAdmin,
   }
 }
 
@@ -160,9 +162,47 @@ export function deserializeWithdrawalRequest(data: Buffer): WithdrawalRequest {
 
 export async function fetchBridgeConfig(connection: Connection): Promise<BridgeConfig | null> {
   const [configPda] = deriveBridgeConfig()
-  const info = await connection.getAccountInfo(configPda)
-  if (!info || !info.data) return null
-  return deserializeBridgeConfig(Buffer.from(info.data))
+
+  // Use raw fetch as primary — bypasses Solana Connection class issues in browser
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rpcUrl = (connection as any)._rpcEndpoint
+    || (typeof window !== 'undefined' ? window.location.origin + '/api/l1-rpc' : '')
+  let data: Buffer | null = null
+
+  if (rpcUrl) {
+    try {
+      const res = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1,
+          method: 'getAccountInfo',
+          params: [configPda.toBase58(), { encoding: 'base64', commitment: 'confirmed' }],
+        }),
+      })
+      const json = await res.json()
+      if (json?.error) {
+        console.error('[Bridge] RPC error:', json.error)
+      }
+      const b64 = json?.result?.value?.data?.[0]
+      if (b64) data = Buffer.from(b64, 'base64')
+    } catch (e) {
+      console.error('[Bridge] raw fetch failed:', e)
+    }
+  }
+
+  // Fallback to Connection class if raw fetch didn't work
+  if (!data) {
+    try {
+      const info = await connection.getAccountInfo(configPda)
+      if (info?.data) data = Buffer.from(info.data)
+    } catch (e) {
+      console.error('[Bridge] Connection.getAccountInfo also failed:', e)
+    }
+  }
+
+  if (!data) return null
+  return deserializeBridgeConfig(data)
 }
 
 export async function fetchL2BridgeConfig(connection: Connection): Promise<L2BridgeConfig | null> {

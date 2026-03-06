@@ -21,7 +21,7 @@ export default function BridgeLiveStats() {
         <>
           <div className="w-px h-3 bg-white/[0.06]" />
           <div className="text-center">
-            <span className="font-mono text-[0.5rem] tracking-[0.1em] uppercase text-mythic-text-muted block">Reserve</span>
+            <span className="font-mono text-[0.5rem] tracking-[0.1em] uppercase text-mythic-text-muted block">L1 Reserve</span>
             <span className="font-mono text-[0.65rem] text-white">{solVaultTvl.toFixed(2)} SOL</span>
           </div>
           <div className="w-px h-3 bg-white/[0.06]" />

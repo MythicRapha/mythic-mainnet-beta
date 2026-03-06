@@ -3,7 +3,23 @@ import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Whitepaper',
-  description: 'Mythic Network Whitepaper — A Solana SVM Layer 2 with AI consensus, decentralized compute, and 1M+ TPS.',
+  description: 'Mythic Network Whitepaper — A Solana SVM Layer 2 with AI consensus, decentralized compute, and 1M+ TPS peak capacity.',
+  openGraph: {
+    title: 'Mythic Whitepaper',
+    description: 'AI-Native Consensus · Firedancer · 1M+ TPS',
+    images: [{
+      url: '/brand/og-whitepaper.png',
+      width: 1200,
+      height: 630,
+      alt: 'Mythic Whitepaper — AI-Native Consensus, Firedancer, 1M+ TPS',
+    }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Mythic Whitepaper',
+    description: 'AI-Native Consensus · Firedancer · 1M+ TPS',
+    images: ['/brand/og-whitepaper.png'],
+  },
 }
 
 /* ===== Reusable Typography ===== */
@@ -96,7 +112,7 @@ export default function WhitepaperPage() {
           </div>
           <H1>Mythic Network</H1>
           <p className="text-mythic-text text-[1.05rem] leading-relaxed max-w-[640px] mb-6">
-            A Solana SVM Layer 2 built on Firedancer with AI consensus, decentralized compute, and 1M+ TPS throughput.
+            A Solana SVM Layer 2 built on Firedancer with AI consensus, decentralized compute, and 1M+ TPS peak capacity.
           </p>
           <p className="font-mono text-[0.7rem] tracking-[0.06em] text-mythic-text-dim">
             Mythic Labs &mdash; <a href="https://mythic.sh" className="text-mythic-violet hover:underline">mythic.sh</a>
@@ -125,7 +141,7 @@ export default function WhitepaperPage() {
           Mythic is a high-performance Layer 2 network built on the Solana Virtual Machine (SVM) using the Firedancer client. It introduces <strong className="text-white">Proof of Useful AI Work (PoUAIW)</strong> — a novel consensus mechanism where validators earn rewards by performing real AI inference tasks rather than solving arbitrary computational puzzles. Every block produced on Mythic simultaneously advances the blockchain and contributes verifiable compute to a decentralized AI marketplace.
         </P>
         <P>
-          The network achieves throughput exceeding 1,000,000 transactions per second with 400ms block times by leveraging Firedancer&apos;s zero-copy networking architecture on dedicated hardware. All existing Solana programs deploy without modification on Mythic L2, providing immediate compatibility with the Solana ecosystem while adding native AI precompiles for inference, model verification, and logit validation at the execution layer.
+          The network achieves peak throughput exceeding 1,000,000 transactions per second with 400ms block times by leveraging Firedancer&apos;s zero-copy networking architecture on dedicated hardware. All existing Solana programs deploy without modification on Mythic L2, providing immediate compatibility with the Solana ecosystem while adding native AI precompiles for inference, model verification, and logit validation at the execution layer.
         </P>
         <P>
           Settlement occurs on Solana L1 through an optimistic rollup model with fraud proofs, ensuring that the full security of Solana&apos;s validator set serves as the final arbiter of Mythic L2 state. $MYTH, the native currency, powers gas fees, validator staking, AI compute payments, and on-chain governance with a fixed supply and deflationary burn mechanism.
@@ -133,7 +149,7 @@ export default function WhitepaperPage() {
 
         {/* Key metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-8">
-          <Stat value="1M+" label="TPS Throughput" />
+          <Stat value="1M+" label="Peak TPS" />
           <Stat value="400ms" label="Block Time" />
           <Stat value="1B" label="Fixed Supply" />
           <Stat value="~60%" label="Lower Compute Cost" />
@@ -190,7 +206,7 @@ export default function WhitepaperPage() {
 
         <H3>2.1 Execution Layer — Firedancer SVM</H3>
         <P>
-          The execution layer is a modified Firedancer client running the Solana Virtual Machine. Firedancer&apos;s zero-copy networking, io_uring-based I/O, and NUMA-aware memory allocation deliver throughput exceeding 1M TPS on commodity server hardware. Mythic extends the standard Firedancer runtime with three additions:
+          The execution layer is a modified Firedancer client running the Solana Virtual Machine. Firedancer&apos;s zero-copy networking, io_uring-based I/O, and NUMA-aware memory allocation deliver peak throughput exceeding 1M TPS on commodity server hardware. Mythic extends the standard Firedancer runtime with three additions:
         </P>
         <ul className="space-y-2 mb-6 pl-1">
           {[
@@ -545,7 +561,7 @@ export default function WhitepaperPage() {
           Mythic represents a fundamental rethinking of what a blockchain can be. By making AI inference a first-class primitive of the execution environment and consensus mechanism, we eliminate the artificial boundary between &ldquo;blockchain&rdquo; and &ldquo;compute network.&rdquo; Every block produced on Mythic advances the chain, verifies AI outputs, and contributes capacity to a decentralized compute marketplace — simultaneously.
         </P>
         <P>
-          The combination of Firedancer&apos;s raw throughput (1M+ TPS), Solana L1&apos;s settlement security, a fixed-supply deflationary token model, and purpose-built AI precompiles creates a platform where AI applications can achieve performance comparable to centralized providers while inheriting the censorship resistance, transparency, and composability of a public blockchain.
+          The combination of Firedancer&apos;s peak throughput (1M+ TPS), Solana L1&apos;s settlement security, a fixed-supply deflationary token model, and purpose-built AI precompiles creates a platform where AI applications can achieve performance comparable to centralized providers while inheriting the censorship resistance, transparency, and composability of a public blockchain.
         </P>
         <P>
           Mythic is infrastructure for the next generation of AI — built on-chain, verified on-chain, and accessible to everyone.

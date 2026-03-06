@@ -290,7 +290,7 @@ async function initLaunchpad() {
   const data = Buffer.concat([
     Buffer.from([0]),
     serializeBorsh([
-      ['u64', 85000000000000000n],
+      ['u64', 85000000000n],
       ['u16', 100],
       ['pubkey', FOUNDATION],
     ]),

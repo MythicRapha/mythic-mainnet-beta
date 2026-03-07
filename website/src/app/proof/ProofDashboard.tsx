@@ -442,7 +442,7 @@ export default function ProofDashboard() {
             { name: 'Buy $MYTH', url: 'https://pump.fun/coin/5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump', color: '#39FF14', desc: 'PumpFun' },
             { name: 'Bridge to L2', url: '/bridge', color: '#7B2FFF', desc: 'mythic.sh/bridge', internal: true },
             { name: 'Swap', url: 'https://mythicswap.app', color: '#FF9500', desc: 'mythicswap.app' },
-            { name: 'Launch Tokens', url: 'https://mythic.money', color: '#00E5FF', desc: 'mythic.money' },
+            { name: 'Launch Tokens', url: 'https://mythic.fun', color: '#00E5FF', desc: 'mythic.fun' },
             { name: 'Web Wallet', url: 'https://wallet.mythic.sh', color: '#FF2D78', desc: 'wallet.mythic.sh' },
             { name: 'Block Explorer', url: 'https://explorer.mythic.sh', color: '#A855F7', desc: 'explorer.mythic.sh' },
           ].map((item) => {

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1500px; height: 500px; overflow: hidden; background: #000; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1500" height="500"></canvas>
+<script>
+const W = 1500, H = 500;
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+
+const GREEN = '#39FF14';
+const VIOLET = '#7B2FFF';
+const CYAN = '#00E5FF';
+const AMBER = '#FF9500';
+const ROSE = '#FF2D78';
+
+function hexToRgb(hex) {
+  return { r: parseInt(hex.slice(1,3),16), g: parseInt(hex.slice(3,5),16), b: parseInt(hex.slice(5,7),16) };
+}
+function rgba(hex, a) {
+  const {r,g,b} = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// Particles — fewer, bigger, more intentional
+const particles = [];
+for (let i = 0; i < 30; i++) {
+  particles.push({
+    x: Math.random() * W, y: Math.random() * H,
+    size: 1 + Math.random() * 2.5,
+    speed: 0.1 + Math.random() * 0.3,
+    opacity: 0.05 + Math.random() * 0.12,
+    color: [GREEN,GREEN,GREEN,VIOLET,CYAN][Math.floor(Math.random()*5)],
+    phase: Math.random() * Math.PI * 2,
+  });
+}
+
+// Data streams converging on prism
+const streams = [];
+for (let i = 0; i < 25; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 180 + Math.random() * 400;
+  streams.push({
+    angle, dist, maxDist: dist,
+    speed: 0.6 + Math.random() * 1.2,
+    size: 0.5 + Math.random() * 1.5,
+    opacity: 0.06 + Math.random() * 0.12,
+    color: [GREEN,GREEN,CYAN,VIOLET][Math.floor(Math.random()*4)],
+  });
+}
+
+// Prism center — shifted left to make room for text
+const PX = 340, PY = 250;
+
+// Code snippets — real Solana/Rust fragments that scroll behind the prism
+const codeLines = [
+  'pub fn process_instruction(',
+  '  program_id: &Pubkey,',
+  '  accounts: &[AccountInfo],',
+  '  instruction_data: &[u8],',
+  ') -> ProgramResult {',
+  '  let account_iter = &mut accounts.iter();',
+  '  let config = next_account_info(account_iter)?;',
+  '  let authority = next_account_info(account_iter)?;',
+  '  assert!(authority.is_signer);',
+  '  let deposit_nonce = config.deposit_nonce;',
+  '  msg!("EVENT:Deposit:{}", nonce);',
+  '  invoke_signed(&transfer_ix,',
+  '    &[from.clone(), vault.clone()],',
+  '    &[&[b"sol_vault", &[bump]]],',
+  '  )?;',
+  '  config.deposit_nonce += 1;',
+  '  config.daily_volume += amount;',
+  '  Ok(())',
+  '}',
+  '',
+  '#[derive(BorshSerialize)]',
+  'pub struct BridgeConfig {',
+  '  pub admin: Pubkey,',
+  '  pub sequencer: Pubkey,',
+  '  pub challenge_period: i64,',
+  '  pub deposit_nonce: u64,',
+  '  pub is_initialized: bool,',
+  '  pub paused: bool,',
+  '  pub min_deposit: u64,',
+  '  pub max_deposit: u64,',
+  '  pub daily_limit: u64,',
+  '}',
+  '',
+  'fn validate_deposit(',
+  '  amount: u64,',
+  '  config: &BridgeConfig,',
+  ') -> Result<(), ProgramError> {',
+  '  require!(!config.paused);',
+  '  require!(amount >= config.min_deposit);',
+  '  require!(amount <= config.max_deposit);',
+  '  Ok(())',
+  '}',
+  '',
+  'pub fn burn_fees(',
+  '  fee_vault: &AccountInfo,',
+  '  mint: &AccountInfo,',
+  '  amount: u64,',
+  ') -> ProgramResult {',
+  '  spl_token::burn(',
+  '    token_program, mint,',
+  '    fee_vault, authority,',
+  '    &[], amount,',
+  '  )?;',
+  '  msg!("burned {} tokens", amount);',
+  '  Ok(())',
+  '}',
+  '',
+  'let validator = ValidatorState {',
+  '  ai_capable: true,',
+  '  compute_multiplier: 2,',
+  '  stake: 100_000 * LAMPORTS,',
+  '  last_vote_slot: clock.slot,',
+  '};',
+];
+
+// Pre-compute code line positions (two columns, scrolling up)
+const codeColumns = [
+  { x: 120, lines: codeLines.slice(0, 30), scrollOffset: 0 },
+  { x: 380, lines: codeLines.slice(15, 45), scrollOffset: 200 },
+];
+
+function drawCode(t) {
+  ctx.save();
+  ctx.font = '500 11px "JetBrains Mono", monospace';
+  ctx.textAlign = 'left';
+  const lineH = 16;
+  const scrollSpeed = 18; // pixels per second
+
+  codeColumns.forEach(col => {
+    const yOffset = (t * scrollSpeed + col.scrollOffset) % (col.lines.length * lineH);
+    col.lines.forEach((line, i) => {
+      const y = i * lineH - yOffset;
+      // Wrap around
+      const drawY = ((y % (col.lines.length * lineH)) + col.lines.length * lineH) % (col.lines.length * lineH);
+      if (drawY > H + lineH) return;
+
+      // Fade near prism center — strongest in middle, transparent at edges
+      const distFromPrism = Math.abs(drawY - PY);
+      const vertFade = Math.min(1, distFromPrism / 140);
+      const horizDist = Math.abs(col.x + 80 - PX);
+      const horizFade = Math.min(1, horizDist / 200);
+      const baseFade = 0.07 * vertFade * (0.3 + 0.7 * horizFade);
+
+      // Keyword coloring
+      let color = GREEN;
+      if (/^\s*(pub |fn |let |struct |impl )/.test(line)) color = CYAN;
+      else if (/^\s*(\/\/|msg!)/.test(line)) color = '#888898';
+      else if (/true|false|Ok\(\)/.test(line)) color = AMBER;
+
+      ctx.fillStyle = rgba(color, baseFade);
+      ctx.fillText(line, col.x, drawY);
+    });
+  });
+  ctx.restore();
+}
+
+function drawBg(t) {
+  // Deep black with subtle green core behind prism
+  const bg = ctx.createRadialGradient(PX, PY, 0, PX, PY, 500);
+  bg.addColorStop(0, '#0A1A06');
+  bg.addColorStop(0.25, '#050E03');
+  bg.addColorStop(0.5, '#020602');
+  bg.addColorStop(1, '#000000');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Breathing green atmosphere
+  const pulse = 0.10 + Math.sin(t * 0.7) * 0.05;
+  const atmo = ctx.createRadialGradient(PX, PY, 0, PX, PY, 350);
+  atmo.addColorStop(0, rgba(GREEN, pulse));
+  atmo.addColorStop(0.3, rgba(GREEN, pulse * 0.4));
+  atmo.addColorStop(0.7, rgba(GREEN, pulse * 0.08));
+  atmo.addColorStop(1, 'transparent');
+  ctx.fillStyle = atmo;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle violet accent right side
+  const vg = ctx.createRadialGradient(W * 0.85, H * 0.5, 0, W * 0.85, H * 0.5, 400);
+  vg.addColorStop(0, rgba(VIOLET, 0.03 + Math.sin(t * 0.4) * 0.01));
+  vg.addColorStop(1, 'transparent');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawGrid(t) {
+  // Very subtle grid — just enough for tech feel
+  ctx.strokeStyle = rgba(GREEN, 0.015);
+  ctx.lineWidth = 0.3;
+  for (let y = 50; y < H; y += 50) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  for (let x = 100; x < W; x += 100) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  // Single animated scanline
+  const scanY = (t * 25) % (H + 40) - 20;
+  const sg = ctx.createLinearGradient(0, scanY - 1, 0, scanY + 1);
+  sg.addColorStop(0, 'transparent');
+  sg.addColorStop(0.5, rgba(GREEN, 0.04));
+  sg.addColorStop(1, 'transparent');
+  ctx.fillStyle = sg;
+  ctx.fillRect(0, scanY - 1, W, 2);
+}
+
+function drawParticles(t) {
+  particles.forEach(p => {
+    p.y -= p.speed;
+    if (p.y < -5) { p.y = H + 5; p.x = Math.random() * W; }
+    const flicker = p.opacity * (0.6 + 0.4 * Math.sin(t * 2 + p.phase));
+    ctx.fillStyle = rgba(p.color, flicker);
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  });
+}
+
+function drawStreams(t) {
+  streams.forEach(s => {
+    s.dist -= s.speed;
+    if (s.dist < 8) { s.dist = s.maxDist; s.angle = Math.random() * Math.PI * 2; }
+    const x = PX + Math.cos(s.angle) * s.dist;
+    const y = PY + Math.sin(s.angle) * s.dist * 0.7;
+    const fadeIn = Math.min(1, (s.maxDist - s.dist) / 60);
+    const fadeOut = Math.min(1, s.dist / 30);
+    const a = s.opacity * fadeIn * fadeOut;
+    ctx.fillStyle = rgba(s.color, a);
+    ctx.fillRect(x - s.size/2, y - s.size/2, s.size, s.size);
+  });
+}
+
+function drawPrism(t) {
+  const breathe = 1 + Math.sin(t * 1.0) * 0.025;
+  const glowPulse = 0.18 + Math.sin(t * 0.8) * 0.08;
+
+  ctx.save();
+  ctx.translate(PX, PY);
+  ctx.scale(breathe, breathe);
+
+  // Wide halo
+  const h2 = ctx.createRadialGradient(0, -10, 0, 0, -10, 220);
+  h2.addColorStop(0, rgba(GREEN, glowPulse * 0.35));
+  h2.addColorStop(0.3, rgba(GREEN, glowPulse * 0.12));
+  h2.addColorStop(0.6, rgba(GREEN, glowPulse * 0.03));
+  h2.addColorStop(1, 'transparent');
+  ctx.fillStyle = h2;
+  ctx.beginPath(); ctx.arc(0, -10, 220, 0, Math.PI*2); ctx.fill();
+
+  // Core halo
+  const h1 = ctx.createRadialGradient(0, -10, 0, 0, -10, 130);
+  h1.addColorStop(0, rgba(GREEN, glowPulse));
+  h1.addColorStop(0.5, rgba(GREEN, glowPulse * 0.3));
+  h1.addColorStop(1, 'transparent');
+  ctx.fillStyle = h1;
+  ctx.beginPath(); ctx.arc(0, -10, 130, 0, Math.PI*2); ctx.fill();
+
+  // The prism — HUGE
+  ctx.shadowColor = GREEN;
+  ctx.shadowBlur = 50 + Math.sin(t * 0.9) * 20;
+
+  // Left face
+  ctx.fillStyle = rgba(GREEN, 0.95);
+  ctx.beginPath();
+  ctx.moveTo(0, -155); ctx.lineTo(-95, -10); ctx.lineTo(0, 25);
+  ctx.closePath(); ctx.fill();
+
+  // Right face
+  ctx.fillStyle = rgba('#6FFF4F', 0.80);
+  ctx.beginPath();
+  ctx.moveTo(0, -155); ctx.lineTo(95, -10); ctx.lineTo(0, 25);
+  ctx.closePath(); ctx.fill();
+
+  // Bottom face
+  ctx.fillStyle = rgba('#2ACC10', 0.92);
+  ctx.beginPath();
+  ctx.moveTo(-95, -10); ctx.lineTo(0, 25); ctx.lineTo(95, -10); ctx.lineTo(0, 145);
+  ctx.closePath(); ctx.fill();
+
+  ctx.shadowBlur = 0;
+
+  // Edges
+  ctx.strokeStyle = rgba('#FFFFFF', 0.25);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, -155); ctx.lineTo(0, 145); ctx.stroke();
+  ctx.strokeStyle = rgba('#FFFFFF', 0.12);
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(0, -155); ctx.lineTo(-95, -10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -155); ctx.lineTo(95, -10); ctx.stroke();
+
+  // Apex glow
+  const apexA = 0.3 + Math.sin(t * 1.5) * 0.2;
+  const ag = ctx.createRadialGradient(0, -152, 0, 0, -152, 15);
+  ag.addColorStop(0, rgba('#FFFFFF', apexA));
+  ag.addColorStop(0.4, rgba('#FFFFFF', apexA * 0.25));
+  ag.addColorStop(1, 'transparent');
+  ctx.fillStyle = ag;
+  ctx.beginPath(); ctx.arc(0, -152, 15, 0, Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+function drawAccentBar(t) {
+  // Thin rainbow bar across full width at vertical center-ish
+  const barY = 410;
+  const grad = ctx.createLinearGradient(0, 0, W, 0);
+  grad.addColorStop(0, rgba(GREEN, 0));
+  grad.addColorStop(0.08, rgba(GREEN, 0.9));
+  grad.addColorStop(0.22, rgba('#6FFF4F', 0.7));
+  grad.addColorStop(0.38, rgba(AMBER, 0.6));
+  grad.addColorStop(0.50, rgba(CYAN, 0.5));
+  grad.addColorStop(0.62, rgba(VIOLET, 0.6));
+  grad.addColorStop(0.78, rgba(ROSE, 0.6));
+  grad.addColorStop(0.92, rgba(GREEN, 0.9));
+  grad.addColorStop(1, rgba(GREEN, 0));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, barY, W, 2.5);
+
+  // Shimmer sweep
+  const shimX = ((t * 100) % (W + 400)) - 200;
+  const sh = ctx.createLinearGradient(shimX - 120, 0, shimX + 120, 0);
+  sh.addColorStop(0, 'transparent');
+  sh.addColorStop(0.5, rgba('#FFFFFF', 0.35));
+  sh.addColorStop(1, 'transparent');
+  ctx.fillStyle = sh;
+  ctx.fillRect(0, barY, W, 2.5);
+}
+
+function drawCorners() {
+  ctx.strokeStyle = rgba(GREEN, 0.30);
+  ctx.lineWidth = 1.5;
+  const s = 50, m = 18;
+  [[m,m,1,0,0,1],[W-m,m,-1,0,0,1],[m,H-m,1,0,0,-1],[W-m,H-m,-1,0,0,-1]].forEach(([x,y,dx,_,__,dy]) => {
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s*dx, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + s*dy); ctx.stroke();
+  });
+}
+
+function drawText(t) {
+  const rightX = 920; // Text block starts here
+
+  // ── $MYTH — MASSIVE ──
+  ctx.textAlign = 'left';
+  ctx.font = '800 120px "Sora", sans-serif';
+  // Glow layers
+  ctx.shadowColor = GREEN;
+  ctx.shadowBlur = 40 + Math.sin(t * 1.0) * 15;
+  ctx.fillStyle = rgba(GREEN, 0.25);
+  ctx.fillText('$MYTH', rightX, 200);
+  ctx.shadowBlur = 20 + Math.sin(t * 1.0) * 8;
+  ctx.fillStyle = GREEN;
+  ctx.fillText('$MYTH', rightX, 200);
+  ctx.shadowBlur = 0;
+
+  // ── Tagline — big, readable ──
+  ctx.font = '600 22px "JetBrains Mono", monospace';
+  ctx.fillStyle = rgba('#FFFFFF', 0.50 + Math.sin(t * 0.5) * 0.08);
+  ctx.fillText('THE CHAIN THAT THINKS', rightX + 5, 240);
+
+  // ── AI-NATIVE SOLANA L2 — secondary tagline ──
+  ctx.font = '500 15px "JetBrains Mono", monospace';
+  ctx.fillStyle = rgba(GREEN, 0.35);
+  ctx.fillText('AI-NATIVE SOLANA L2', rightX + 5, 268);
+
+  // ── STATS ROW — three big numbers ──
+  const statsY = 340;
+  const statsData = [
+    { val: '40%', label: 'FEE BURN', color: GREEN },
+    { val: '1M+', label: 'TPS', color: GREEN },
+    { val: 'LIVE', label: 'MAINNET', color: GREEN },
+  ];
+
+  statsData.forEach((s, i) => {
+    const sx = rightX + i * 195;
+
+    // Number
+    ctx.shadowColor = s.color;
+    ctx.shadowBlur = 10;
+    ctx.font = '800 52px "Sora", sans-serif';
+    ctx.fillStyle = s.color;
+    ctx.textAlign = 'left';
+    ctx.fillText(s.val, sx, statsY);
+    ctx.shadowBlur = 0;
+
+    // Label
+    ctx.font = '600 13px "JetBrains Mono", monospace';
+    ctx.fillStyle = rgba('#888898', 0.8);
+    ctx.fillText(s.label, sx + 2, statsY + 20);
+
+    // Divider (not after last)
+    if (i < 2) {
+      ctx.fillStyle = rgba(GREEN, 0.08);
+      ctx.fillRect(sx + 165, statsY - 40, 1, 65);
+    }
+  });
+
+  // ── Bottom bar ──
+  const botY = 448;
+
+  // Left: NO PRESALE · NO VC · FAIR LAUNCH
+  ctx.textAlign = 'left';
+  ctx.font = '600 13px "JetBrains Mono", monospace';
+  ctx.fillStyle = rgba('#888898', 0.45);
+  ctx.fillText('NO PRESALE  \u00B7  NO VC  \u00B7  FAIR LAUNCH  \u00B7  FIREDANCER', rightX, botY);
+
+  // Right: mythic.sh
+  ctx.textAlign = 'right';
+  ctx.font = '700 20px "Sora", sans-serif';
+  ctx.fillStyle = rgba(GREEN, 0.5);
+  ctx.fillText('mythic.sh', W - 40, botY);
+
+  // Far bottom subtle
+  ctx.textAlign = 'center';
+  ctx.font = '500 10px "JetBrains Mono", monospace';
+  ctx.fillStyle = rgba(GREEN, 0.12);
+  ctx.fillText('BRIDGE  \u00B7  SWAP  \u00B7  EARN  \u00B7  STAKE', W / 2, H - 12);
+}
+
+function render(timestamp) {
+  const t = (timestamp || 0) / 1000;
+
+  ctx.clearRect(0, 0, W, H);
+  drawBg(t);
+  drawGrid(t);
+  drawCode(t);
+  drawStreams(t);
+  drawParticles(t);
+  drawPrism(t);
+  drawAccentBar(t);
+  drawCorners();
+  drawText(t);
+
+  // Border
+  ctx.strokeStyle = rgba(GREEN, 0.12);
+  ctx.lineWidth = 0.6;
+  ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+  window.__frameReady = true;
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

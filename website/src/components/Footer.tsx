@@ -45,8 +45,8 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="https://mythic.money" target="_blank" rel="noopener noreferrer" className="text-[#00E5FF] hover:text-[#66EFFF] transition-colors text-[0.82rem]">
-                  mythic.money ↗
+                <a href="https://mythic.fun" target="_blank" rel="noopener noreferrer" className="text-[#00E5FF] hover:text-[#66EFFF] transition-colors text-[0.82rem]">
+                  mythic.fun ↗
                 </a>
               </li>
               <li>

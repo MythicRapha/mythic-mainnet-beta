@@ -57,7 +57,7 @@ export default function Navbar() {
             Swap
           </a>
           <a
-            href="https://mythic.money"
+            href="https://mythic.fun"
             target="_blank"
             rel="noopener noreferrer"
             className="px-[18px] py-[19px] font-mono text-[0.6rem] tracking-[0.12em] uppercase font-medium text-[#00E5FF] hover:text-[#66EFFF] transition-colors border-b border-transparent"
@@ -210,7 +210,7 @@ export default function Navbar() {
               Swap
             </a>
             <a
-              href="https://mythic.money"
+              href="https://mythic.fun"
               target="_blank"
               rel="noopener noreferrer"
               className="block px-3 py-2.5 font-mono text-[0.65rem] tracking-[0.1em] uppercase font-medium text-[#00E5FF] hover:text-[#66EFFF] transition-colors"

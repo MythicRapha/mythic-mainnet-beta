@@ -783,16 +783,20 @@ function BridgeProgressTracker({
     return () => clearInterval(timer)
   }, [])
 
-  // Poll real L1 tx confirmation status instead of fake timers
-  // NOTE: Only depend on txSignature (not currentStep) to avoid cleanup killing the setTimeout
-  const l1ConfirmedRef = useRef(false)
+  // Poll tx confirmation status — L1 for deposits, L2 for withdrawals
+  const txConfirmedRef = useRef(false)
   useEffect(() => {
-    l1ConfirmedRef.current = false
+    txConfirmedRef.current = false
     let cancelled = false
-    const pollL1 = async () => {
-      if (l1ConfirmedRef.current || txError) return
+
+    const rpcUrl = direction === 'deposit'
+      ? '/api/l1-rpc'
+      : (process.env.NEXT_PUBLIC_L2_RPC_URL || 'https://rpc.mythic.sh')
+
+    const pollConfirmation = async () => {
+      if (txConfirmedRef.current || txError) return
       try {
-        const resp = await fetch('/api/l1-rpc', {
+        const resp = await fetch(rpcUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -806,27 +810,29 @@ function BridgeProgressTracker({
         if (!status) return // Not found yet — still step 0
         if (status.err) {
           if (!cancelled) {
-            setTxError('Transaction failed on L1. Your funds were not deposited.')
+            setTxError(direction === 'deposit'
+              ? 'Transaction failed on L1. Your funds were not deposited.'
+              : 'Transaction failed on L2. Withdrawal was not processed.')
             setCurrentStep(0)
           }
           return
         }
         if (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
-          if (l1ConfirmedRef.current) return // Already handled
-          l1ConfirmedRef.current = true
+          if (txConfirmedRef.current) return
+          txConfirmedRef.current = true
           if (!cancelled) {
             setCurrentStep(1)
-            // After L1 confirmed, move to step 2 (relayer processing) after a brief delay
-            setTimeout(() => { if (!cancelled) setCurrentStep(2) }, 2000)
+            // Advance to step 2 almost instantly
+            setTimeout(() => { if (!cancelled) setCurrentStep(2) }, 500)
           }
         }
       } catch {}
     }
-    // Poll immediately, then every 3s
-    pollL1()
-    const interval = setInterval(pollL1, 3000)
+    // Poll immediately, then every 1s for fast confirmation
+    pollConfirmation()
+    const interval = setInterval(pollConfirmation, 1000)
     return () => { cancelled = true; clearInterval(interval) }
-  }, [txSignature, txError])
+  }, [txSignature, txError, direction])
 
   // Poll L2 for the relayer credit (step 2 → step 3)
   // Capture the latest L2 sig at mount time, then detect any NEW sig as the credit
@@ -879,23 +885,25 @@ function BridgeProgressTracker({
         }
       } catch {}
     }
-    const interval = setInterval(pollL2, 5000)
+    // Poll L2 aggressively — relayer credits are near-instant
+    pollL2()
+    const interval = setInterval(pollL2, 1500)
 
-    // Fallback: if polling fails to detect after 90s at step 2, assume success
+    // Fallback: if polling fails to detect after 15s at step 2, assume success
     // (relayer always processes deposits, RPC may just not reflect it)
     const fallback = setTimeout(() => {
       if (!cancelled && !l2CreditDetected.current && currentStep >= 2) {
         setCurrentStep(3)
       }
-    }, 90_000)
+    }, 15_000)
 
     return () => { cancelled = true; clearInterval(interval); clearTimeout(fallback) }
   }, [direction, walletAddress, txError, currentStep])
 
-  // For withdrawals, advance to step 3 after relayer processing delay
+  // For withdrawals, advance to step 3 after brief relayer processing delay
   useEffect(() => {
     if (direction !== 'withdraw' || currentStep < 2) return
-    const t = setTimeout(() => setCurrentStep(3), 5000)
+    const t = setTimeout(() => setCurrentStep(3), 1500)
     return () => clearTimeout(t)
   }, [direction, currentStep])
 

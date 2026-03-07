@@ -194,7 +194,7 @@ impl TryFrom<u8> for LaunchStatus {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
+#[derive(BorshSerialize, Debug, Clone)]
 pub struct TokenLaunch {
     pub is_initialized: bool,           // 1
     pub creator: Pubkey,                // 32
@@ -223,19 +223,74 @@ pub struct TokenLaunch {
     pub migration_quote_threshold: u64, // 8
     pub creation_fee_lamports: u64,    // 8
     pub initial_virtual_quote: u64,    // 8  (needed to calculate actual deposits vs virtual)
-    // Social links (v2)
+    // Social links (v2) — zero-filled for v1 719-byte accounts
     pub twitter: [u8; 64],             // 64
     pub telegram: [u8; 64],            // 64
     pub website: [u8; 64],             // 64
     pub vanity_nonce: u64,             // 8  (nonce used to grind vanity mint address)
 }
 
+// Custom deserialization: supports both v1 (719-byte) and v2 (919-byte) accounts.
+impl BorshDeserialize for TokenLaunch {
+    fn deserialize_reader<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        let is_initialized = bool::deserialize_reader(reader)?;
+        let creator = Pubkey::deserialize_reader(reader)?;
+        let mint = Pubkey::deserialize_reader(reader)?;
+        let token_name = <[u8; 32]>::deserialize_reader(reader)?;
+        let token_symbol = <[u8; 10]>::deserialize_reader(reader)?;
+        let token_uri = <[u8; 200]>::deserialize_reader(reader)?;
+        let description = <[u8; 256]>::deserialize_reader(reader)?;
+        let ai_model_hash = <[u8; 32]>::deserialize_reader(reader)?;
+        let has_ai_model = bool::deserialize_reader(reader)?;
+        let virtual_base_reserve = u64::deserialize_reader(reader)?;
+        let virtual_quote_reserve = u64::deserialize_reader(reader)?;
+        let max_supply = u64::deserialize_reader(reader)?;
+        let tokens_sold = u64::deserialize_reader(reader)?;
+        let myth_collected = u64::deserialize_reader(reader)?;
+        let status = u8::deserialize_reader(reader)?;
+        let created_at = i64::deserialize_reader(reader)?;
+        let graduated_at = i64::deserialize_reader(reader)?;
+        let launch_index = u64::deserialize_reader(reader)?;
+        let creator_fee_lamports = u64::deserialize_reader(reader)?;
+        let creator_fee_claimed = bool::deserialize_reader(reader)?;
+        let bump = u8::deserialize_reader(reader)?;
+        let graduation_threshold = u64::deserialize_reader(reader)?;
+        let k_constant = u128::deserialize_reader(reader)?;
+        let migration_quote_threshold = u64::deserialize_reader(reader)?;
+        let creation_fee_lamports = u64::deserialize_reader(reader)?;
+        let initial_virtual_quote = u64::deserialize_reader(reader)?;
+        // v2 social fields — default to zero if account is v1 (719 bytes)
+        let twitter = <[u8; 64]>::deserialize_reader(reader).unwrap_or([0u8; 64]);
+        let telegram = <[u8; 64]>::deserialize_reader(reader).unwrap_or([0u8; 64]);
+        let website = <[u8; 64]>::deserialize_reader(reader).unwrap_or([0u8; 64]);
+        let vanity_nonce = u64::deserialize_reader(reader).unwrap_or(0);
+        Ok(Self {
+            is_initialized, creator, mint, token_name, token_symbol, token_uri,
+            description, ai_model_hash, has_ai_model, virtual_base_reserve,
+            virtual_quote_reserve, max_supply, tokens_sold, myth_collected,
+            status, created_at, graduated_at, launch_index, creator_fee_lamports,
+            creator_fee_claimed, bump, graduation_threshold, k_constant,
+            migration_quote_threshold, creation_fee_lamports, initial_virtual_quote,
+            twitter, telegram, website, vanity_nonce,
+        })
+    }
+}
+
 impl TokenLaunch {
-    // 719 + 64 + 64 + 64 + 8 = 919
     pub const SIZE: usize = 919;
+    pub const V1_SIZE: usize = 719;
 
     pub fn get_status(&self) -> Result<LaunchStatus, ProgramError> {
         LaunchStatus::try_from(self.status)
+    }
+
+    /// Serialize to account data, writing only the bytes that fit.
+    /// V1 accounts (719 bytes) get only core fields; V2 accounts (919) get everything.
+    pub fn serialize_to_account(&self, data: &mut [u8]) -> Result<(), ProgramError> {
+        let full = borsh::to_vec(self).map_err(|_| ProgramError::BorshIoError("serialize".to_string()))?;
+        let len = data.len().min(full.len());
+        data[..len].copy_from_slice(&full[..len]);
+        Ok(())
     }
 }
 
@@ -1045,7 +1100,7 @@ fn process_create_token(
         );
     }
 
-    launch.serialize(&mut &mut token_launch_account.data.borrow_mut()[..])?;
+    launch.serialize_to_account(&mut token_launch_account.data.borrow_mut())?;
 
     msg!(
         "EVENT:TokenCreated:{{\"creator\":\"{}\",\"mint\":\"{}\",\"name\":\"{}\",\"symbol\":\"{}\",\"max_supply\":{},\"initial_virtual_quote\":{},\"k\":{},\"migration_threshold\":{},\"launch_index\":{}}}",
@@ -1315,7 +1370,7 @@ fn process_buy(
         );
     }
 
-    launch.serialize(&mut &mut token_launch_account.data.borrow_mut()[..])?;
+    launch.serialize_to_account(&mut token_launch_account.data.borrow_mut())?;
 
     msg!(
         "EVENT:Trade:{{\"trader\":\"{}\",\"mint\":\"{}\",\"side\":\"Buy\",\"tokens\":{},\"myth_amount\":{},\"price_per_token\":{},\"tokens_sold_after\":{}}}",
@@ -1543,7 +1598,7 @@ fn process_sell(
         .checked_add(creator_fee_share)
         .ok_or(LaunchpadError::Overflow)?;
 
-    launch.serialize(&mut &mut token_launch_account.data.borrow_mut()[..])?;
+    launch.serialize_to_account(&mut token_launch_account.data.borrow_mut())?;
 
     let price = calculate_current_price(launch.virtual_base_reserve, launch.virtual_quote_reserve)?;
 
@@ -1629,14 +1684,20 @@ fn process_graduate(
     }
 
     match launch.get_status()? {
-        LaunchStatus::Graduated => return Err(LaunchpadError::CurveAlreadyGraduated.into()),
+        LaunchStatus::Graduated => {
+            // Allow processing auto-graduated tokens that haven't had funds distributed yet.
+            // creator_fee_claimed is set to true only after process_graduate distributes funds.
+            if launch.creator_fee_claimed {
+                return Err(LaunchpadError::CurveAlreadyGraduated.into());
+            }
+        }
         LaunchStatus::Failed => return Err(LaunchpadError::CurveNotActive.into()),
-        LaunchStatus::Active => {}
-    }
-
-    // Verify graduation threshold is met (use virtual_quote_reserve vs migration threshold)
-    if launch.virtual_quote_reserve < launch.migration_quote_threshold {
-        return Err(LaunchpadError::GraduationThresholdNotMet.into());
+        LaunchStatus::Active => {
+            // Verify graduation threshold is met
+            if launch.virtual_quote_reserve < launch.migration_quote_threshold {
+                return Err(LaunchpadError::GraduationThresholdNotMet.into());
+            }
+        }
     }
 
     // Validate PDA keys
@@ -1748,9 +1809,29 @@ fn process_graduate(
 
     let launch_index_bytes = launch.launch_index.to_le_bytes();
     let vanity_nonce_bytes = launch.vanity_nonce.to_le_bytes();
-    let (_, mint_bump) =
-        Pubkey::find_program_address(&[MINT_SEED, &launch_index_bytes, &vanity_nonce_bytes], program_id);
-    let mint_seeds = &[MINT_SEED, launch_index_bytes.as_ref(), vanity_nonce_bytes.as_ref(), &[mint_bump]];
+    let account_len = token_launch_account.data_len();
+
+    // V1 accounts (719 bytes) use [MINT_SEED, launch_index] for mint PDA.
+    // V2 accounts (919 bytes) use [MINT_SEED, launch_index, vanity_nonce].
+    let is_v1 = account_len <= TokenLaunch::V1_SIZE;
+
+    let mint_bump;
+    if is_v1 {
+        let (_, bump) = Pubkey::find_program_address(
+            &[MINT_SEED, &launch_index_bytes], program_id,
+        );
+        mint_bump = bump;
+    } else {
+        let (_, bump) = Pubkey::find_program_address(
+            &[MINT_SEED, &launch_index_bytes, &vanity_nonce_bytes], program_id,
+        );
+        mint_bump = bump;
+    }
+
+    // Build signer seeds matching the version
+    let v1_seeds: &[&[u8]] = &[MINT_SEED, launch_index_bytes.as_ref(), &[mint_bump]];
+    let v2_seeds: &[&[u8]] = &[MINT_SEED, launch_index_bytes.as_ref(), vanity_nonce_bytes.as_ref(), &[mint_bump]];
+    let mint_seeds: &[&[u8]] = if is_v1 { v1_seeds } else { v2_seeds };
 
     if remaining_tokens > 0 {
         mint_tokens_signed(
@@ -1785,7 +1866,7 @@ fn process_graduate(
     launch.graduated_at = clock.unix_timestamp;
     launch.creator_fee_lamports = creator_share;
     launch.creator_fee_claimed = true; // auto-sent during graduation
-    launch.serialize(&mut &mut token_launch_account.data.borrow_mut()[..])?;
+    launch.serialize_to_account(&mut token_launch_account.data.borrow_mut())?;
 
     config.total_graduations = config
         .total_graduations
@@ -1938,7 +2019,7 @@ fn process_claim_creator_fee(
     )?;
 
     launch.creator_fee_claimed = true;
-    launch.serialize(&mut &mut token_launch_account.data.borrow_mut()[..])?;
+    launch.serialize_to_account(&mut token_launch_account.data.borrow_mut())?;
 
     msg!(
         "EVENT:CreatorFeeClaimed:{{\"creator\":\"{}\",\"mint\":\"{}\",\"amount\":{}}}",

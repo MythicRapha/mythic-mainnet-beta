@@ -122,7 +122,7 @@ const sectionGroups: { label: string; sections: DocSection[] }[] = [
       },
       {
         id: 'launchpad',
-        title: 'mythic.money',
+        title: 'mythic.fun',
         icon: '🚀',
         children: [
           { id: 'pad-overview', title: 'Overview — Coming Soon' },

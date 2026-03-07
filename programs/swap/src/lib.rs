@@ -76,6 +76,7 @@ pub fn process_instruction(
         7 => process_update_config(program_id, accounts, rest),
         8 => process_pause(program_id, accounts),
         9 => process_unpause(program_id, accounts),
+        10 => process_close_pool(program_id, accounts),
         _ => Err(SwapError::InvalidInstruction.into()),
     }
 }
@@ -2138,6 +2139,105 @@ fn process_unpause(
     config.serialize(&mut &mut config_info.try_borrow_mut_data()?[..])?;
 
     msg!("EVENT:Unpaused:{{\"authority\":\"{}\"}}", authority.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction 10: ClosePool (authority-only, emergency)
+// ---------------------------------------------------------------------------
+// Drains vault tokens to authority's ATAs, zeros pool data.
+// Accounts:
+//   0. [signer, writable] authority
+//   1. [writable]          swap_config PDA
+//   2. [writable]          pool PDA
+//   3. [writable]          vault_a
+//   4. [writable]          vault_b
+//   5. [writable]          dest_a (authority's ATA for mint_a)
+//   6. [writable]          dest_b (authority's ATA for mint_b)
+//   7. []                  token_program
+
+fn process_close_pool(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let iter = &mut accounts.iter();
+    let authority = next_account_info(iter)?;
+    let config_info = next_account_info(iter)?;
+    let pool_info = next_account_info(iter)?;
+    let vault_a_info = next_account_info(iter)?;
+    let vault_b_info = next_account_info(iter)?;
+    let dest_a = next_account_info(iter)?;
+    let dest_b = next_account_info(iter)?;
+    let token_program = next_account_info(iter)?;
+
+    assert_signer(authority)?;
+    assert_writable(authority)?;
+    assert_writable(config_info)?;
+    assert_writable(pool_info)?;
+    assert_writable(vault_a_info)?;
+    assert_writable(vault_b_info)?;
+    assert_writable(dest_a)?;
+    assert_writable(dest_b)?;
+    assert_owned_by(config_info, program_id)?;
+    assert_owned_by(pool_info, program_id)?;
+
+    let (config_pda, _) = Pubkey::find_program_address(&[SWAP_CONFIG_SEED], program_id);
+    if config_info.key != &config_pda {
+        return Err(SwapError::InvalidPDA.into());
+    }
+
+    let mut config = SwapConfig::try_from_slice(&config_info.try_borrow_data()?)?;
+    if !config.is_initialized {
+        return Err(SwapError::NotInitialized.into());
+    }
+    if authority.key != &config.authority {
+        return Err(SwapError::InvalidAuthority.into());
+    }
+
+    let pool = Pool::try_from_slice(&pool_info.try_borrow_data()?)?;
+    if !pool.is_initialized {
+        return Err(SwapError::NotInitialized.into());
+    }
+
+    // Verify pool PDA
+    let (pool_pda, pool_bump) = Pubkey::find_program_address(
+        &[POOL_SEED, pool.mint_a.as_ref(), pool.mint_b.as_ref()],
+        program_id,
+    );
+    if pool_info.key != &pool_pda {
+        return Err(SwapError::InvalidPDA.into());
+    }
+
+    let pool_seeds: &[&[u8]] = &[POOL_SEED, pool.mint_a.as_ref(), pool.mint_b.as_ref(), &[pool_bump]];
+
+    // Transfer all tokens from vaults to authority
+    let vault_a_data = spl_token::state::Account::unpack(&vault_a_info.data.borrow())?;
+    if vault_a_data.amount > 0 {
+        transfer_spl_tokens(vault_a_info, dest_a, pool_info, token_program, vault_a_data.amount, pool_seeds)?;
+    }
+
+    let vault_b_data = spl_token::state::Account::unpack(&vault_b_info.data.borrow())?;
+    if vault_b_data.amount > 0 {
+        transfer_spl_tokens(vault_b_info, dest_b, pool_info, token_program, vault_b_data.amount, pool_seeds)?;
+    }
+
+    // Zero out pool data (marks as uninitialized)
+    let mut pool_data = pool_info.try_borrow_mut_data()?;
+    for byte in pool_data.iter_mut() {
+        *byte = 0;
+    }
+
+    // Decrement total_pools
+    if config.total_pools > 0 {
+        config.total_pools -= 1;
+    }
+    config.serialize(&mut &mut config_info.try_borrow_mut_data()?[..])?;
+
+    msg!(
+        "EVENT:PoolClosed:{{\"authority\":\"{}\",\"pool\":\"{}\",\"mint_a\":\"{}\",\"mint_b\":\"{}\"}}",
+        authority.key, pool_info.key, pool.mint_a, pool.mint_b,
+    );
+
     Ok(())
 }
 

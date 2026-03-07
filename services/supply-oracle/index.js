@@ -41,7 +41,7 @@ function withTimeout(promise, ms = 10000) {
 // -- Config -------------------------------------------------------------------
 
 const PORT = parseInt(process.env.PORT || "4002", 10);
-const L1_RPC_URL = process.env.L1_RPC_URL || "https://api.mainnet-beta.solana.com";
+const L1_RPC_URL = process.env.L1_RPC_URL || "http://20.81.176.84:8899";
 const L2_RPC_URL = process.env.L2_RPC_URL || "http://127.0.0.1:8899";
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS || "10000", 10);
 

@@ -15,8 +15,10 @@ cpi = ["no-entrypoint"]
 solana-program = { workspace = true }
 borsh = { workspace = true }
 thiserror = { workspace = true }
+sha2 = { workspace = true }
+getrandom = { workspace = true }
 
-[dev-dependencies]
-solana-program-test = "2.0"
-solana-sdk = { workspace = true }
-tokio = { version = "1", features = ["full"] }
+# [dev-dependencies]
+# solana-program-test = { workspace = true }
+# solana-sdk = { workspace = true }
+# tokio = { version = "1", features = ["full"] }

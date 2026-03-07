@@ -38,25 +38,15 @@ const VAULT_SEED: &[u8] = b"airdrop_vault";
 entrypoint!(process_instruction);
 
 pub fn process_instruction(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    instruction_data: &[u8],
+    _program_id: &Pubkey,
+    _accounts: &[AccountInfo],
+    _instruction_data: &[u8],
 ) -> ProgramResult {
-    if instruction_data.is_empty() {
-        return Err(ProgramError::InvalidInstructionData);
-    }
-
-    let (discriminator, data) = instruction_data.split_at(1);
-
-    match discriminator[0] {
-        0 => process_initialize(program_id, accounts, data),
-        1 => process_claim(program_id, accounts, data),
-        2 => process_update_merkle_root(program_id, accounts, data),
-        3 => process_withdraw_unclaimed(program_id, accounts, data),
-        4 => process_pause(program_id, accounts),
-        5 => process_unpause(program_id, accounts),
-        _ => Err(AirdropError::InvalidInstruction.into()),
-    }
+    // -----------------------------------------------------------------------
+    // DISABLED: Airdrop program permanently disabled. All instructions reject.
+    // -----------------------------------------------------------------------
+    msg!("Airdrop program is permanently disabled");
+    Err(AirdropError::ProgramDisabled.into())
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +87,8 @@ pub enum AirdropError {
     ClaimStillActive,
     #[error("Insufficient vault balance")]
     InsufficientVault,
+    #[error("Airdrop program is permanently disabled")]
+    ProgramDisabled,
 }
 
 impl From<AirdropError> for ProgramError {
@@ -664,5 +656,92 @@ fn process_unpause(
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
 
     msg!("EVENT:AirdropUnpaused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: CloseClaimRecord (admin-only, after claim window expired)
+// ---------------------------------------------------------------------------
+// Closes a claim record account, zeroing data and refunding lamports to admin.
+// Only claim records where the claim window has fully expired can be closed.
+//
+// Accounts:
+//   0. [signer, writable] admin
+//   1. []                  config PDA
+//   2. [writable]          claim_record PDA (seeds: ["claim", claimant])
+//   3. []                  claimant pubkey (for PDA derivation; not signer)
+
+fn process_close_claim_record(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+    let claim_record_account = next_account_info(account_iter)?;
+    let claimant = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(admin)?;
+    assert_writable(claim_record_account)?;
+    assert_owned_by(config_account, program_id)?;
+    assert_owned_by(claim_record_account, program_id)?;
+
+    // Validate config PDA
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[CONFIG_SEED], program_id);
+    if config_account.key != &config_pda {
+        return Err(AirdropError::InvalidPDA.into());
+    }
+
+    let config = AirdropConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(AirdropError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(AirdropError::Unauthorized.into());
+    }
+
+    // Claim window must have fully expired
+    let clock = Clock::get()?;
+    if clock.slot <= config.claim_end_slot {
+        return Err(AirdropError::ClaimStillActive.into());
+    }
+
+    // Validate claim record PDA
+    let (claim_pda, _) =
+        Pubkey::find_program_address(&[CLAIM_SEED, claimant.key.as_ref()], program_id);
+    if claim_record_account.key != &claim_pda {
+        return Err(AirdropError::InvalidPDA.into());
+    }
+
+    // Verify claim record is populated
+    if claim_record_account.data_is_empty() {
+        return Err(AirdropError::NotInitialized.into());
+    }
+
+    // Zero account data
+    let data_len = claim_record_account.data_len();
+    let mut data = claim_record_account.data.borrow_mut();
+    for byte in data[..data_len].iter_mut() {
+        *byte = 0;
+    }
+    drop(data);
+
+    // Transfer all lamports to admin (closes the account)
+    let lamports = claim_record_account.lamports();
+    **claim_record_account.try_borrow_mut_lamports()? = 0;
+    **admin.try_borrow_mut_lamports()? = admin
+        .lamports()
+        .checked_add(lamports)
+        .ok_or(AirdropError::Overflow)?;
+
+    msg!(
+        "EVENT:ClaimRecordClosed:{{\"admin\":\"{}\",\"claimant\":\"{}\",\"lamports_refunded\":{}}}",
+        admin.key,
+        claimant.key,
+        lamports,
+    );
+
     Ok(())
 }

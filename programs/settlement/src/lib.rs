@@ -31,6 +31,8 @@ const MAX_PROOF_DATA_LEN: usize = 10_240; // 10 KB
 const SETTLEMENT_CONFIG_SEED: &[u8] = b"settlement_config";
 const STATE_ROOT_SEED: &[u8] = b"state_root";
 const CHALLENGE_SEED: &[u8] = b"challenge";
+const PENDING_CONFIG_SEED: &[u8] = b"pending_config";
+const TIMELOCK_DELAY: u64 = 216_000; // ~24 hours at 400ms/slot
 
 // ---------------------------------------------------------------------------
 // Entrypoint
@@ -59,6 +61,11 @@ pub fn process_instruction(
         6 => process_get_latest_finalized(program_id, accounts),
         7 => process_pause(program_id, accounts),
         8 => process_unpause(program_id, accounts),
+        9 => process_propose_admin(program_id, accounts, data),
+        10 => process_accept_admin(program_id, accounts),
+        11 => process_propose_config_update(program_id, accounts, data),
+        12 => process_execute_config_update(program_id, accounts),
+        13 => process_close_state_root(program_id, accounts, data),
         _ => Err(SettlementError::InvalidInstruction.into()),
     }
 }
@@ -111,6 +118,14 @@ pub enum SettlementError {
     HasValidChallenges,
     #[error("Program is paused")]
     ProgramPaused,
+    #[error("Timelock delay has not elapsed")]
+    TimelockNotElapsed,
+    #[error("Pending config update already exists")]
+    PendingConfigExists,
+    #[error("No pending config update")]
+    NoPendingConfig,
+    #[error("State root cannot be closed in current status")]
+    StateRootNotCloseable,
 }
 
 impl From<SettlementError> for ProgramError {
@@ -138,10 +153,11 @@ pub struct SettlementConfig {
     pub total_challenges: u64,
     pub is_paused: bool,
     pub bump: u8,
+    pub pending_admin: Pubkey,
 }
 
 impl SettlementConfig {
-    pub const SIZE: usize = 1 + 32 + 32 + 8 + 16 + 8 + 8 + 32 + 8 + 8 + 8 + 1 + 1; // 163
+    pub const SIZE: usize = 1 + 32 + 32 + 8 + 16 + 8 + 8 + 32 + 8 + 8 + 8 + 1 + 1 + 32; // 195
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Copy, PartialEq)]
@@ -205,6 +221,22 @@ impl ChallengeAccount {
     pub const SIZE: usize = 8 + 32 + 1 + 32 + 8 + 8 + 1 + 1; // 91
 }
 
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
+pub struct PendingConfigUpdate {
+    pub sequencer: Option<Pubkey>,
+    pub challenge_period_slots: Option<u64>,
+    pub min_challenger_bond: Option<u64>,
+    pub propose_slot: u64,
+    pub execution_slot: u64,
+    pub proposer: Pubkey,
+    pub bump: u8,
+}
+
+impl PendingConfigUpdate {
+    // 1+32 + 1+8 + 1+8 + 8 + 8 + 32 + 1 = 100
+    pub const SIZE: usize = 33 + 9 + 9 + 8 + 8 + 32 + 1;
+}
+
 // ---------------------------------------------------------------------------
 // Instruction data structs
 // ---------------------------------------------------------------------------
@@ -250,6 +282,18 @@ pub struct UpdateConfigArgs {
     pub sequencer: Option<Pubkey>,
     pub challenge_period_slots: Option<u64>,
     pub min_challenger_bond: Option<u64>,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct ProposeConfigUpdateArgs {
+    pub sequencer: Option<Pubkey>,
+    pub challenge_period_slots: Option<u64>,
+    pub min_challenger_bond: Option<u64>,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct CloseStateRootArgs {
+    pub l2_slot: u64,
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +412,7 @@ fn process_initialize(
         total_challenges: 0,
         is_paused: false,
         bump: config_bump,
+        pending_admin: Pubkey::default(),
     };
 
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
@@ -542,8 +587,13 @@ fn process_challenge_state_root(
         return Err(SettlementError::ChallengePeriodExpired.into());
     }
 
-    // Check bond — challenger must have at least min_challenger_bond in lamports
-    if challenger.lamports() < config.min_challenger_bond {
+    // Check bond — challenger must have enough for rent + full escrow bond
+    let rent = Rent::get()?;
+    let rent_lamports = rent.minimum_balance(ChallengeAccount::SIZE);
+    let total_required = rent_lamports
+        .checked_add(config.min_challenger_bond)
+        .ok_or(SettlementError::Overflow)?;
+    if challenger.lamports() < total_required {
         return Err(SettlementError::InsufficientBond.into());
     }
 
@@ -572,21 +622,17 @@ fn process_challenge_state_root(
         ],
     )?;
 
-    // Transfer bond from challenger to challenge PDA (already embedded in create_account rent)
-    // Additional bond beyond rent:
-    let rent = Rent::get()?;
-    let rent_lamports = rent.minimum_balance(ChallengeAccount::SIZE);
-    let extra_bond = config
-        .min_challenger_bond
-        .checked_sub(rent_lamports)
-        .unwrap_or(0);
-
-    if extra_bond > 0 {
-        invoke(
-            &system_instruction::transfer(challenger.key, challenge_account.key, extra_bond),
-            &[challenger.clone(), challenge_account.clone(), system_program.clone()],
-        )?;
-    }
+    // Escrow the full challenger bond into the challenge PDA.
+    // The create_account above only funded rent; now transfer the entire bond
+    // so it can be slashed or returned on resolution.
+    invoke(
+        &system_instruction::transfer(
+            challenger.key,
+            challenge_account.key,
+            config.min_challenger_bond,
+        ),
+        &[challenger.clone(), challenge_account.clone(), system_program.clone()],
+    )?;
 
     let proof_data_hash = hash_proof_data(&args.proof_data);
 
@@ -643,11 +689,13 @@ fn process_resolve_challenge(
     let state_root_account = next_account_info(account_iter)?;
     let challenge_account = next_account_info(account_iter)?;
     let challenger_account = next_account_info(account_iter)?;
+    let state_root_poster = next_account_info(account_iter)?;
 
     assert_signer(admin)?;
     assert_writable(state_root_account)?;
     assert_writable(challenge_account)?;
     assert_writable(challenger_account)?;
+    assert_writable(state_root_poster)?;
     assert_owned_by(config_account, program_id)?;
     assert_owned_by(state_root_account, program_id)?;
     assert_owned_by(challenge_account, program_id)?;
@@ -686,12 +734,17 @@ fn process_resolve_challenge(
     let mut state_root =
         StateRootAccount::try_from_slice(&state_root_account.data.borrow())?;
 
+    // Validate that state_root_poster matches the sequencer who posted this root
+    if state_root_poster.key != &state_root.sequencer {
+        return Err(SettlementError::InvalidSequencer.into());
+    }
+
     if args.is_valid {
-        // Challenge accepted: state root is invalid, return bond + reward to challenger
+        // Challenge accepted: state root is invalid, return escrowed bond to challenger
         challenge.status = ChallengeStatus::Accepted;
         state_root.status = StateRootStatus::Invalidated;
 
-        // Return bond lamports from challenge PDA to challenger
+        // Return all lamports (rent + escrowed bond) from challenge PDA to challenger
         let challenge_lamports = challenge_account.lamports();
         **challenge_account.try_borrow_mut_lamports()? = 0;
         **challenger_account.try_borrow_mut_lamports()? = challenger_account
@@ -700,20 +753,19 @@ fn process_resolve_challenge(
             .ok_or(SettlementError::Overflow)?;
 
         msg!(
-            "EVENT:ChallengeAccepted:{{\"l2_slot\":{},\"challenger\":\"{}\"}}",
+            "EVENT:ChallengeAccepted:{{\"l2_slot\":{},\"challenger\":\"{}\",\"bond_returned\":{}}}",
             args.l2_slot,
             args.challenger,
+            challenge.bond_amount,
         );
     } else {
-        // Challenge rejected: challenger loses bond (burned by closing account with no refund)
+        // Challenge rejected: slash the escrowed bond to the state root poster
         challenge.status = ChallengeStatus::Rejected;
 
-        // Burn the bond — send lamports to a black hole (the program itself, effectively burned)
-        // We zero out the account; lamports are lost.
+        // Transfer all lamports (rent + escrowed bond) to the state root poster
         let challenge_lamports = challenge_account.lamports();
         **challenge_account.try_borrow_mut_lamports()? = 0;
-        // Lamports go to admin as protocol revenue (or could be burned)
-        **admin.try_borrow_mut_lamports()? = admin
+        **state_root_poster.try_borrow_mut_lamports()? = state_root_poster
             .lamports()
             .checked_add(challenge_lamports)
             .ok_or(SettlementError::Overflow)?;
@@ -725,14 +777,18 @@ fn process_resolve_challenge(
         }
 
         msg!(
-            "EVENT:ChallengeRejected:{{\"l2_slot\":{},\"challenger\":\"{}\",\"bond_burned\":{}}}",
+            "EVENT:ChallengeRejected:{{\"l2_slot\":{},\"challenger\":\"{}\",\"bond_slashed\":{},\"slashed_to\":\"{}\"}}",
             args.l2_slot,
             args.challenger,
-            challenge_lamports,
+            challenge.bond_amount,
+            state_root_poster.key,
         );
     }
 
-    challenge.serialize(&mut &mut challenge_account.data.borrow_mut()[..])?;
+    // Zero out challenge account data before closing
+    let data_len = challenge_account.data.borrow().len();
+    challenge_account.data.borrow_mut()[..data_len].fill(0);
+
     state_root.serialize(&mut &mut state_root_account.data.borrow_mut()[..])?;
 
     Ok(())
@@ -962,5 +1018,368 @@ fn process_unpause(
     config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
 
     msg!("EVENT:Unpaused:{{\"admin\":\"{}\"}}", admin.key);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: ProposeAdmin (two-step admin rotation)
+// Accounts: 0=[signer] current admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_propose_admin(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[SETTLEMENT_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    let mut config =
+        SettlementConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(SettlementError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(SettlementError::Unauthorized.into());
+    }
+
+    if data.len() < 32 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    let new_admin = Pubkey::try_from(&data[..32])
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    config.pending_admin = new_admin;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:ProposeAdmin:{{\"current_admin\":\"{}\",\"pending_admin\":\"{}\"}}",
+        admin.key, new_admin
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: AcceptAdmin (completes two-step admin rotation)
+// Accounts: 0=[signer] pending admin, 1=[writable] config PDA
+// ---------------------------------------------------------------------------
+
+fn process_accept_admin(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let new_admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+
+    assert_signer(new_admin)?;
+    assert_writable(config_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[SETTLEMENT_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    let mut config =
+        SettlementConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(SettlementError::NotInitialized.into());
+    }
+
+    if config.pending_admin == Pubkey::default() {
+        return Err(SettlementError::Unauthorized.into());
+    }
+    if *new_admin.key != config.pending_admin {
+        return Err(SettlementError::Unauthorized.into());
+    }
+
+    let old_admin = config.admin;
+    config.admin = config.pending_admin;
+    config.pending_admin = Pubkey::default();
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:AcceptAdmin:{{\"old_admin\":\"{}\",\"new_admin\":\"{}\"}}",
+        old_admin, new_admin.key
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: ProposeConfigUpdate (timelock step 1)
+// Accounts: 0=[signer, writable] admin (payer), 1=[] config PDA,
+//           2=[writable] pending_config PDA, 3=[] system_program
+// ---------------------------------------------------------------------------
+
+fn process_propose_config_update(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let args = ProposeConfigUpdateArgs::try_from_slice(data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+    let pending_config_account = next_account_info(account_iter)?;
+    let system_program = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(pending_config_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    // Validate config PDA
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[SETTLEMENT_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    let config =
+        SettlementConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(SettlementError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(SettlementError::Unauthorized.into());
+    }
+
+    // Validate pending config PDA
+    let (pending_pda, pending_bump) =
+        Pubkey::find_program_address(&[PENDING_CONFIG_SEED], program_id);
+    if pending_config_account.key != &pending_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    // Ensure no pending update already exists
+    if !pending_config_account.data_is_empty() {
+        return Err(SettlementError::PendingConfigExists.into());
+    }
+
+    // Validate proposed values
+    if let Some(period) = args.challenge_period_slots {
+        if period < 900 {
+            return Err(ProgramError::InvalidArgument);
+        }
+    }
+
+    let clock = Clock::get()?;
+    let propose_slot = clock.slot;
+    let execution_slot = propose_slot
+        .checked_add(TIMELOCK_DELAY)
+        .ok_or(SettlementError::Overflow)?;
+
+    // Create pending config PDA
+    create_pda_account(
+        admin,
+        PendingConfigUpdate::SIZE,
+        program_id,
+        system_program,
+        pending_config_account,
+        &[PENDING_CONFIG_SEED, &[pending_bump]],
+    )?;
+
+    let pending = PendingConfigUpdate {
+        sequencer: args.sequencer,
+        challenge_period_slots: args.challenge_period_slots,
+        min_challenger_bond: args.min_challenger_bond,
+        propose_slot,
+        execution_slot,
+        proposer: *admin.key,
+        bump: pending_bump,
+    };
+
+    pending.serialize(&mut &mut pending_config_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:ProposeConfigUpdate:{{\"admin\":\"{}\",\"execution_slot\":{}}}",
+        admin.key,
+        execution_slot,
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: ExecuteConfigUpdate (timelock step 2)
+// Accounts: 0=[signer] admin, 1=[writable] config PDA,
+//           2=[writable] pending_config PDA
+// ---------------------------------------------------------------------------
+
+fn process_execute_config_update(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+    let pending_config_account = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_writable(pending_config_account)?;
+    assert_owned_by(config_account, program_id)?;
+    assert_owned_by(pending_config_account, program_id)?;
+
+    // Validate config PDA
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[SETTLEMENT_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    let mut config =
+        SettlementConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(SettlementError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(SettlementError::Unauthorized.into());
+    }
+
+    // Validate pending config PDA
+    let (pending_pda, _) =
+        Pubkey::find_program_address(&[PENDING_CONFIG_SEED], program_id);
+    if pending_config_account.key != &pending_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    if pending_config_account.data_is_empty() {
+        return Err(SettlementError::NoPendingConfig.into());
+    }
+
+    let pending =
+        PendingConfigUpdate::try_from_slice(&pending_config_account.data.borrow())?;
+
+    // Verify the timelock delay has elapsed
+    let clock = Clock::get()?;
+    if clock.slot < pending.execution_slot {
+        return Err(SettlementError::TimelockNotElapsed.into());
+    }
+
+    // Apply the pending config updates
+    if let Some(sequencer) = pending.sequencer {
+        config.sequencer = sequencer;
+    }
+    if let Some(period) = pending.challenge_period_slots {
+        config.challenge_period_slots = period;
+    }
+    if let Some(bond) = pending.min_challenger_bond {
+        config.min_challenger_bond = bond;
+    }
+
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    // Close the pending config account: zero data, return lamports to admin
+    let pending_lamports = pending_config_account.lamports();
+    let data_len = pending_config_account.data.borrow().len();
+    pending_config_account.data.borrow_mut()[..data_len].fill(0);
+    **pending_config_account.try_borrow_mut_lamports()? = 0;
+    **admin.try_borrow_mut_lamports()? = admin
+        .lamports()
+        .checked_add(pending_lamports)
+        .ok_or(SettlementError::Overflow)?;
+
+    msg!(
+        "EVENT:ExecuteConfigUpdate:{{\"admin\":\"{}\",\"applied_at_slot\":{}}}",
+        admin.key,
+        clock.slot,
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: CloseStateRoot (reclaim rent from finalized state roots)
+// Accounts: 0=[signer] admin, 1=[] config PDA, 2=[writable] state_root PDA,
+//           3=[writable] rent_recipient (admin)
+// ---------------------------------------------------------------------------
+
+fn process_close_state_root(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let args = CloseStateRootArgs::try_from_slice(data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+    let state_root_account = next_account_info(account_iter)?;
+    let rent_recipient = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(state_root_account)?;
+    assert_writable(rent_recipient)?;
+    assert_owned_by(config_account, program_id)?;
+    assert_owned_by(state_root_account, program_id)?;
+
+    // Validate config PDA
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[SETTLEMENT_CONFIG_SEED], program_id);
+    if *config_account.key != config_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    let config =
+        SettlementConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(SettlementError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(SettlementError::Unauthorized.into());
+    }
+
+    // Validate state root PDA
+    let l2_slot_bytes = args.l2_slot.to_le_bytes();
+    let (state_root_pda, _) =
+        Pubkey::find_program_address(&[STATE_ROOT_SEED, &l2_slot_bytes], program_id);
+    if state_root_account.key != &state_root_pda {
+        return Err(SettlementError::InvalidPDA.into());
+    }
+
+    let state_root =
+        StateRootAccount::try_from_slice(&state_root_account.data.borrow())?;
+
+    // Only finalized state roots can be closed
+    if state_root.status != StateRootStatus::Finalized {
+        return Err(SettlementError::StateRootNotCloseable.into());
+    }
+
+    // Zero account data before closing
+    let data_len = state_root_account.data.borrow().len();
+    state_root_account.data.borrow_mut()[..data_len].fill(0);
+
+    // Transfer lamports to admin (rent refund)
+    let state_root_lamports = state_root_account.lamports();
+    **state_root_account.try_borrow_mut_lamports()? = 0;
+    **rent_recipient.try_borrow_mut_lamports()? = rent_recipient
+        .lamports()
+        .checked_add(state_root_lamports)
+        .ok_or(SettlementError::Overflow)?;
+
+    msg!(
+        "EVENT:CloseStateRoot:{{\"l2_slot\":{},\"lamports_refunded\":{}}}",
+        args.l2_slot,
+        state_root_lamports,
+    );
+
     Ok(())
 }

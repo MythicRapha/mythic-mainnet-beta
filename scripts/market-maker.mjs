@@ -1,0 +1,694 @@
+#!/usr/bin/env node
+// Mythic L2 Market Maker Bot
+// Watches L1 MYTH price via DexScreener, corrects L2 pool drift,
+// and generates organic volume trades.
+// NEVER mints tokens — only uses existing deployer balances.
+
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+  sendAndConfirmRawTransaction,
+  SystemProgram,
+} from '@solana/web3.js';
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+} from '@solana/spl-token';
+import fs from 'fs';
+import https from 'https';
+import http from 'http';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const RPC_URL = 'http://127.0.0.1:8899';
+const SWAP_PROGRAM = new PublicKey('E3yp3LNjZkM1ayMhHX1ikH1TMFABYFrDpZVkW5GpkU8t');
+const MYTH_MINT = new PublicKey('7sfazeMxmuoDkuU5fHkDGin8uYuaTkZrRSwJM1CHXvDq');
+const WSOL_MINT = new PublicKey('FEJa8wGyhXu9Hic1jNTg76Atb57C7jFkmDyDTQZkVwy3');
+const POOL_PDA = new PublicKey('F1mZ26qS1tF7NEVKJayEU4Zf6Wnp3vSF1bN6WMW8CuY4');
+const VAULT_A = new PublicKey('EW1RtpoGM8F74aoLXaUZT48n4CjjJwcbAzZb4bZtnwbS');
+const VAULT_B = new PublicKey('8VMk2YtL7YFvNUkEuH8CXJBwvJdMZfS4ERtSErARCh7T');
+const DEPLOYER_KEY_PATH = '/mnt/data/mythic-l2/keys/deployer.json';
+const DEXSCREENER_URL = 'https://api.dexscreener.com/latest/dex/tokens/5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump';
+
+const MYTH_DECIMALS = 6;
+const WSOL_DECIMALS = 9;
+
+// Pool account data offsets
+const RESERVE_A_OFFSET = 162; // wMYTH reserve (u64 LE)
+const RESERVE_B_OFFSET = 170; // wSOL reserve (u64 LE)
+
+// Trading limits
+const MAX_CORRECTION_MYTH = 500_000n * 10n ** 6n;  // 200K MYTH in raw
+const MAX_CORRECTION_WSOL = 500_000_000n;           // 0.5 wSOL in raw (lamports)
+const MIN_MYTH_BALANCE = 10_000n * 10n ** 6n;      // 100K MYTH
+const MIN_WSOL_BALANCE = 5_000_000n;               // 0.05 wSOL
+
+// Volume generation ranges (raw units)
+const VOL_MYTH_MIN = 1_000n * 10n ** 6n;    // 1K MYTH
+const VOL_MYTH_MAX = 20_000n * 10n ** 6n;   // 50K MYTH
+const VOL_WSOL_MIN = 2_000_000n;            // 0.002 wSOL
+const VOL_WSOL_MAX = 20_000_000n;           // 0.05 wSOL
+
+// Drift threshold (percentage)
+const DRIFT_THRESHOLD = 0.3; // 1%
+const CORRECTION_FRACTION = 0.85; // correct ~40% of drift per cycle
+
+// Timing (milliseconds)
+const VOLUME_INTERVAL_MIN = 45_000;   // 30s
+const VOLUME_INTERVAL_MAX = 180_000;  // 120s
+const CORRECTION_INTERVAL_MIN = 10_000; // 2 min
+const CORRECTION_INTERVAL_MAX = 20_000; // 5 min
+const BALANCE_LOG_INTERVAL = 300_000;    // 5 min
+const BALANCE_REFRESH_TRADES = 10;       // refresh on-chain every N trades
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function writeU64LE(buf, offset, value) {
+  const bi = BigInt(value);
+  for (let i = 0; i < 8; i++) {
+    buf[offset + i] = Number((bi >> BigInt(i * 8)) & 0xFFn);
+  }
+}
+
+function readU64LE(buf, offset) {
+  let val = 0n;
+  for (let i = 0; i < 8; i++) {
+    val |= BigInt(buf[offset + i]) << BigInt(i * 8);
+  }
+  return val;
+}
+
+function randomBigIntInRange(min, max) {
+  const range = max - min;
+  const bits = range.toString(2).length;
+  const bytes = Math.ceil(bits / 8);
+  const buf = Buffer.alloc(bytes);
+  for (let i = 0; i < bytes; i++) buf[i] = Math.floor(Math.random() * 256);
+  let val = 0n;
+  for (let i = 0; i < bytes; i++) val |= BigInt(buf[i]) << BigInt(i * 8);
+  // Mask to bit width and modulo range
+  const mask = (1n << BigInt(bits)) - 1n;
+  val = val & mask;
+  val = val % (range + 1n);
+  return min + val;
+}
+
+function randomIntInRange(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function ts() {
+  return new Date().toISOString();
+}
+
+function formatMYTH(raw) {
+  return (Number(raw) / 1e6).toFixed(2);
+}
+
+function formatSOL(raw) {
+  return (Number(raw) / 1e9).toFixed(9);
+}
+
+// Constant product: given reserves and input, compute output
+// amountOut = (reserveOut * amountIn) / (reserveIn + amountIn)
+// Accounts for swap fees (25 bps total = 22 LP + 3 protocol)
+function computeAmountOut(reserveIn, reserveOut, amountIn) {
+  // Fee: 25 bps total
+  const FEE_NUMERATOR = 9975n;
+  const FEE_DENOMINATOR = 10000n;
+  const amountInAfterFee = amountIn * FEE_NUMERATOR / FEE_DENOMINATOR;
+  const numerator = reserveOut * amountInAfterFee;
+  const denominator = reserveIn + amountInAfterFee;
+  return numerator / denominator;
+}
+
+// How much input needed to move price to target?
+// For MYTH->SOL (selling MYTH): new_price = (reserveB - outB) / (reserveA + inA)
+// We want new_price = targetPrice (in SOL/MYTH raw ratio)
+// Using constant product: k = reserveA * reserveB
+// After swap: (reserveA + inA) * (reserveB - outB) = k (approx, ignoring fees for sizing)
+// Target: (reserveB - outB) / (reserveA + inA) = targetPrice
+// So: reserveB - outB = targetPrice * (reserveA + inA)
+// And: k = (reserveA + inA) * targetPrice * (reserveA + inA)
+// => (reserveA + inA)^2 = k / targetPrice
+// => reserveA + inA = sqrt(k / targetPrice)
+// => inA = sqrt(k / targetPrice) - reserveA
+function computeCorrectionAmount(reserveA, reserveB, currentPrice, targetPrice, aToB) {
+  // currentPrice and targetPrice are in SOL per MYTH (adjusted for decimals)
+  // reserveA = MYTH raw, reserveB = SOL raw
+  // k in raw units
+  const k = reserveA * reserveB;
+
+  if (aToB) {
+    // Selling MYTH (price too high, push down)
+    // targetPrice < currentPrice
+    // We need: new reserveA after swap
+    // Price = (reserveB_raw / 10^9) / (reserveA_raw / 10^6) = reserveB_raw * 10^6 / (reserveA_raw * 10^9)
+    // = reserveB_raw / (reserveA_raw * 1000)
+    // So targetPrice = newReserveB / (newReserveA * 1000)
+    // k = newReserveA * newReserveB
+    // newReserveB = k / newReserveA
+    // targetPrice = k / (newReserveA * newReserveA * 1000)
+    // newReserveA^2 = k / (targetPrice * 1000)
+    // newReserveA = sqrt(k / (targetPrice * 1000))
+    const targetPriceScaled = targetPrice * 1e15; // scale up for precision
+    const kScaled = Number(k);
+    const newReserveA = Math.sqrt(kScaled / (targetPrice * 1000));
+    const amountIn = BigInt(Math.floor(newReserveA)) - reserveA;
+    return amountIn > 0n ? amountIn : 0n;
+  } else {
+    // Buying MYTH with SOL (price too low, push up)
+    // targetPrice > currentPrice
+    // newReserveB^2 = k * targetPrice * 1000
+    const kNum = Number(k);
+    const newReserveB = Math.sqrt(kNum * targetPrice * 1000);
+    const amountIn = BigInt(Math.floor(newReserveB)) - reserveB;
+    return amountIn > 0n ? amountIn : 0n;
+  }
+}
+
+// ─── DexScreener Fetch ────────────────────────────────────────────────────────
+
+function fetchDexScreenerPrice() {
+  return new Promise((resolve, reject) => {
+    const url = new URL(DEXSCREENER_URL);
+    const transport = url.protocol === 'https:' ? https : http;
+    const req = transport.get(url, { timeout: 15000 }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (!json.pairs || json.pairs.length === 0) {
+            reject(new Error('No pairs found on DexScreener'));
+            return;
+          }
+          // Find the pair — look for SOL base
+          const pair = json.pairs.find(p =>
+            p.quoteToken?.symbol === 'SOL' || p.baseToken?.symbol === 'SOL'
+          ) || json.pairs[0];
+
+          const priceUsd = parseFloat(pair.priceUsd);
+          const priceNative = parseFloat(pair.priceNative); // price in SOL
+          resolve({
+            priceUsd,
+            priceSol: priceNative, // SOL per MYTH
+          });
+        } catch (e) {
+          reject(new Error(`DexScreener parse error: ${e.message}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('DexScreener timeout')); });
+  });
+}
+
+// ─── PDA Derivation ───────────────────────────────────────────────────────────
+
+function deriveConfigPDA() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('swap_config')],
+    SWAP_PROGRAM
+  );
+}
+
+function deriveProtocolVaultPDA() {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('protocol_vault')],
+    SWAP_PROGRAM
+  );
+}
+
+// ─── Main Bot ─────────────────────────────────────────────────────────────────
+
+class MarketMakerBot {
+  constructor() {
+    this.connection = new Connection(RPC_URL, {
+      commitment: 'confirmed',
+      confirmTransactionInitialTimeout: 30000,
+    });
+
+    // Load deployer keypair
+    const keyData = JSON.parse(fs.readFileSync(DEPLOYER_KEY_PATH, 'utf-8'));
+    this.deployer = Keypair.fromSecretKey(Uint8Array.from(keyData));
+    console.log(`[${ts()}] Deployer: ${this.deployer.publicKey.toBase58()}`);
+
+    // Derive PDAs
+    const [configPDA] = deriveConfigPDA();
+    const [protocolVaultPDA] = deriveProtocolVaultPDA();
+    this.configPDA = configPDA;
+    this.protocolVaultPDA = protocolVaultPDA;
+    console.log(`[${ts()}] Config PDA: ${this.configPDA.toBase58()}`);
+    console.log(`[${ts()}] Protocol Vault PDA: ${this.protocolVaultPDA.toBase58()}`);
+
+    // Balance tracking (raw units)
+    this.mythBalance = 0n;
+    this.wsolBalance = 0n;
+    this.tradeCount = 0;
+    this.lastL1Price = null;
+    this.paused = false;
+
+    // ATAs (will be derived in init)
+    this.deployerMythATA = null;
+    this.deployerWsolATA = null;
+    this.protocolFeeMythATA = null;
+    this.protocolFeeWsolATA = null;
+  }
+
+  async init() {
+    console.log(`[${ts()}] Initializing market maker bot...`);
+
+    // Derive ATAs
+    this.deployerMythATA = await getAssociatedTokenAddress(
+      MYTH_MINT, this.deployer.publicKey
+    );
+    this.deployerWsolATA = await getAssociatedTokenAddress(
+      WSOL_MINT, this.deployer.publicKey
+    );
+    this.protocolFeeMythATA = await getAssociatedTokenAddress(
+      MYTH_MINT, this.protocolVaultPDA, true // allowOwnerOffCurve for PDA
+    );
+    this.protocolFeeWsolATA = await getAssociatedTokenAddress(
+      WSOL_MINT, this.protocolVaultPDA, true
+    );
+
+    console.log(`[${ts()}] Deployer wMYTH ATA: ${this.deployerMythATA.toBase58()}`);
+    console.log(`[${ts()}] Deployer wSOL ATA: ${this.deployerWsolATA.toBase58()}`);
+    console.log(`[${ts()}] Protocol Fee wMYTH ATA: ${this.protocolFeeMythATA.toBase58()}`);
+    console.log(`[${ts()}] Protocol Fee wSOL ATA: ${this.protocolFeeWsolATA.toBase58()}`);
+
+    // Ensure ATAs exist
+    await this.ensureATA(MYTH_MINT, this.deployer.publicKey);
+    await this.ensureATA(WSOL_MINT, this.deployer.publicKey);
+    await this.ensureATA(MYTH_MINT, this.protocolVaultPDA, true);
+    await this.ensureATA(WSOL_MINT, this.protocolVaultPDA, true);
+
+    // Refresh balances
+    await this.refreshBalances();
+
+    console.log(`[${ts()}] Initial balances:`);
+    console.log(`  wMYTH: ${formatMYTH(this.mythBalance)} MYTH`);
+    console.log(`  wSOL:  ${formatSOL(this.wsolBalance)} SOL`);
+
+    // If wSOL balance is too low, sell some MYTH to bootstrap
+    if (this.wsolBalance < MIN_WSOL_BALANCE && this.mythBalance > 500_000n * 10n ** 6n) {
+      console.log(`[${ts()}] wSOL balance too low, bootstrapping by selling 500K MYTH...`);
+      const sellAmount = 500_000n * 10n ** 6n;
+      await this.executeSwap(sellAmount, true); // MYTH -> wSOL
+      await this.refreshBalances();
+      console.log(`[${ts()}] Post-bootstrap balances:`);
+      console.log(`  wMYTH: ${formatMYTH(this.mythBalance)} MYTH`);
+      console.log(`  wSOL:  ${formatSOL(this.wsolBalance)} SOL`);
+    }
+  }
+
+  async ensureATA(mint, owner, isPDA = false) {
+    const ata = await getAssociatedTokenAddress(mint, owner, isPDA);
+    try {
+      const info = await this.connection.getAccountInfo(ata);
+      if (info) return ata;
+    } catch (_) {}
+
+    console.log(`[${ts()}] Creating ATA ${ata.toBase58()} for ${owner.toBase58()}...`);
+
+    // Create ATA idempotent (discriminator 1)
+    const ix = new TransactionInstruction({
+      programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+      keys: [
+        { pubkey: this.deployer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: ata, isSigner: false, isWritable: true },
+        { pubkey: owner, isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      ],
+      data: Buffer.from([1]), // CreateIdempotent
+    });
+
+    try {
+      const tx = new Transaction().add(ix);
+      tx.feePayer = this.deployer.publicKey;
+      tx.recentBlockhash = (await this.connection.getLatestBlockhash('confirmed')).blockhash;
+      tx.sign(this.deployer);
+      const sig = await this.connection.sendRawTransaction(tx.serialize(), {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed',
+      });
+      await this.connection.confirmTransaction(sig, 'confirmed');
+      console.log(`[${ts()}] ATA created: ${sig}`);
+    } catch (e) {
+      console.log(`[${ts()}] ATA creation (may already exist): ${e.message}`);
+    }
+
+    return ata;
+  }
+
+  async refreshBalances() {
+    try {
+      const mythInfo = await this.connection.getTokenAccountBalance(this.deployerMythATA);
+      this.mythBalance = BigInt(mythInfo.value.amount);
+    } catch (_) {
+      this.mythBalance = 0n;
+    }
+
+    try {
+      const wsolInfo = await this.connection.getTokenAccountBalance(this.deployerWsolATA);
+      this.wsolBalance = BigInt(wsolInfo.value.amount);
+    } catch (_) {
+      this.wsolBalance = 0n;
+    }
+  }
+
+  async readPoolReserves() {
+    const poolInfo = await this.connection.getAccountInfo(POOL_PDA);
+    if (!poolInfo || !poolInfo.data) {
+      throw new Error('Cannot read pool account data');
+    }
+    const data = poolInfo.data;
+    const reserveA = readU64LE(data, RESERVE_A_OFFSET); // wMYTH
+    const reserveB = readU64LE(data, RESERVE_B_OFFSET); // wSOL
+    return { reserveA, reserveB };
+  }
+
+  getL2Price(reserveA, reserveB) {
+    // Price = SOL per MYTH (adjusting for decimals)
+    // reserveA is MYTH with 6 decimals, reserveB is SOL with 9 decimals
+    // price = (reserveB / 10^9) / (reserveA / 10^6)
+    //       = reserveB * 10^6 / (reserveA * 10^9)
+    //       = reserveB / (reserveA * 1000)
+    if (reserveA === 0n) return 0;
+    return Number(reserveB) / (Number(reserveA) * 1000);
+  }
+
+  async executeSwap(amountIn, aToB) {
+    // Determine accounts
+    const traderTokenIn = aToB ? this.deployerMythATA : this.deployerWsolATA;
+    const traderTokenOut = aToB ? this.deployerWsolATA : this.deployerMythATA;
+    const inputMint = aToB ? MYTH_MINT : WSOL_MINT;
+    const protocolFeeVault = aToB ? this.protocolFeeMythATA : this.protocolFeeWsolATA;
+
+    // Read reserves for output calculation
+    const { reserveA, reserveB } = await this.readPoolReserves();
+    const reserveIn = aToB ? reserveA : reserveB;
+    const reserveOut = aToB ? reserveB : reserveA;
+
+    const expectedOut = computeAmountOut(reserveIn, reserveOut, amountIn);
+    if (expectedOut === 0n) {
+      console.log(`[${ts()}] Swap would yield 0 output, skipping`);
+      return null;
+    }
+
+    // 1% slippage tolerance
+    const minOut = expectedOut * 99n / 100n;
+
+    // Build instruction data
+    const data = Buffer.alloc(18);
+    data[0] = 4; // Swap discriminator
+    writeU64LE(data, 1, amountIn);
+    writeU64LE(data, 9, minOut);
+    data[17] = aToB ? 1 : 0;
+
+    const ix = new TransactionInstruction({
+      programId: SWAP_PROGRAM,
+      keys: [
+        { pubkey: this.deployer.publicKey, isSigner: true, isWritable: true },
+        { pubkey: this.configPDA, isSigner: false, isWritable: true },
+        { pubkey: POOL_PDA, isSigner: false, isWritable: true },
+        { pubkey: VAULT_A, isSigner: false, isWritable: true },
+        { pubkey: VAULT_B, isSigner: false, isWritable: true },
+        { pubkey: traderTokenIn, isSigner: false, isWritable: true },
+        { pubkey: traderTokenOut, isSigner: false, isWritable: true },
+        { pubkey: protocolFeeVault, isSigner: false, isWritable: true },
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+      ],
+      data,
+    });
+
+    const tx = new Transaction().add(ix);
+    tx.feePayer = this.deployer.publicKey;
+    const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
+    tx.recentBlockhash = blockhash;
+    tx.sign(this.deployer);
+
+    try {
+      const sig = await this.connection.sendRawTransaction(tx.serialize(), {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed',
+      });
+      await this.connection.confirmTransaction(sig, 'confirmed');
+
+      // Update local balances
+      if (aToB) {
+        this.mythBalance -= amountIn;
+        this.wsolBalance += expectedOut;
+      } else {
+        this.wsolBalance -= amountIn;
+        this.mythBalance += expectedOut;
+      }
+      this.tradeCount++;
+
+      // Periodic on-chain refresh
+      if (this.tradeCount % BALANCE_REFRESH_TRADES === 0) {
+        await this.refreshBalances();
+      }
+
+      return sig;
+    } catch (e) {
+      console.error(`[${ts()}] Swap error: ${e.message}`);
+      // Refresh balances on error to stay in sync
+      await this.refreshBalances();
+      return null;
+    }
+  }
+
+  async doPriceCorrection() {
+    try {
+      // Fetch L1 price
+      const l1Data = await fetchDexScreenerPrice();
+      const l1Price = l1Data.priceSol; // SOL per MYTH
+      this.lastL1Price = l1Price;
+
+      // Read L2 reserves
+      const { reserveA, reserveB } = await this.readPoolReserves();
+      const l2Price = this.getL2Price(reserveA, reserveB);
+
+      if (l2Price === 0 || l1Price === 0) {
+        console.log(`[${ts()}] [CORRECTION] Invalid prices (L1=${l1Price}, L2=${l2Price}), skipping`);
+        return;
+      }
+
+      const drift = ((l2Price - l1Price) / l1Price) * 100;
+
+      console.log(`[${ts()}] [CORRECTION] L1=${l1Price.toFixed(12)} SOL/MYTH | L2=${l2Price.toFixed(12)} SOL/MYTH | Drift=${drift.toFixed(2)}%`);
+      console.log(`[${ts()}] [CORRECTION] Pool: ${formatMYTH(reserveA)} MYTH / ${formatSOL(reserveB)} SOL`);
+
+      if (Math.abs(drift) < DRIFT_THRESHOLD) {
+        console.log(`[${ts()}] [CORRECTION] Drift within ${DRIFT_THRESHOLD}% threshold, no action needed`);
+        return;
+      }
+
+      // Calculate target price (partial correction)
+      const correction = drift * CORRECTION_FRACTION;
+      const targetPrice = l2Price * (1 - correction / 100);
+
+      if (drift > 0) {
+        // L2 too high → sell MYTH (push price down)
+        let amountIn = computeCorrectionAmount(reserveA, reserveB, l2Price, targetPrice, true);
+        if (amountIn > MAX_CORRECTION_MYTH) amountIn = MAX_CORRECTION_MYTH;
+        if (amountIn < 1_000n * 10n ** 6n) {
+          console.log(`[${ts()}] [CORRECTION] Correction too small, skipping`);
+          return;
+        }
+        if (this.mythBalance < amountIn) {
+          console.log(`[${ts()}] [CORRECTION] Capping MYTH sell to available: ${formatMYTH(this.mythBalance)} (wanted ${formatMYTH(amountIn)})`);
+          amountIn = this.mythBalance;
+        }
+        console.log(`[${ts()}] [CORRECTION] Selling ${formatMYTH(amountIn)} MYTH to push price down`);
+        const sig = await this.executeSwap(amountIn, true);
+        if (sig) {
+          const newReserves = await this.readPoolReserves();
+          const newPrice = this.getL2Price(newReserves.reserveA, newReserves.reserveB);
+          console.log(`[${ts()}] [CORRECTION] Done. New L2 price=${newPrice.toFixed(12)} SOL/MYTH | tx=${sig}`);
+        }
+      } else {
+        // L2 too low → buy MYTH with wSOL (push price up)
+        let amountIn = computeCorrectionAmount(reserveA, reserveB, l2Price, targetPrice, false);
+        if (amountIn > MAX_CORRECTION_WSOL) amountIn = MAX_CORRECTION_WSOL;
+        if (amountIn < 1_000_000n) { // 0.001 SOL minimum
+          console.log(`[${ts()}] [CORRECTION] Correction too small, skipping`);
+          return;
+        }
+        if (this.wsolBalance < amountIn) {
+          console.log(`[${ts()}] [CORRECTION] Capping wSOL buy to available: ${formatSOL(this.wsolBalance)} (wanted ${formatSOL(amountIn)})`);
+          amountIn = this.wsolBalance;
+        }
+        console.log(`[${ts()}] [CORRECTION] Buying MYTH with ${formatSOL(amountIn)} wSOL to push price up`);
+        const sig = await this.executeSwap(amountIn, false);
+        if (sig) {
+          const newReserves = await this.readPoolReserves();
+          const newPrice = this.getL2Price(newReserves.reserveA, newReserves.reserveB);
+          console.log(`[${ts()}] [CORRECTION] Done. New L2 price=${newPrice.toFixed(12)} SOL/MYTH | tx=${sig}`);
+        }
+      }
+    } catch (e) {
+      console.error(`[${ts()}] [CORRECTION] Error: ${e.message}`);
+    }
+  }
+
+  async doVolumeGeneration() {
+    try {
+      // Check if both sides are depleted
+      if (this.mythBalance < MIN_MYTH_BALANCE && this.wsolBalance < MIN_WSOL_BALANCE) {
+        console.warn(`[${ts()}] [VOLUME] WARNING: Both sides depleted! MYTH=${formatMYTH(this.mythBalance)}, wSOL=${formatSOL(this.wsolBalance)}. Pausing trades.`);
+        this.paused = true;
+        return;
+      }
+      this.paused = false;
+
+      // Check drift before volume trading — if high, skip or bias
+      let currentDrift = 0;
+      try {
+        const { reserveA: ra, reserveB: rb } = await this.readPoolReserves();
+        const l2p = this.getL2Price(ra, rb);
+        if (this.lastL1Price && this.lastL1Price > 0 && l2p > 0) {
+          currentDrift = ((l2p - this.lastL1Price) / this.lastL1Price) * 100;
+        }
+      } catch (_) {}
+
+      // If drift > 3%, skip volume entirely — let corrections work
+      if (Math.abs(currentDrift) > 3) {
+        console.log(`[${ts()}] [VOLUME] Drift ${currentDrift.toFixed(2)}% > 3%, skipping volume to let corrections work`);
+        return;
+      }
+
+      // Decide direction: bias toward correcting drift
+      let aToB; // true = sell MYTH, false = buy MYTH
+      if (Math.abs(currentDrift) > 1) {
+        // Drift > 1%: bias volume toward correction
+        aToB = currentDrift > 0 ? true : false; // high = sell MYTH, low = buy MYTH
+      } else if (this.mythBalance < MIN_MYTH_BALANCE) {
+        aToB = false; // buy MYTH
+      } else if (this.wsolBalance < MIN_WSOL_BALANCE) {
+        aToB = true; // sell MYTH to get wSOL
+      } else {
+        aToB = Math.random() < 0.5;
+      }
+
+      let amountIn;
+      if (aToB) {
+        // Selling MYTH
+        amountIn = randomBigIntInRange(VOL_MYTH_MIN, VOL_MYTH_MAX);
+        if (amountIn > this.mythBalance) {
+          console.log(`[${ts()}] [VOLUME] Insufficient MYTH for sell (have ${formatMYTH(this.mythBalance)}), skipping`);
+          return;
+        }
+      } else {
+        // Buying MYTH with wSOL
+        amountIn = randomBigIntInRange(VOL_WSOL_MIN, VOL_WSOL_MAX);
+        if (amountIn > this.wsolBalance) {
+          console.log(`[${ts()}] [VOLUME] Insufficient wSOL for buy (have ${formatSOL(this.wsolBalance)}), skipping`);
+          return;
+        }
+      }
+
+      const direction = aToB ? 'SELL' : 'BUY';
+      const amountStr = aToB ? `${formatMYTH(amountIn)} MYTH` : `${formatSOL(amountIn)} wSOL`;
+
+      // Read price before
+      const { reserveA: raBefore, reserveB: rbBefore } = await this.readPoolReserves();
+      const priceBefore = this.getL2Price(raBefore, rbBefore);
+
+      const sig = await this.executeSwap(amountIn, aToB);
+
+      if (sig) {
+        const { reserveA: raAfter, reserveB: rbAfter } = await this.readPoolReserves();
+        const priceAfter = this.getL2Price(raAfter, rbAfter);
+        const impact = ((priceAfter - priceBefore) / priceBefore * 100).toFixed(4);
+
+        console.log(`[${ts()}] [VOLUME] ${direction} ${amountStr} | price ${priceBefore.toFixed(12)} -> ${priceAfter.toFixed(12)} (${impact}%) | tx=${sig}`);
+      }
+    } catch (e) {
+      console.error(`[${ts()}] [VOLUME] Error: ${e.message}`);
+    }
+  }
+
+  async logBalances() {
+    await this.refreshBalances();
+    const { reserveA, reserveB } = await this.readPoolReserves();
+    const l2Price = this.getL2Price(reserveA, reserveB);
+
+    console.log(`[${ts()}] ──── Balance Report ────`);
+    console.log(`  Deployer wMYTH: ${formatMYTH(this.mythBalance)} MYTH`);
+    console.log(`  Deployer wSOL:  ${formatSOL(this.wsolBalance)} SOL`);
+    console.log(`  Pool wMYTH:     ${formatMYTH(reserveA)} MYTH`);
+    console.log(`  Pool wSOL:      ${formatSOL(reserveB)} SOL`);
+    console.log(`  L2 price:       ${l2Price.toFixed(12)} SOL/MYTH`);
+    if (this.lastL1Price) {
+      const drift = ((l2Price - this.lastL1Price) / this.lastL1Price * 100).toFixed(2);
+      console.log(`  L1 price:       ${this.lastL1Price.toFixed(12)} SOL/MYTH`);
+      console.log(`  Drift:          ${drift}%`);
+    }
+    console.log(`  Total trades:   ${this.tradeCount}`);
+    console.log(`  Paused:         ${this.paused}`);
+    console.log(`  ────────────────────────`);
+  }
+
+  async run() {
+    await this.init();
+    console.log(`[${ts()}] Market maker bot started. Ctrl+C to stop.`);
+
+    // Schedule the three concurrent loops
+    this.runVolumeLoop();
+    this.runCorrectionLoop();
+    this.runBalanceLogLoop();
+
+    // Keep process alive
+    await new Promise(() => {}); // never resolves
+  }
+
+  async runVolumeLoop() {
+    while (true) {
+      const delay = randomIntInRange(VOLUME_INTERVAL_MIN, VOLUME_INTERVAL_MAX);
+      await sleep(delay);
+      if (!this.paused) {
+        await this.doVolumeGeneration();
+      }
+    }
+  }
+
+  async runCorrectionLoop() {
+    // Initial correction immediately
+    await this.doPriceCorrection();
+
+    while (true) {
+      const delay = randomIntInRange(CORRECTION_INTERVAL_MIN, CORRECTION_INTERVAL_MAX);
+      await sleep(delay);
+      await this.doPriceCorrection();
+    }
+  }
+
+  async runBalanceLogLoop() {
+    while (true) {
+      await sleep(BALANCE_LOG_INTERVAL);
+      await this.logBalances();
+    }
+  }
+}
+
+// ─── Entry Point ──────────────────────────────────────────────────────────────
+
+const bot = new MarketMakerBot();
+bot.run().catch(e => {
+  console.error(`[${ts()}] FATAL: ${e.message}`);
+  console.error(e.stack);
+  process.exit(1);
+});

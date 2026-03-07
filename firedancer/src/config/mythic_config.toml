@@ -30,7 +30,7 @@ enabled                 = true
 l1_chain                = "solana"
 settlement_interval_slots = 100
 challenge_period_slots  = 151200                # ~7 days at 400ms blocks
-l1_rpc_url              = "http://MYTHIC_RPC_IP:8899"
+l1_rpc_url              = "http://20.81.176.84:8899"
 settlement_program_id   = "4TrowzShv4CrsuqZeUdLLVMdnDDkqkmnER1MZ5NsSaav"
 
 # ---------------------------------------------------------------

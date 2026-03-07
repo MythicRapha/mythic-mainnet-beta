@@ -1,0 +1,18 @@
+[package]
+name = "mythic-names"
+version = "0.1.0"
+edition = "2021"
+description = "Mythic L2 — .myth on-chain domain name registry"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+cpi = ["no-entrypoint"]
+
+[dependencies]
+solana-program = { workspace = true }
+borsh = { workspace = true }
+thiserror = { workspace = true }
+getrandom = { workspace = true }

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(3,3,8)"/>
+      <stop offset="0.4" stop-color="rgb(6,6,14)"/>
+      <stop offset="1" stop-color="rgb(3,3,8)"/>
+    </linearGradient>
+    <!-- Primary green glow (bridge accent) -->
+    <radialGradient id="glowGreen" cx="0.5" cy="0.4" r="0.55">
+      <stop offset="0" stop-color="rgb(57,255,20)" stop-opacity="0.14"/>
+      <stop offset="0.35" stop-color="rgb(57,255,20)" stop-opacity="0.05"/>
+      <stop offset="0.7" stop-color="rgb(57,255,20)" stop-opacity="0.01"/>
+      <stop offset="1" stop-color="black" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Secondary green glow (lower) -->
+    <radialGradient id="glowGreen2" cx="0.5" cy="0.7" r="0.4">
+      <stop offset="0" stop-color="rgb(57,255,20)" stop-opacity="0.06"/>
+      <stop offset="0.6" stop-color="rgb(57,255,20)" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="black" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Vertical grid line gradient -->
+    <linearGradient id="vline" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgb(57,255,20)" stop-opacity="0"/>
+      <stop offset="0.25" stop-color="rgb(57,255,20)" stop-opacity="0.06"/>
+      <stop offset="0.5" stop-color="rgb(57,255,20)" stop-opacity="0.04"/>
+      <stop offset="0.75" stop-color="rgb(57,255,20)" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="rgb(57,255,20)" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Horizontal emphasis line gradient -->
+    <linearGradient id="hline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="rgb(57,255,20)" stop-opacity="0"/>
+      <stop offset="0.2" stop-color="rgb(57,255,20)" stop-opacity="0.08"/>
+      <stop offset="0.5" stop-color="rgb(57,255,20)" stop-opacity="0.15"/>
+      <stop offset="0.8" stop-color="rgb(57,255,20)" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="rgb(57,255,20)" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Bridge arrow gradient -->
+    <linearGradient id="arrowGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="rgb(57,255,20)" stop-opacity="0.4"/>
+      <stop offset="0.5" stop-color="rgb(57,255,20)" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="rgb(57,255,20)" stop-opacity="0.4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- === BACKGROUND === -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glowGreen)"/>
+  <rect width="1200" height="630" fill="url(#glowGreen2)"/>
+
+  <!-- === GRID SYSTEM === -->
+  <line x1="0" y1="63" x2="1200" y2="63" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="126" x2="1200" y2="126" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="189" x2="1200" y2="189" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="252" x2="1200" y2="252" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="315" x2="1200" y2="315" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="378" x2="1200" y2="378" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="441" x2="1200" y2="441" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="504" x2="1200" y2="504" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+  <line x1="0" y1="567" x2="1200" y2="567" stroke="rgb(57,255,20)" stroke-opacity="0.03" stroke-width="0.3"/>
+
+  <!-- Major vertical lines -->
+  <line x1="300" y1="0" x2="300" y2="630" stroke="url(#vline)" stroke-width="0.5"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="url(#vline)" stroke-width="0.5"/>
+  <line x1="900" y1="0" x2="900" y2="630" stroke="url(#vline)" stroke-width="0.5"/>
+
+  <!-- Minor vertical lines -->
+  <line x1="150" y1="0" x2="150" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.02" stroke-width="0.3"/>
+  <line x1="450" y1="0" x2="450" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.02" stroke-width="0.3"/>
+  <line x1="750" y1="0" x2="750" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.02" stroke-width="0.3"/>
+  <line x1="1050" y1="0" x2="1050" y2="630" stroke="rgb(57,255,20)" stroke-opacity="0.02" stroke-width="0.3"/>
+
+  <!-- Emphasis horizontal lines -->
+  <line x1="0" y1="210" x2="1200" y2="210" stroke="url(#hline)" stroke-width="0.5"/>
+  <line x1="0" y1="420" x2="1200" y2="420" stroke="url(#hline)" stroke-width="0.5"/>
+
+  <!-- === PARTICLE FIELD === -->
+  <rect x="96" y="100" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.15"/>
+  <rect x="196" y="176" width="1" height="1" fill="rgb(57,255,20)" opacity="0.12"/>
+  <rect x="304" y="76" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.1"/>
+  <rect x="416" y="554" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.1"/>
+  <rect x="512" y="113" width="1" height="1" fill="rgb(57,255,20)" opacity="0.12"/>
+  <rect x="680" y="88" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.1"/>
+  <rect x="736" y="542" width="1" height="1" fill="rgb(57,255,20)" opacity="0.12"/>
+  <rect x="840" y="151" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.1"/>
+  <rect x="920" y="441" width="1" height="1" fill="rgb(57,255,20)" opacity="0.08"/>
+  <rect x="1024" y="113" width="1.5" height="1.5" fill="rgb(57,255,20)" opacity="0.12"/>
+  <rect x="1080" y="353" width="1" height="1" fill="rgb(57,255,20)" opacity="0.1"/>
+
+  <!-- === CORNER BRACKETS === -->
+  <line x1="24" y1="24" x2="60" y2="24" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="24" y1="24" x2="24" y2="60" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="1176" y1="24" x2="1140" y2="24" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="1176" y1="24" x2="1176" y2="60" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="24" y1="606" x2="60" y2="606" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="24" y1="606" x2="24" y2="570" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="1176" y1="606" x2="1140" y2="606" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+  <line x1="1176" y1="606" x2="1176" y2="570" stroke="rgb(57,255,20)" stroke-opacity="0.3" stroke-width="1"/>
+
+  <!-- === HUD READOUTS === -->
+  <text x="40" y="18" font-family="Menlo, monospace" font-size="7" fill="rgb(57,255,20)">BRIDGE::ACTIVE</text>
+  <text x="1160" y="18" text-anchor="end" font-family="Menlo, monospace" font-size="7" fill="rgb(57,255,20)">L1 &gt; L2</text>
+
+  <!-- === BRIDGE ICON: Two chain links with arrow === -->
+  <g transform="translate(520, 140)">
+    <!-- L1 circle -->
+    <circle cx="30" cy="40" r="28" fill="none" stroke="rgb(57,255,20)" stroke-opacity="0.25" stroke-width="1.5"/>
+    <text x="30" y="44" text-anchor="middle" font-family="Menlo, monospace" font-size="14" font-weight="bold" fill="rgb(57,255,20)" opacity="0.6">L1</text>
+    <!-- Arrow -->
+    <line x1="66" y1="40" x2="94" y2="40" stroke="url(#arrowGrad)" stroke-width="2"/>
+    <polygon points="94,34 108,40 94,46" fill="rgb(57,255,20)" opacity="0.7"/>
+    <!-- L2 circle -->
+    <circle cx="130" cy="40" r="28" fill="none" stroke="rgb(57,255,20)" stroke-opacity="0.25" stroke-width="1.5"/>
+    <text x="130" y="44" text-anchor="middle" font-family="Menlo, monospace" font-size="14" font-weight="bold" fill="rgb(57,255,20)" opacity="0.6">L2</text>
+  </g>
+
+  <!-- === MAIN HEADING === -->
+  <text x="600" y="290" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="800" font-size="56" fill="white">Bridge to Mythic L2</text>
+
+  <!-- === SUBTITLE === -->
+  <text x="600" y="340" text-anchor="middle" font-family="Menlo, monospace" font-size="18" letter-spacing="1" fill="rgb(57,255,20)" opacity="0.7">Deposit SOL  ·  Receive MYTH  ·  Earn Points</text>
+
+  <!-- === STATS ROW === -->
+  <g transform="translate(300, 390)">
+    <rect x="0" y="0" width="160" height="50" fill="rgb(57,255,20)" opacity="0.04" stroke="rgb(57,255,20)" stroke-opacity="0.1" stroke-width="0.5"/>
+    <text x="80" y="22" text-anchor="middle" font-family="Menlo, monospace" font-size="8" letter-spacing="2" fill="rgb(57,255,20)" opacity="0.5">MIN DEPOSIT</text>
+    <text x="80" y="40" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="16" fill="white">0.01 SOL</text>
+
+    <rect x="180" y="0" width="160" height="50" fill="rgb(57,255,20)" opacity="0.04" stroke="rgb(57,255,20)" stroke-opacity="0.1" stroke-width="0.5"/>
+    <text x="260" y="22" text-anchor="middle" font-family="Menlo, monospace" font-size="8" letter-spacing="2" fill="rgb(57,255,20)" opacity="0.5">MULTIPLIER</text>
+    <text x="260" y="40" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="16" fill="white">Up to 3x</text>
+
+    <rect x="360" y="0" width="160" height="50" fill="rgb(57,255,20)" opacity="0.04" stroke="rgb(57,255,20)" stroke-opacity="0.1" stroke-width="0.5"/>
+    <text x="440" y="22" text-anchor="middle" font-family="Menlo, monospace" font-size="8" letter-spacing="2" fill="rgb(57,255,20)" opacity="0.5">SEASON</text>
+    <text x="440" y="40" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="16" fill="white">1 LIVE</text>
+  </g>
+
+  <!-- === BOTTOM INFO STRIP === -->
+  <rect x="0" y="590" width="1200" height="40" fill="rgb(57,255,20)" opacity="0.06"/>
+  <text x="50" y="614" font-family="Menlo, monospace" font-size="12" fill="rgb(57,255,20)">MYTHIC</text>
+  <text x="600" y="614" text-anchor="middle" font-family="Menlo, monospace" font-size="12" letter-spacing="1" fill="rgb(57,255,20)" opacity="0.6">mythic.sh/bridge</text>
+  <text x="1150" y="614" text-anchor="end" font-family="Menlo, monospace" font-size="12" fill="rgb(57,255,20)">$MYTH</text>
+
+  <!-- === BORDER === -->
+  <rect x="0.5" y="0.5" width="1199" height="629" fill="none" stroke="rgb(57,255,20)" stroke-opacity="0.15" stroke-width="0.5"/>
+</svg>

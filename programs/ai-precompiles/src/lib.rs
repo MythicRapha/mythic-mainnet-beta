@@ -415,8 +415,14 @@ fn transfer_lamports_signed<'a>(
     to: &AccountInfo<'a>,
     amount: u64,
 ) -> ProgramResult {
-    **from.try_borrow_mut_lamports()? -= amount;
-    **to.try_borrow_mut_lamports()? += amount;
+    let from_balance = from.lamports();
+    let to_balance = to.lamports();
+    **from.try_borrow_mut_lamports()? = from_balance
+        .checked_sub(amount)
+        .ok_or(AiError::Overflow)?;
+    **to.try_borrow_mut_lamports()? = to_balance
+        .checked_add(amount)
+        .ok_or(AiError::Overflow)?;
     Ok(())
 }
 
@@ -619,6 +625,15 @@ fn process_register_validator(
         return Err(ProgramError::IncorrectProgramId);
     }
 
+    // Validate stake vault PDA
+    let (expected_stake_vault, _) = Pubkey::find_program_address(
+        &[b"stake_vault", authority.key.as_ref()],
+        program_id,
+    );
+    if *stake_vault.key != expected_stake_vault {
+        return Err(AiError::InvalidPDA.into());
+    }
+
     // Transfer stake to vault
     transfer_lamports(authority, stake_vault, args.stake_amount, system_prog)?;
 
@@ -705,6 +720,15 @@ fn process_request_inference(
         program_id,
     );
     if request_pda != *request_info.key {
+        return Err(AiError::InvalidPDA.into());
+    }
+
+    // Validate escrow vault PDA
+    let (expected_escrow, _) = Pubkey::find_program_address(
+        &[b"escrow", request_pda.as_ref()],
+        program_id,
+    );
+    if *escrow_vault.key != expected_escrow {
         return Err(AiError::InvalidPDA.into());
     }
 
@@ -1057,6 +1081,15 @@ fn process_claim_inference_fee(
     assert_writable(escrow_vault)?;
     assert_owned_by(request_info, program_id)?;
     assert_owned_by(config_info, program_id)?;
+
+    // Validate escrow vault PDA
+    let (expected_escrow, _) = Pubkey::find_program_address(
+        &[b"escrow", request_info.key.as_ref()],
+        program_id,
+    );
+    if *escrow_vault.key != expected_escrow {
+        return Err(AiError::InvalidPDA.into());
+    }
 
     let config = AIConfig::try_from_slice(&config_info.try_borrow_data()?)?;
     if !config.is_initialized {

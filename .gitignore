@@ -64,6 +64,3 @@ ledger/
 *.tar.gz
 *.tar.zst
 production-ledger-backup-*
-
-# Website frontend (private - in separate repo)
-website/

@@ -1,0 +1,171 @@
+import { PublicKey } from '@solana/web3.js'
+
+// ── Program IDs (deployed) ──────────────────────────────────────────────────
+
+export const BRIDGE_L1_PROGRAM_ID = new PublicKey('oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ')
+export const BRIDGE_L2_PROGRAM_ID = new PublicKey('MythBrdgL2111111111111111111111111111111111')
+
+// ── Token Mints (L1 Solana Mainnet) ─────────────────────────────────────────
+
+export const L1_MYTH_MINT = new PublicKey('5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump')
+export const L1_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
+export const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
+
+// ── PDA Seeds ───────────────────────────────────────────────────────────────
+
+export const BRIDGE_CONFIG_SEED = Buffer.from('bridge_config')
+export const VAULT_SEED = Buffer.from('vault')
+export const SOL_VAULT_SEED = Buffer.from('sol_vault')
+export const WITHDRAWAL_SEED = Buffer.from('withdrawal')
+export const L2_BRIDGE_CONFIG_SEED = Buffer.from('l2_bridge_config')
+export const BRIDGE_RESERVE_SEED = Buffer.from('bridge_reserve')
+export const PROCESSED_SEED = Buffer.from('processed')
+export const MINT_SEED = Buffer.from('mint')
+export const FEE_VAULT_SEED = Buffer.from('bridge_vault')
+
+// ── Instruction Discriminators ──────────────────────────────────────────────
+
+export const L1_IX = {
+  INITIALIZE: 0,
+  DEPOSIT: 1,
+  DEPOSIT_SOL: 2,
+  INITIATE_WITHDRAWAL: 3,
+  CHALLENGE_WITHDRAWAL: 4,
+  FINALIZE_WITHDRAWAL: 5,
+  UPDATE_CONFIG: 6,
+  PAUSE_BRIDGE: 7,
+  UNPAUSE_BRIDGE: 8,
+  SET_LIMITS: 9,
+} as const
+
+export const L2_IX = {
+  INITIALIZE: 0,
+  FUND_RESERVE: 1,
+  RELEASE_BRIDGED: 2,
+  BRIDGE_TO_L1: 3,
+  UPDATE_CONFIG: 4,
+  PAUSE_BRIDGE: 5,
+  UNPAUSE_BRIDGE: 6,
+} as const
+
+// ── On-chain State Types ────────────────────────────────────────────────────
+
+/** L1 bridge config — matches on-chain BridgeConfig struct (155 bytes) */
+export interface BridgeConfig {
+  admin: PublicKey
+  sequencer: PublicKey
+  challengePeriod: bigint
+  depositNonce: bigint
+  isInitialized: boolean
+  bump: number
+  paused: boolean
+  minDepositLamports: bigint
+  maxDepositLamports: bigint
+  dailyLimitLamports: bigint
+  dailyVolume: bigint
+  lastResetSlot: bigint
+  pendingAdmin: PublicKey
+}
+
+/** L2 bridge config — native transfer model (92 bytes) */
+export interface L2BridgeConfig {
+  admin: PublicKey
+  relayer: PublicKey
+  withdrawNonce: bigint
+  totalReleased: bigint
+  totalReceived: bigint
+  isInitialized: boolean
+  bump: number
+  paused: boolean
+  reserveBump: number
+}
+
+export enum WithdrawalStatus {
+  Pending = 0,
+  Challenged = 1,
+  Finalized = 2,
+  Cancelled = 3,
+}
+
+export interface WithdrawalRequest {
+  recipient: PublicKey
+  amount: bigint
+  tokenMint: PublicKey
+  merkleProof: Uint8Array // 32 bytes
+  challengeDeadline: bigint
+  status: WithdrawalStatus
+  nonce: bigint
+  bump: number
+}
+
+// ── Frontend Types ──────────────────────────────────────────────────────────
+
+export type BridgeDirection = 'deposit' | 'withdraw'
+
+export interface BridgeAsset {
+  symbol: string
+  name: string
+  icon: string
+  l1Mint?: PublicKey   // undefined = native SOL on L1 (MYTH on L2)
+  decimals: number
+  isToken2022?: boolean // e.g. L1 MYTH uses Token-2022
+}
+
+export interface DepositRecord {
+  signature: string
+  amount: number
+  token: string
+  nonce: number
+  timestamp: number
+  status: 'pending' | 'confirmed' | 'minted'
+  sender?: string  // wallet address that initiated the deposit
+}
+
+export interface WithdrawalRecord {
+  withdrawNonce: number
+  amount: number
+  token: string
+  l1Recipient: string
+  timestamp: number
+  status: 'sent' | 'initiated' | 'challenged' | 'finalized'
+  challengeDeadline?: number
+}
+
+export interface BridgeStats {
+  paused: boolean
+  depositNonce: number
+  minDeposit: number     // in MYTH
+  maxDeposit: number     // in MYTH
+  dailyLimit: number     // in MYTH
+  dailyVolume: number    // in MYTH
+  dailyRemaining: number // in MYTH
+  feeBps: number
+  totalFeesCollected: number // in MYTH
+}
+
+// ── Constants ───────────────────────────────────────────────────────────────
+
+export const LAMPORTS_PER_SOL = 1_000_000_000
+export const LAMPORTS_PER_MYTH = 1_000_000_000  // L2 MYTH has 9 decimals
+export const DAILY_RESET_SLOTS = 216_000
+export const CHALLENGE_PERIOD_SECONDS = 86_400 // 24 hours
+export const BPS_DENOMINATOR = 10_000
+export const MIN_FEE_LAMPORTS = 5_000 // 0.000005 SOL minimum fee
+export const DECIMAL_SCALING_FACTOR = 1_000 // L1=6 dec, L2=9 dec → amounts must be divisible by 1000
+
+export const SUPPORTED_ASSETS: BridgeAsset[] = [
+  {
+    symbol: 'SOL',
+    name: 'Solana',
+    icon: '◎',
+    decimals: 9,
+  },
+  {
+    symbol: 'MYTH',
+    name: 'Mythic',
+    icon: 'M',
+    l1Mint: new PublicKey('5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump'),
+    decimals: 6,   // L1 MYTH is Token-2022 with 6 decimals
+    isToken2022: true,
+  },
+]

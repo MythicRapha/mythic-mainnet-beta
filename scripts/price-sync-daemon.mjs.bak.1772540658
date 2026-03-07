@@ -1,0 +1,272 @@
+#!/usr/bin/env node
+/**
+ * Price Sync Daemon — keeps L2 MYTH/wSOL pool price aligned with L1 PumpSwap price.
+ * Runs every 5 minutes via PM2 cron or as a loop.
+ * 
+ * If L2 price drifts >2% from L1:
+ *   - Mints wMYTH or wSOL (deployer has authority)
+ *   - Executes arb swap to push price back toward L1
+ */
+
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+  sendAndConfirmTransaction,
+} from '@solana/web3.js'
+import {
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
+  TOKEN_PROGRAM_ID,
+} from '@solana/spl-token'
+import { readFileSync } from 'fs'
+import { Buffer } from 'buffer'
+
+// ═══════════════════════════════════════════════════════════════
+// Constants
+// ═══════════════════════════════════════════════════════════════
+
+const RPC_URL = 'http://127.0.0.1:8899'
+const TX_OPTS = { skipPreflight: true, commitment: 'confirmed', preflightCommitment: 'confirmed' }
+
+const SWAP_PROGRAM = new PublicKey('MythSwap11111111111111111111111111111111111')
+const MYTH_MINT = new PublicKey('7sfazeMxmuoDkuU5fHkDGin8uYuaTkZrRSwJM1CHXvDq')
+const WSOL_MINT = new PublicKey('FEJa8wGyhXu9Hic1jNTg76Atb57C7jFkmDyDTQZkVwy3')
+
+const MYTH_DECIMALS = 6
+const WSOL_DECIMALS = 9
+
+const POOL_PDA = new PublicKey('F1mZ26qS1tF7NEVKJayEU4Zf6Wnp3vSF1bN6WMW8CuY4')
+const VAULT_A = new PublicKey('EW1RtpoGM8F74aoLXaUZT48n4CjjJwcbAzZb4bZtnwbS')
+const VAULT_B = new PublicKey('8VMk2YtL7YFvNUkEuH8CXJBwvJdMZfS4ERtSErARCh7T')
+
+const PROTOCOL_VAULT_SEED = Buffer.from('protocol_vault')
+const SWAP_CONFIG_SEED = Buffer.from('swap_config')
+
+const DEXSCREENER_URL = 'https://api.dexscreener.com/latest/dex/tokens/5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump'
+
+const DRIFT_THRESHOLD_PCT = 2.0  // Only correct if >2% drift
+const MAX_SWAP_MYTH = 500_000    // Max MYTH to swap per correction
+const MAX_SWAP_WSOL = 1.0        // Max wSOL to swap per correction
+const LOOP_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
+
+// ═══════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════
+
+function loadKeypair(path) {
+  return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(path, 'utf8'))))
+}
+
+function writeU64LE(buf, offset, val) {
+  const big = BigInt(val)
+  for (let i = 0; i < 8; i++) buf[offset + i] = Number((big >> BigInt(8 * i)) & 0xFFn)
+}
+
+function readU64LE(buf, offset) {
+  let val = 0n
+  for (let i = 0; i < 8; i++) val |= BigInt(buf[offset + i]) << BigInt(8 * i)
+  return val
+}
+
+function toRawMYTH(amount) { return BigInt(Math.round(amount * 10 ** MYTH_DECIMALS)) }
+function toRawWSOL(amount) { return BigInt(Math.round(amount * 10 ** WSOL_DECIMALS)) }
+function fromRawMYTH(raw) { return Number(raw) / 10 ** MYTH_DECIMALS }
+function fromRawWSOL(raw) { return Number(raw) / 10 ** WSOL_DECIMALS }
+
+function timestamp() { return new Date().toISOString() }
+
+// ═══════════════════════════════════════════════════════════════
+// Core Logic
+// ═══════════════════════════════════════════════════════════════
+
+async function fetchL1Price() {
+  const resp = await fetch(DEXSCREENER_URL)
+  const data = await resp.json()
+  const pair = data.pairs?.find(p => p.dexId === 'pumpswap' || p.dexId === 'raydium') || data.pairs?.[0]
+  if (!pair) throw new Error('No pair found on DexScreener')
+  return parseFloat(pair.priceNative) // SOL per MYTH
+}
+
+async function readPoolState(conn) {
+  const poolInfo = await conn.getAccountInfo(POOL_PDA)
+  if (!poolInfo) throw new Error('Pool not found')
+  const reserveA = readU64LE(poolInfo.data, 162)  // MYTH
+  const reserveB = readU64LE(poolInfo.data, 170)  // wSOL
+  // L2 price: (reserveB / 10^9) / (reserveA / 10^6) = (reserveB * 10^6) / (reserveA * 10^9)
+  const l2Price = (Number(reserveB) / 1e9) / (Number(reserveA) / 1e6)
+  return { reserveA, reserveB, l2Price }
+}
+
+async function executeSwap(conn, deployer, amountIn, aToB) {
+  const [configPDA] = PublicKey.findProgramAddressSync([SWAP_CONFIG_SEED], SWAP_PROGRAM)
+  const [protocolVaultPDA] = PublicKey.findProgramAddressSync([PROTOCOL_VAULT_SEED], SWAP_PROGRAM)
+
+  const mythATA = await getAssociatedTokenAddress(MYTH_MINT, deployer.publicKey)
+  const wsolATA = await getAssociatedTokenAddress(WSOL_MINT, deployer.publicKey)
+
+  const inputMint = aToB ? MYTH_MINT : WSOL_MINT
+  const protocolFeeVaultToken = await getAssociatedTokenAddress(inputMint, protocolVaultPDA, true)
+
+  const tx = new Transaction()
+
+  // Ensure protocol fee vault ATA exists
+  const feeATAInfo = await conn.getAccountInfo(protocolFeeVaultToken)
+  if (!feeATAInfo) {
+    tx.add(createAssociatedTokenAccountInstruction(
+      deployer.publicKey, protocolFeeVaultToken, protocolVaultPDA, inputMint
+    ))
+  }
+
+  const data = Buffer.alloc(18)
+  data[0] = 4 // Swap instruction
+  writeU64LE(data, 1, amountIn)
+  writeU64LE(data, 9, 0n) // min_amount_out = 0 for admin arb
+  data[17] = aToB ? 1 : 0
+
+  const traderTokenIn = aToB ? mythATA : wsolATA
+  const traderTokenOut = aToB ? wsolATA : mythATA
+
+  tx.add(new TransactionInstruction({
+    programId: SWAP_PROGRAM,
+    keys: [
+      { pubkey: deployer.publicKey, isSigner: true, isWritable: true },
+      { pubkey: configPDA, isSigner: false, isWritable: true },
+      { pubkey: POOL_PDA, isSigner: false, isWritable: true },
+      { pubkey: VAULT_A, isSigner: false, isWritable: true },
+      { pubkey: VAULT_B, isSigner: false, isWritable: true },
+      { pubkey: traderTokenIn, isSigner: false, isWritable: true },
+      { pubkey: traderTokenOut, isSigner: false, isWritable: true },
+      { pubkey: protocolFeeVaultToken, isSigner: false, isWritable: true },
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+    ],
+    data,
+  }))
+
+  const sig = await sendAndConfirmTransaction(conn, tx, [deployer], TX_OPTS)
+  return sig
+}
+
+async function ensureTokenBalance(conn, deployer, mint, ata, neededRaw) {
+  // NO MINTING — only use existing deployer token balances (no inflation)
+  try {
+    const info = await conn.getTokenAccountBalance(ata)
+    const balance = BigInt(info.value.amount)
+    if (balance >= neededRaw) return true // Have enough
+
+    console.log(`  [${timestamp()}] Insufficient balance: have ${Number(balance)} need ${Number(neededRaw)} of ${mint.toBase58().slice(0,8)} — skipping correction`)
+    return false // Not enough, caller should skip
+  } catch (err) {
+    // ATA might not exist — create it (but don't mint)
+    try {
+      console.log(`  [${timestamp()}] Creating ATA for ${mint.toBase58().slice(0,8)}...`)
+      const tx = new Transaction()
+      tx.add(createAssociatedTokenAccountInstruction(deployer.publicKey, ata, deployer.publicKey, mint))
+      await sendAndConfirmTransaction(conn, tx, [deployer], TX_OPTS)
+    } catch (ataErr) {
+      // ATA may already exist, ignore
+    }
+    console.log(`  [${timestamp()}] No token balance for ${mint.toBase58().slice(0,8)} — skipping correction`)
+    return false
+  }
+}
+
+async function syncPrice(conn, deployer) {
+  const l1Price = await fetchL1Price()
+  const { reserveA, reserveB, l2Price } = await readPoolState(conn)
+
+  const drift = ((l2Price - l1Price) / l1Price) * 100
+  console.log(`[${timestamp()}] L1=${l1Price.toFixed(10)} | L2=${l2Price.toFixed(10)} | Drift=${drift.toFixed(4)}%`)
+
+  if (Math.abs(drift) < DRIFT_THRESHOLD_PCT) {
+    console.log(`  Within ${DRIFT_THRESHOLD_PCT}% threshold — no action needed`)
+    return
+  }
+
+  // Calculate how much to swap using constant product formula
+  // Target: reserveB_new / reserveA_new = l1Price * (10^9 / 10^6) = l1Price * 1000
+  const targetRatio = l1Price * 1000 // raw ratio
+  const K = Number(reserveA) * Number(reserveB)
+
+  // reserveA_new = sqrt(K / targetRatio)
+  const targetReserveA = Math.sqrt(K / targetRatio)
+  const targetReserveB = K / targetReserveA
+
+  if (drift > 0) {
+    // L2 price too high → MYTH is overvalued → swap MYTH → wSOL to push price down
+    const mythToSwap = Math.min(
+      Number(reserveA) - targetReserveA,
+      Number(toRawMYTH(MAX_SWAP_MYTH))
+    )
+    if (mythToSwap <= 0) return
+
+    const swapRaw = BigInt(Math.ceil(Math.abs(mythToSwap)))
+    console.log(`  L2 price too HIGH — swapping ${fromRawMYTH(swapRaw)} MYTH → wSOL`)
+
+    const mythATA = await getAssociatedTokenAddress(MYTH_MINT, deployer.publicKey)
+    const hasBalance = await ensureTokenBalance(conn, deployer, MYTH_MINT, mythATA, swapRaw)
+    if (!hasBalance) return
+
+    const sig = await executeSwap(conn, deployer, swapRaw, true)
+    console.log(`  Swap tx: ${sig}`)
+  } else {
+    // L2 price too low → MYTH is undervalued → swap wSOL → MYTH to push price up
+    const wsolToSwap = Math.min(
+      targetReserveB - Number(reserveB),
+      Number(toRawWSOL(MAX_SWAP_WSOL))
+    )
+    if (wsolToSwap <= 0) return
+
+    const swapRaw = BigInt(Math.ceil(Math.abs(wsolToSwap)))
+    console.log(`  L2 price too LOW — swapping ${fromRawWSOL(swapRaw)} wSOL → MYTH`)
+
+    const wsolATA = await getAssociatedTokenAddress(WSOL_MINT, deployer.publicKey)
+    const hasBalance = await ensureTokenBalance(conn, deployer, WSOL_MINT, wsolATA, swapRaw)
+    if (!hasBalance) return
+
+    const sig = await executeSwap(conn, deployer, swapRaw, false)
+    console.log(`  Swap tx: ${sig}`)
+  }
+
+  // Verify
+  const post = await readPoolState(conn)
+  const postDrift = ((post.l2Price - l1Price) / l1Price) * 100
+  console.log(`  Post-correction: L2=${post.l2Price.toFixed(10)} | Drift=${postDrift.toFixed(4)}%`)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Main Loop
+// ═══════════════════════════════════════════════════════════════
+
+async function main() {
+  const conn = new Connection(RPC_URL, 'confirmed')
+  const deployer = loadKeypair('/mnt/data/mythic-l2/keys/deployer.json')
+
+  console.log(`[${timestamp()}] Price Sync Daemon started`)
+  console.log(`  Deployer: ${deployer.publicKey.toBase58()}`)
+  console.log(`  Threshold: ${DRIFT_THRESHOLD_PCT}%`)
+  console.log(`  Interval: ${LOOP_INTERVAL_MS / 1000}s`)
+
+  // Run immediately on start
+  try {
+    await syncPrice(conn, deployer)
+  } catch (err) {
+    console.error(`[${timestamp()}] Error:`, err.message || err)
+  }
+
+  // Then loop every 5 minutes
+  setInterval(async () => {
+    try {
+      await syncPrice(conn, deployer)
+    } catch (err) {
+      console.error(`[${timestamp()}] Error:`, err.message || err)
+    }
+  }, LOOP_INTERVAL_MS)
+}
+
+main().catch(err => {
+  console.error('FATAL:', err)
+  process.exit(1)
+})

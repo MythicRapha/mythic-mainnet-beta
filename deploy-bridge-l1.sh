@@ -16,12 +16,12 @@ set -euo pipefail
 # The program will deploy with ID from: target/deploy/mythic_bridge-keypair.json
 # (NOT the vanity ID MythBrdg111... which was only used at L2 genesis)
 
-RPC_URL="${1:-${L1_RPC_URL:-https://api.mainnet-beta.solana.com}}"
-DEPLOYER_KEY="${DEPLOYER_KEYPAIR:-./keys/deployer.json}"
-BRIDGE_SO="./target/deploy/mythic_bridge.so"
-BRIDGE_KEYPAIR="./target/deploy/mythic_bridge-keypair.json"
-SEQUENCER_KEY="${SEQUENCER_KEYPAIR:-./keys/sequencer-identity.json}"
-PROJECT_DIR="${PROJECT_DIR:-.}"
+RPC_URL="${1:-http://20.81.176.84:8899}"
+DEPLOYER_KEY="/mnt/data/mythic-l2/keys/deployer.json"
+BRIDGE_SO="/mnt/data/mythic-l2/target/deploy/mythic_bridge.so"
+BRIDGE_KEYPAIR="/mnt/data/mythic-l2/target/deploy/mythic_bridge-keypair.json"
+SEQUENCER_KEY="/mnt/data/mythic-l2/keys/sequencer-identity.json"
+PROJECT_DIR="/mnt/data/mythic-l2"
 
 export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
 source "$HOME/.cargo/env" 2>/dev/null || true

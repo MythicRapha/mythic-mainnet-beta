@@ -30,6 +30,7 @@ const GOVERNANCE_CONFIG_SEED: &[u8] = b"governance_config";
 const PROPOSAL_SEED: &[u8] = b"proposal";
 const VOTE_RECORD_SEED: &[u8] = b"vote";
 const GOVERNANCE_TREASURY_SEED: &[u8] = b"governance_treasury";
+const SNAPSHOT_VOTING_POWER_SEED: &[u8] = b"snapshot_vp";
 
 const MAX_TITLE_LEN: usize = 64;
 
@@ -60,6 +61,7 @@ pub fn process_instruction(
         6 => process_delegate_voting_power(program_id, accounts, data),
         7 => process_treasury_withdraw(program_id, accounts, data),
         8 => process_transfer_admin(program_id, accounts, data),
+        9 => process_create_voting_snapshot(program_id, accounts, data),
         _ => Err(GovernanceError::InvalidInstruction.into()),
     }
 }
@@ -118,6 +120,8 @@ pub enum GovernanceError {
     SelfDelegation,
     #[error("Delegation amount exceeds available power")]
     DelegationExceedsPower,
+    #[error("Invalid withdrawal nonce (replay protection)")]
+    InvalidNonce,
 }
 
 impl From<GovernanceError> for ProgramError {
@@ -139,12 +143,13 @@ pub struct GovernanceConfig {
     pub quorum_votes: u64,          // 8  (minimum total votes for quorum)
     pub proposal_threshold: u64,    // 8  (minimum MYTH to create proposal)
     pub treasury_vault: Pubkey,     // 32
+    pub withdrawal_nonce: u64,      // 8  (replay protection for treasury withdrawals)
     pub bump: u8,                   // 1
 }
 
 impl GovernanceConfig {
-    // 1 + 32 + 8 + 8 + 8 + 8 + 32 + 1 = 98
-    pub const SIZE: usize = 98;
+    // 1 + 32 + 8 + 8 + 8 + 8 + 32 + 8 + 1 = 106
+    pub const SIZE: usize = 106;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,12 +193,13 @@ pub struct Proposal {
     pub no_votes: u64,                  // 8
     pub status: u8,                     // 1  (ProposalStatus as u8)
     pub executed_at: i64,               // 8
+    pub snapshot_slot: u64,             // 8  (slot at which voting power is snapshot)
     pub bump: u8,                       // 1
 }
 
 impl Proposal {
-    // 1 + 8 + 32 + 64 + 32 + 8 + 8 + 8 + 8 + 1 + 8 + 1 = 179
-    pub const SIZE: usize = 179;
+    // 1 + 8 + 32 + 64 + 32 + 8 + 8 + 8 + 8 + 1 + 8 + 8 + 1 = 187
+    pub const SIZE: usize = 187;
 
     pub fn get_status(&self) -> Result<ProposalStatus, ProgramError> {
         ProposalStatus::try_from(self.status)
@@ -270,6 +276,25 @@ impl VotingPower {
 const VOTING_POWER_SEED: &[u8] = b"voting_power";
 
 // ---------------------------------------------------------------------------
+// State: SnapshotVotingPower (per-voter per-proposal snapshot)
+// ---------------------------------------------------------------------------
+
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
+pub struct SnapshotVotingPower {
+    pub is_initialized: bool,       // 1
+    pub voter: Pubkey,              // 32
+    pub proposal_id: u64,           // 8
+    pub snapshot_slot: u64,         // 8
+    pub power: u64,                 // 8  (effective voting power at snapshot_slot)
+    pub bump: u8,                   // 1
+}
+
+impl SnapshotVotingPower {
+    // 1 + 32 + 8 + 8 + 8 + 1 = 58
+    pub const SIZE: usize = 58;
+}
+
+// ---------------------------------------------------------------------------
 // Instruction data structs
 // ---------------------------------------------------------------------------
 
@@ -311,11 +336,18 @@ pub struct TreasuryWithdrawArgs {
     pub proposal_id: u64,
     pub amount: u64,
     pub recipient: Pubkey,
+    pub nonce: u64,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct TransferAdminArgs {
     pub new_admin: Pubkey,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct CreateVotingSnapshotArgs {
+    pub proposal_id: u64,
+    pub voter: Pubkey,
 }
 
 // ---------------------------------------------------------------------------
@@ -436,6 +468,7 @@ fn process_initialize(
         quorum_votes: args.quorum_votes,
         proposal_threshold: args.proposal_threshold,
         treasury_vault: treasury_pda,
+        withdrawal_nonce: 0,
         bump: config_bump,
     };
 
@@ -558,6 +591,7 @@ fn process_create_proposal(
         no_votes: 0,
         status: ProposalStatus::Active as u8,
         executed_at: 0,
+        snapshot_slot: start_slot,
         bump: proposal_bump,
     };
 
@@ -591,6 +625,7 @@ fn process_create_proposal(
 //   2. [writable]          vote_record PDA (seeds: ["vote", proposal_id as le_bytes, voter])
 //   3. []                  voting_power PDA (seeds: ["voting_power", voter])
 //   4. []                  system_program
+//   5. [] (optional)       snapshot_vp PDA (seeds: ["snapshot_vp", proposal_id, voter])
 
 fn process_cast_vote(
     program_id: &Pubkey,
@@ -633,22 +668,86 @@ fn process_cast_vote(
         return Err(GovernanceError::VotingPeriodEnded.into());
     }
 
-    // Validate voting power
-    assert_owned_by(voting_power_account, program_id)?;
-    let (vp_pda, _) =
-        Pubkey::find_program_address(&[VOTING_POWER_SEED, voter.key.as_ref()], program_id);
-    if voting_power_account.key != &vp_pda {
-        return Err(GovernanceError::InvalidPDA.into());
+    // Determine effective voting power.
+    // Prefer snapshot PDA (SnapshotVotingPower) recorded at proposal.snapshot_slot.
+    // If the snapshot account is provided and initialized, use its power.
+    // Otherwise fall back to the current VotingPower account (backwards compatible).
+    let snapshot_vp_account = next_account_info(account_iter).ok();
+    let effective: u64;
+
+    let proposal_id_bytes_for_snap = args.proposal_id.to_le_bytes();
+    let mut used_snapshot = false;
+
+    if let Some(snap_account) = snapshot_vp_account {
+        let (snap_pda, _) = Pubkey::find_program_address(
+            &[SNAPSHOT_VOTING_POWER_SEED, &proposal_id_bytes_for_snap, voter.key.as_ref()],
+            program_id,
+        );
+        if snap_account.key == &snap_pda
+            && snap_account.owner == program_id
+            && !snap_account.data_is_empty()
+        {
+            let snap = SnapshotVotingPower::try_from_slice(&snap_account.data.borrow())?;
+            if snap.is_initialized
+                && snap.voter == *voter.key
+                && snap.proposal_id == args.proposal_id
+            {
+                effective = snap.power;
+                used_snapshot = true;
+            } else {
+                // Snapshot exists but doesn't match — fall back
+                assert_owned_by(voting_power_account, program_id)?;
+                let (vp_pda, _) = Pubkey::find_program_address(
+                    &[VOTING_POWER_SEED, voter.key.as_ref()],
+                    program_id,
+                );
+                if voting_power_account.key != &vp_pda {
+                    return Err(GovernanceError::InvalidPDA.into());
+                }
+                let vp = VotingPower::try_from_slice(&voting_power_account.data.borrow())?;
+                if !vp.is_initialized {
+                    return Err(GovernanceError::InsufficientVotingPower.into());
+                }
+                effective = vp.effective_power()?;
+            }
+        } else {
+            // Snapshot account not valid — fall back to current VotingPower
+            assert_owned_by(voting_power_account, program_id)?;
+            let (vp_pda, _) = Pubkey::find_program_address(
+                &[VOTING_POWER_SEED, voter.key.as_ref()],
+                program_id,
+            );
+            if voting_power_account.key != &vp_pda {
+                return Err(GovernanceError::InvalidPDA.into());
+            }
+            let vp = VotingPower::try_from_slice(&voting_power_account.data.borrow())?;
+            if !vp.is_initialized {
+                return Err(GovernanceError::InsufficientVotingPower.into());
+            }
+            effective = vp.effective_power()?;
+        }
+    } else {
+        // No snapshot account provided — fall back to current VotingPower
+        assert_owned_by(voting_power_account, program_id)?;
+        let (vp_pda, _) = Pubkey::find_program_address(
+            &[VOTING_POWER_SEED, voter.key.as_ref()],
+            program_id,
+        );
+        if voting_power_account.key != &vp_pda {
+            return Err(GovernanceError::InvalidPDA.into());
+        }
+        let vp = VotingPower::try_from_slice(&voting_power_account.data.borrow())?;
+        if !vp.is_initialized {
+            return Err(GovernanceError::InsufficientVotingPower.into());
+        }
+        effective = vp.effective_power()?;
     }
 
-    let vp = VotingPower::try_from_slice(&voting_power_account.data.borrow())?;
-    if !vp.is_initialized {
-        return Err(GovernanceError::InsufficientVotingPower.into());
-    }
-    let effective = vp.effective_power()?;
     if effective < args.vote_weight {
         return Err(GovernanceError::InsufficientVotingPower.into());
     }
+
+    let _ = used_snapshot; // suppress unused warning
 
     // Derive vote record PDA
     let proposal_id_bytes = args.proposal_id.to_le_bytes();
@@ -1081,14 +1180,16 @@ fn process_delegate_voting_power(
 }
 
 // ---------------------------------------------------------------------------
-// Instruction 7: TreasuryWithdraw (proposal-based)
+// Instruction 7: TreasuryWithdraw (proposal-based, replay-protected)
 // ---------------------------------------------------------------------------
 // Withdraw SOL from the governance treasury PDA. Requires a passed+executed
-// proposal that authorized this withdrawal.
+// proposal that authorized this withdrawal. Each withdrawal requires a unique
+// nonce that must match the config's withdrawal_nonce (incremented after use)
+// to prevent replay attacks.
 //
 // Accounts:
 //   0. [signer]            executor (anyone can crank after proposal executed)
-//   1. []                  governance_config PDA
+//   1. [writable]          governance_config PDA (nonce is incremented)
 //   2. []                  proposal PDA (must be Executed)
 //   3. [writable]          treasury PDA (seeds: ["governance_treasury"])
 //   4. [writable]          recipient (receives SOL)
@@ -1110,14 +1211,25 @@ fn process_treasury_withdraw(
     let recipient = next_account_info(account_iter)?;
 
     assert_signer(executor)?;
+    assert_writable(config_account)?;
     assert_writable(treasury_account)?;
     assert_writable(recipient)?;
     assert_owned_by(config_account, program_id)?;
     assert_owned_by(proposal_account, program_id)?;
 
-    let config = GovernanceConfig::try_from_slice(&config_account.data.borrow())?;
+    let mut config = GovernanceConfig::try_from_slice(&config_account.data.borrow())?;
     if !config.is_initialized {
         return Err(GovernanceError::NotInitialized.into());
+    }
+
+    // Replay protection: verify nonce matches expected value
+    if args.nonce != config.withdrawal_nonce {
+        msg!(
+            "ERROR:InvalidNonce:{{\"expected\":{},\"provided\":{}}}",
+            config.withdrawal_nonce,
+            args.nonce,
+        );
+        return Err(GovernanceError::InvalidNonce.into());
     }
 
     // Validate treasury PDA
@@ -1170,12 +1282,20 @@ fn process_treasury_withdraw(
         .checked_add(args.amount)
         .ok_or(GovernanceError::Overflow)?;
 
+    // Increment withdrawal nonce to prevent replay
+    config.withdrawal_nonce = config
+        .withdrawal_nonce
+        .checked_add(1)
+        .ok_or(GovernanceError::Overflow)?;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
     msg!(
-        "EVENT:TreasuryWithdraw:{{\"proposal_id\":{},\"recipient\":\"{}\",\"amount\":{},\"executor\":\"{}\"}}",
+        "EVENT:TreasuryWithdraw:{{\"proposal_id\":{},\"recipient\":\"{}\",\"amount\":{},\"executor\":\"{}\",\"nonce\":{}}}",
         args.proposal_id,
         args.recipient,
         args.amount,
         executor.key,
+        args.nonce,
     );
 
     Ok(())
@@ -1229,6 +1349,116 @@ fn process_transfer_admin(
 }
 
 // ---------------------------------------------------------------------------
+// Instruction 9: CreateVotingSnapshot
+// ---------------------------------------------------------------------------
+// Records a voter's effective voting power at the proposal's snapshot_slot.
+// Anyone can crank this for any voter during the voting period. The snapshot
+// PDA locks the voter's power for this proposal, preventing manipulation.
+//
+// Accounts:
+//   0. [signer, writable] payer
+//   1. []                  proposal PDA
+//   2. []                  voting_power PDA (seeds: ["voting_power", voter])
+//   3. [writable]          snapshot_vp PDA (seeds: ["snapshot_vp", proposal_id, voter])
+//   4. []                  system_program
+
+fn process_create_voting_snapshot(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let args = CreateVotingSnapshotArgs::try_from_slice(data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    let account_iter = &mut accounts.iter();
+    let payer = next_account_info(account_iter)?;
+    let proposal_account = next_account_info(account_iter)?;
+    let voting_power_account = next_account_info(account_iter)?;
+    let snapshot_account = next_account_info(account_iter)?;
+    let system_program = next_account_info(account_iter)?;
+
+    assert_signer(payer)?;
+    assert_writable(payer)?;
+    assert_writable(snapshot_account)?;
+    assert_owned_by(proposal_account, program_id)?;
+    assert_owned_by(voting_power_account, program_id)?;
+
+    // Validate proposal PDA
+    let proposal_id_bytes = args.proposal_id.to_le_bytes();
+    let (proposal_pda, _) =
+        Pubkey::find_program_address(&[PROPOSAL_SEED, &proposal_id_bytes], program_id);
+    if proposal_account.key != &proposal_pda {
+        return Err(GovernanceError::InvalidPDA.into());
+    }
+
+    let proposal = Proposal::try_from_slice(&proposal_account.data.borrow())?;
+    if !proposal.is_initialized {
+        return Err(GovernanceError::NotInitialized.into());
+    }
+    if proposal.get_status()? != ProposalStatus::Active {
+        return Err(GovernanceError::ProposalNotActive.into());
+    }
+
+    // Validate voting_power PDA
+    let (vp_pda, _) =
+        Pubkey::find_program_address(&[VOTING_POWER_SEED, args.voter.as_ref()], program_id);
+    if voting_power_account.key != &vp_pda {
+        return Err(GovernanceError::InvalidPDA.into());
+    }
+
+    let vp = VotingPower::try_from_slice(&voting_power_account.data.borrow())?;
+    if !vp.is_initialized {
+        return Err(GovernanceError::InsufficientVotingPower.into());
+    }
+
+    // Derive snapshot PDA
+    let (snap_pda, snap_bump) = Pubkey::find_program_address(
+        &[SNAPSHOT_VOTING_POWER_SEED, &proposal_id_bytes, args.voter.as_ref()],
+        program_id,
+    );
+    if snapshot_account.key != &snap_pda {
+        return Err(GovernanceError::InvalidPDA.into());
+    }
+
+    // Must not already exist
+    if !snapshot_account.data_is_empty() {
+        return Err(GovernanceError::AlreadyInitialized.into());
+    }
+
+    create_pda_account(
+        payer,
+        SnapshotVotingPower::SIZE,
+        program_id,
+        system_program,
+        snapshot_account,
+        &[SNAPSHOT_VOTING_POWER_SEED, &proposal_id_bytes, args.voter.as_ref(), &[snap_bump]],
+    )?;
+
+    let effective = vp.effective_power()?;
+
+    let snap = SnapshotVotingPower {
+        is_initialized: true,
+        voter: args.voter,
+        proposal_id: args.proposal_id,
+        snapshot_slot: proposal.snapshot_slot,
+        power: effective,
+        bump: snap_bump,
+    };
+
+    snap.serialize(&mut &mut snapshot_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:VotingSnapshotCreated:{{\"voter\":\"{}\",\"proposal_id\":{},\"snapshot_slot\":{},\"power\":{}}}",
+        args.voter,
+        args.proposal_id,
+        proposal.snapshot_slot,
+        effective,
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1246,6 +1476,7 @@ mod tests {
             quorum_votes: 1000,
             proposal_threshold: 500,
             treasury_vault: Pubkey::default(),
+            withdrawal_nonce: 0,
             bump: 255,
         };
         let serialized = borsh::to_vec(&config).unwrap();
@@ -1266,10 +1497,25 @@ mod tests {
             no_votes: 0,
             status: 0,
             executed_at: 0,
+            snapshot_slot: 0,
             bump: 255,
         };
         let serialized = borsh::to_vec(&proposal).unwrap();
         assert_eq!(serialized.len(), Proposal::SIZE);
+    }
+
+    #[test]
+    fn test_snapshot_voting_power_size() {
+        let snap = SnapshotVotingPower {
+            is_initialized: true,
+            voter: Pubkey::default(),
+            proposal_id: 0,
+            snapshot_slot: 100,
+            power: 5000,
+            bump: 255,
+        };
+        let serialized = borsh::to_vec(&snap).unwrap();
+        assert_eq!(serialized.len(), SnapshotVotingPower::SIZE);
     }
 
     #[test]
@@ -1292,6 +1538,9 @@ mod tests {
             is_initialized: true,
             voter: Pubkey::default(),
             power: 1000,
+            delegated_power: 0,
+            delegated_to: Pubkey::default(),
+            delegated_amount: 0,
             updated_at: 0,
             bump: 255,
         };

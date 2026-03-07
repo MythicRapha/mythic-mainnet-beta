@@ -6,8 +6,8 @@
  *
  * Prerequisites:
  *   - Bridge program already deployed
- *   - Deployer keypair at ./keys/deployer.json (or set DEPLOYER_KEYPAIR env var)
- *   - Sequencer keypair at ./keys/sequencer-identity.json (or set SEQUENCER_KEYPAIR env var)
+ *   - Deployer keypair at /mnt/data/mythic-l2/keys/deployer.json
+ *   - Sequencer keypair at /mnt/data/mythic-l2/keys/sequencer-identity.json
  *   - npm install @solana/web3.js borsh
  */
 
@@ -25,11 +25,11 @@ import * as borsh from "borsh";
 
 // ── Configuration ───────────────────────────────────────────────────────────
 
-const RPC_URL = process.argv[2] || process.env.L1_RPC_URL || "https://api.mainnet-beta.solana.com";
-const DEPLOYER_KEY_PATH = process.env.DEPLOYER_KEYPAIR || "./keys/deployer.json";
-const SEQUENCER_KEY_PATH = process.env.SEQUENCER_KEYPAIR || "./keys/sequencer-identity.json";
+const RPC_URL = process.argv[2] || "http://20.81.176.84:8899";
+const DEPLOYER_KEY_PATH = "/mnt/data/mythic-l2/keys/deployer.json";
+const SEQUENCER_KEY_PATH = "/mnt/data/mythic-l2/keys/sequencer-identity.json";
 const BRIDGE_KEYPAIR_PATH =
-  process.env.BRIDGE_KEYPAIR || "./target/deploy/mythic_bridge-keypair.json";
+  "/mnt/data/mythic-l2/target/deploy/mythic_bridge-keypair.json";
 
 const BRIDGE_CONFIG_SEED = Buffer.from("bridge_config");
 const IX_INITIALIZE = 0;

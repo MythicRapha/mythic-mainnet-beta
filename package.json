@@ -1,6 +1,16 @@
 {
   "dependencies": {
+    "@meteora-ag/dynamic-amm-sdk": "^1.4.1",
+    "@meteora-ag/dynamic-bonding-curve-sdk": "^1.5.5",
+    "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.4",
-    "borsh": "^0.7.0"
+    "better-sqlite3": "^12.6.2",
+    "bn.js": "^5.2.0",
+    "borsh": "^0.7.0",
+    "express": "^5.2.1",
+    "ws": "^7.5.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.37.5"
   }
 }

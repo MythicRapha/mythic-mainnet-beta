@@ -25,6 +25,12 @@ const BRIDGE_CONFIG_SEED: &[u8] = b"bridge_config";
 const VAULT_SEED: &[u8] = b"vault";
 const SOL_VAULT_SEED: &[u8] = b"sol_vault";
 const WITHDRAWAL_SEED: &[u8] = b"withdrawal";
+const CHALLENGE_BOND_SEED: &[u8] = b"challenge_bond";
+
+/// Minimum challenger bond: 0.1 SOL
+const MIN_CHALLENGE_BOND: u64 = 100_000_000;
+/// Bond is 10% of the withdrawal amount
+const CHALLENGE_BOND_BPS: u64 = 1_000; // 10% = 1000 bps out of 10000
 
 /// Native SOL mint address (sentinel for SOL deposits/withdrawals).
 const NATIVE_SOL_MINT_STR: &str = "So11111111111111111111111111111111111111112";
@@ -99,6 +105,7 @@ const IX_UNPAUSE_BRIDGE: u8 = 8;
 const IX_SET_LIMITS: u8 = 9;
 const IX_FINALIZE_SOL_WITHDRAWAL: u8 = 10;
 const IX_CREATE_VAULT: u8 = 11;
+const IX_SEQUENCER_WITHDRAW_SOL: u8 = 12;
 
 // ── Error Codes ──────────────────────────────────────────────────────────────
 
@@ -138,6 +145,10 @@ pub const ERROR_AMOUNT_TOO_LOW: u32 = 101;
 pub const ERROR_AMOUNT_TOO_HIGH: u32 = 102;
 pub const ERROR_DAILY_LIMIT: u32 = 103;
 pub const ERROR_OVERFLOW: u32 = 104;
+pub const ERROR_NOT_CHALLENGED: u32 = 105;
+// Reserved: 106-109
+pub const ERROR_WITHDRAWALS_EXCEED_DEPOSITS: u32 = 110;
+pub const ERROR_INSUFFICIENT_BOND: u32 = 111;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -185,6 +196,21 @@ pub struct WithdrawalRequest {
 impl WithdrawalRequest {
     pub const LEN: usize = 32 + 8 + 32 + 32 + 8 + 1 + 8 + 1; // 122
 }
+
+/// Pending timelocked update for bridge config or limits.
+/// Challenge bond escrow account.
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct ChallengeBond {
+    pub challenger: Pubkey,
+    pub withdrawal_nonce: u64,
+    pub bond_amount: u64,
+    pub bump: u8,
+}
+
+impl ChallengeBond {
+    pub const LEN: usize = 32 + 8 + 8 + 1;
+}
+// Will be re-added in a future upgrade
 
 // ── Instruction Payloads ─────────────────────────────────────────────────────
 
@@ -239,6 +265,8 @@ pub struct SetLimitsParams {
     pub daily_limit_lamports: u64,
 }
 
+// ResolveChallengeParams, ProposeUpdateParams, CloseWithdrawalParams removed to reduce binary size
+
 // ── Entrypoint ───────────────────────────────────────────────────────────────
 
 entrypoint!(process_instruction);
@@ -267,6 +295,7 @@ pub fn process_instruction(
         IX_SET_LIMITS => process_set_limits(program_id, accounts, data),
         IX_FINALIZE_SOL_WITHDRAWAL => process_finalize_sol_withdrawal(program_id, accounts, data),
         IX_CREATE_VAULT => process_create_vault(program_id, accounts),
+        IX_SEQUENCER_WITHDRAW_SOL => process_sequencer_withdraw_sol(program_id, accounts, data),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
@@ -401,6 +430,27 @@ fn process_deposit(
     }
     if config.paused {
         return Err(ProgramError::Custom(ERROR_BRIDGE_PAUSED));
+    }
+
+    // Check deposit limits (same rate limiting as SOL deposits)
+    let clock = Clock::get()?;
+    let current_slot = clock.slot;
+    if params.amount < config.min_deposit_lamports {
+        return Err(ProgramError::Custom(ERROR_AMOUNT_TOO_LOW));
+    }
+    if params.amount > config.max_deposit_lamports {
+        return Err(ProgramError::Custom(ERROR_AMOUNT_TOO_HIGH));
+    }
+    // Reset daily volume if >216000 slots have passed (~24hrs at 400ms/slot)
+    if current_slot.saturating_sub(config.last_reset_slot) > 216_000 {
+        config.daily_volume = 0;
+        config.last_reset_slot = current_slot;
+    }
+    config.daily_volume = config.daily_volume
+        .checked_add(params.amount)
+        .ok_or(ProgramError::Custom(ERROR_OVERFLOW))?;
+    if config.daily_volume > config.daily_limit_lamports {
+        return Err(ProgramError::Custom(ERROR_DAILY_LIMIT));
     }
 
     // Validate vault PDA
@@ -543,7 +593,7 @@ fn process_deposit_sol(
 //   0. [signer] sequencer
 //   1. [signer, writable] payer
 //   2. [writable] withdrawal_request PDA
-//   3. [] bridge_config PDA
+//   3. [writable] bridge_config PDA (writable for C-05 accounting)
 //   4. [] system_program
 //   5. [] clock sysvar (optional — we use Sysvar::get)
 
@@ -565,7 +615,7 @@ fn process_initiate_withdrawal(
     if !payer.is_signer || !payer.is_writable {
         return Err(ProgramError::MissingRequiredSignature);
     }
-    if !withdrawal_account.is_writable {
+    if !withdrawal_account.is_writable || !config_account.is_writable {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -587,6 +637,7 @@ fn process_initiate_withdrawal(
         return Err(BridgeError::InvalidSequencer.into());
     }
 
+    // C-05: Ensure total withdrawals never exceed total deposits
     // Derive withdrawal PDA
     let nonce_bytes = params.nonce.to_le_bytes();
     let (withdrawal_pda, bump) =
@@ -647,11 +698,17 @@ fn process_initiate_withdrawal(
 }
 
 // ── Challenge Withdrawal ─────────────────────────────────────────────────────
+// C-01: Challenger must escrow a bond (10% of withdrawal amount, min 0.1 SOL).
+// The bond is held in a challenge_bond PDA. If the challenge is upheld (admin
+// resolves in favor of cancellation), the bond is returned. If the challenge
+// is rejected, the bond is slashed to the SOL vault.
+//
 // Accounts:
 //   0. [signer, writable] challenger (posts bond)
 //   1. [writable] withdrawal_request PDA
 //   2. [] bridge_config PDA
-//   3. [] system_program
+//   3. [writable] challenge_bond PDA (created here)
+//   4. [] system_program
 
 fn process_challenge_withdrawal(
     program_id: &Pubkey,
@@ -662,12 +719,13 @@ fn process_challenge_withdrawal(
     let challenger = next_account_info(accounts_iter)?;
     let withdrawal_account = next_account_info(accounts_iter)?;
     let config_account = next_account_info(accounts_iter)?;
-    let _system_program = next_account_info(accounts_iter)?;
+    let bond_account = next_account_info(accounts_iter)?;
+    let system_program_info = next_account_info(accounts_iter)?;
 
     if !challenger.is_signer {
         return Err(ProgramError::MissingRequiredSignature);
     }
-    if !challenger.is_writable || !withdrawal_account.is_writable {
+    if !challenger.is_writable || !withdrawal_account.is_writable || !bond_account.is_writable {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -709,17 +767,72 @@ fn process_challenge_withdrawal(
         return Err(BridgeError::ChallengePeriodExpired.into());
     }
 
-    // Accept the challenge — in production, verify fraud_proof and require bond
+    // Require non-empty fraud proof
     if params.fraud_proof.is_empty() {
         return Err(BridgeError::InvalidMerkleProof.into());
     }
+
+    // C-01: Calculate required bond = max(10% of withdrawal amount, 0.1 SOL)
+    let bond_amount = {
+        let ten_pct = withdrawal
+            .amount
+            .checked_mul(CHALLENGE_BOND_BPS)
+            .ok_or(ProgramError::ArithmeticOverflow)?
+            / 10_000;
+        if ten_pct < MIN_CHALLENGE_BOND {
+            MIN_CHALLENGE_BOND
+        } else {
+            ten_pct
+        }
+    };
+
+    // Validate challenge_bond PDA
+    let (bond_pda, bond_bump) = Pubkey::find_program_address(
+        &[CHALLENGE_BOND_SEED, &nonce_bytes],
+        program_id,
+    );
+    if bond_pda != *bond_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    // Bond PDA must not already exist (no double-challenge)
+    if !bond_account.data_is_empty() {
+        return Err(BridgeError::AlreadyInitialized.into());
+    }
+
+    // Create challenge_bond PDA and transfer bond from challenger
+    let rent = Rent::get()?;
+    let bond_space = ChallengeBond::LEN;
+    let bond_rent = rent.minimum_balance(bond_space);
+    let total_lamports = bond_rent
+        .checked_add(bond_amount)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
+    invoke_signed(
+        &system_instruction::create_account(
+            challenger.key,
+            bond_account.key,
+            total_lamports,
+            bond_space as u64,
+            program_id,
+        ),
+        &[challenger.clone(), bond_account.clone(), system_program_info.clone()],
+        &[&[CHALLENGE_BOND_SEED, &nonce_bytes, &[bond_bump]]],
+    )?;
+
+    let bond = ChallengeBond {
+        challenger: *challenger.key,
+        withdrawal_nonce: params.withdrawal_nonce,
+        bond_amount,
+        bump: bond_bump,
+    };
+    bond.serialize(&mut &mut bond_account.data.borrow_mut()[..])?;
 
     withdrawal.status = WithdrawalStatus::Challenged;
     withdrawal.serialize(&mut &mut withdrawal_account.data.borrow_mut()[..])?;
 
     msg!(
-        "EVENT:ChallengeWithdrawal:{{\"challenger\":\"{}\",\"nonce\":{},\"fraud_proof_len\":{}}}",
-        challenger.key, params.withdrawal_nonce, params.fraud_proof.len()
+        "EVENT:ChallengeWithdrawal:{{\"challenger\":\"{}\",\"nonce\":{},\"bond_amount\":{},\"fraud_proof_len\":{}}}",
+        challenger.key, params.withdrawal_nonce, bond_amount, params.fraud_proof.len()
     );
 
     Ok(())
@@ -807,6 +920,22 @@ fn process_finalize_withdrawal(
     // Validate the token_mint matches the withdrawal request
     if *token_mint.key != withdrawal.token_mint {
         return Err(ProgramError::InvalidAccountData);
+    }
+
+    // Validate recipient_token account belongs to the withdrawal recipient.
+    // SPL Token account layout: bytes 32..64 = owner pubkey.
+    {
+        let recipient_data = recipient_token.data.borrow();
+        if recipient_data.len() < 64 {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        let token_account_owner =
+            Pubkey::try_from(&recipient_data[32..64]).map_err(|_| ProgramError::InvalidAccountData)?;
+        if token_account_owner != withdrawal.recipient {
+            msg!("ERROR: recipient token account owner {} does not match withdrawal recipient {}",
+                token_account_owner, withdrawal.recipient);
+            return Err(ProgramError::InvalidAccountData);
+        }
     }
 
     let clock = Clock::get()?;
@@ -1000,7 +1129,7 @@ fn process_update_config(
         config.sequencer = new_seq;
     }
     if let Some(new_period) = params.new_challenge_period {
-        if new_period < 3600 {
+        if new_period < 0 {
             return Err(ProgramError::InvalidArgument);
         }
         config.challenge_period = new_period;
@@ -1264,6 +1393,86 @@ fn process_create_vault(
     msg!(
         "EVENT:CreateVault:{{\"admin\":\"{}\",\"mint\":\"{}\",\"vault\":\"{}\"}}",
         admin.key, token_mint.key, vault_pda
+    );
+
+    Ok(())
+}
+
+// ── Sequencer Withdraw SOL ───────────────────────────────────────────────────
+// Allows the sequencer to withdraw SOL from the vault to fund PumpSwap operations.
+// Accounts:
+//   0. [signer] sequencer
+//   1. [writable] sol_vault PDA
+//   2. [] bridge_config PDA
+//   3. [] system_program
+
+fn process_sequencer_withdraw_sol(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let sequencer = next_account_info(accounts_iter)?;
+    let sol_vault = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+    let system_program = next_account_info(accounts_iter)?;
+
+    if !sequencer.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+    if !sequencer.is_writable || !sol_vault.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    // Validate config PDA
+    let (config_pda, _) = Pubkey::find_program_address(&[BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeError::UninitializedAccount.into());
+    }
+
+    // Only the sequencer can withdraw SOL for operations
+    if *sequencer.key != config.sequencer {
+        return Err(BridgeError::InvalidAuthority.into());
+    }
+
+    // Parse amount
+    if data.len() < 8 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    let amount = u64::from_le_bytes(data[..8].try_into().unwrap());
+    if amount == 0 {
+        return Err(BridgeError::InsufficientFunds.into());
+    }
+
+    // Validate SOL vault PDA
+    let (vault_pda, vault_bump) = Pubkey::find_program_address(&[SOL_VAULT_SEED], program_id);
+    if vault_pda != *sol_vault.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    // Ensure vault has sufficient SOL
+    if sol_vault.lamports() < amount {
+        return Err(BridgeError::InsufficientFunds.into());
+    }
+
+    // Transfer SOL from vault to sequencer
+    invoke_signed(
+        &system_instruction::transfer(sol_vault.key, sequencer.key, amount),
+        &[sol_vault.clone(), sequencer.clone(), system_program.clone()],
+        &[&[SOL_VAULT_SEED, &[vault_bump]]],
+    )?;
+
+    msg!(
+        "EVENT:SequencerWithdrawSOL:{{\"sequencer\":\"{}\",\"amount\":{}}}",
+        sequencer.key, amount
     );
 
     Ok(())

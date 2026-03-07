@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#08000E"/>
+    <stop offset="35%" stop-color="#10001A"/>
+    <stop offset="65%" stop-color="#0C0015"/>
+    <stop offset="100%" stop-color="#06000A"/>
+  </linearGradient>
+  <linearGradient id="gem-l" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#FF2D78"/>
+    <stop offset="100%" stop-color="#CC1A5E"/>
+  </linearGradient>
+  <linearGradient id="gem-r" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#FF5A9A"/>
+    <stop offset="100%" stop-color="#E62268"/>
+  </linearGradient>
+  <linearGradient id="gem-b" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#99103E"/>
+    <stop offset="100%" stop-color="#660A2A"/>
+  </linearGradient>
+  <linearGradient id="gem-crown" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#FF6BA8"/>
+    <stop offset="50%" stop-color="#FF2D78"/>
+    <stop offset="100%" stop-color="#FF5090"/>
+  </linearGradient>
+  <linearGradient id="accent-line" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="transparent"/>
+    <stop offset="20%" stop-color="#FF2D78" stop-opacity="0.5"/>
+    <stop offset="50%" stop-color="#FF2D78" stop-opacity="0.8"/>
+    <stop offset="80%" stop-color="#7B2FFF" stop-opacity="0.5"/>
+    <stop offset="100%" stop-color="transparent"/>
+  </linearGradient>
+  <linearGradient id="badge-bg" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#FF2D78" stop-opacity="0.08"/>
+    <stop offset="100%" stop-color="#7B2FFF" stop-opacity="0.08"/>
+  </linearGradient>
+  <radialGradient id="glow-center" cx="50%" cy="38%" r="40%">
+    <stop offset="0%" stop-color="#FF2D78" stop-opacity="0.12"/>
+    <stop offset="50%" stop-color="#FF2D78" stop-opacity="0.04"/>
+    <stop offset="100%" stop-color="transparent"/>
+  </radialGradient>
+  <radialGradient id="glow-violet" cx="75%" cy="60%" r="35%">
+    <stop offset="0%" stop-color="#7B2FFF" stop-opacity="0.06"/>
+    <stop offset="100%" stop-color="transparent"/>
+  </radialGradient>
+  <filter id="glow">
+    <feGaussianBlur stdDeviation="6" result="blur"/>
+    <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+  </filter>
+  <filter id="glow-sm">
+    <feGaussianBlur stdDeviation="3" result="blur"/>
+    <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+  </filter>
+</defs>
+
+<!-- Background -->
+<rect width="640" height="360" fill="url(#bg)"/>
+<rect width="640" height="360" fill="url(#glow-center)"/>
+<rect width="640" height="360" fill="url(#glow-violet)"/>
+
+<!-- Subtle grid -->
+<g opacity="0.025" stroke="#FF2D78" stroke-width="0.5">
+  <line x1="0" y1="90" x2="640" y2="90"/>
+  <line x1="0" y1="180" x2="640" y2="180"/>
+  <line x1="0" y1="270" x2="640" y2="270"/>
+  <line x1="160" y1="0" x2="160" y2="360"/>
+  <line x1="320" y1="0" x2="320" y2="360"/>
+  <line x1="480" y1="0" x2="480" y2="360"/>
+</g>
+
+<!-- Corner brackets -->
+<g opacity="0.3" stroke="#FF2D78" stroke-width="1">
+  <path d="M16,16 L16,36 M16,16 L36,16"/>
+  <path d="M624,16 L624,36 M624,16 L604,16"/>
+  <path d="M16,344 L16,324 M16,344 L36,344"/>
+  <path d="M624,344 L624,324 M624,344 L604,344"/>
+</g>
+
+<!-- Decorative orbit ring around gem -->
+<ellipse cx="320" cy="120" rx="80" ry="80" fill="none" stroke="#FF2D78" stroke-width="0.5" opacity="0.12"/>
+<ellipse cx="320" cy="120" rx="95" ry="95" fill="none" stroke="#7B2FFF" stroke-width="0.5" opacity="0.08" stroke-dasharray="3 6"/>
+
+<!-- Orbit dots -->
+<circle cx="240" cy="120" r="2" fill="#FF2D78" opacity="0.35"/>
+<circle cx="400" cy="120" r="2" fill="#7B2FFF" opacity="0.35"/>
+<circle cx="320" cy="40" r="1.5" fill="#FF2D78" opacity="0.25"/>
+<circle cx="320" cy="200" r="1.5" fill="#7B2FFF" opacity="0.25"/>
+
+<!-- Main gem — rose crystal -->
+<g transform="translate(320, 115)" filter="url(#glow)">
+  <!-- Gem shadow -->
+  <ellipse cx="0" cy="58" rx="35" ry="8" fill="#FF2D78" opacity="0.08"/>
+
+  <!-- Bottom facet -->
+  <polygon points="-45,0 0,65 45,0" fill="url(#gem-b)" opacity="0.95"/>
+  <!-- Left face -->
+  <polygon points="0,-50 -45,0 0,12" fill="url(#gem-l)" opacity="0.95"/>
+  <!-- Right face -->
+  <polygon points="0,-50 45,0 0,12" fill="url(#gem-r)" opacity="0.9"/>
+  <!-- Crown -->
+  <polygon points="0,-50 -24,-16 0,-8 24,-16" fill="url(#gem-crown)" opacity="0.85"/>
+  <!-- Highlight -->
+  <polygon points="-10,-38 -6,-15 0,-18 -7,-42" fill="white" opacity="0.2"/>
+  <polygon points="4,-34 7,-18 10,-22 6,-37" fill="white" opacity="0.12"/>
+  <!-- Edge lines -->
+  <line x1="0" y1="-50" x2="-45" y2="0" stroke="#FFB3D1" stroke-width="0.4" opacity="0.35"/>
+  <line x1="0" y1="-50" x2="45" y2="0" stroke="#FF7AAF" stroke-width="0.4" opacity="0.25"/>
+</g>
+
+<!-- Lock icon (wallet security) -->
+<g transform="translate(320, 130)" filter="url(#glow-sm)">
+  <rect x="-8" y="-3" width="16" height="12" fill="none" stroke="white" stroke-width="1" opacity="0.5"/>
+  <path d="M-5,-3 L-5,-8 A5,5 0 0,1 5,-8 L5,-3" fill="none" stroke="white" stroke-width="1" opacity="0.5"/>
+  <circle cx="0" cy="3" r="1.8" fill="white" opacity="0.4"/>
+  <rect x="-0.5" y="3" width="1" height="3.5" fill="white" opacity="0.4"/>
+</g>
+
+<!-- Accent line -->
+<rect x="120" y="195" width="400" height="1" fill="url(#accent-line)"/>
+
+<!-- Title: MYTHIC WALLET -->
+<text x="320" y="230" text-anchor="middle" font-family="'Sora', 'SF Pro Display', -apple-system, sans-serif" font-weight="800" font-size="32" letter-spacing="4" fill="white" opacity="0.95">MYTHIC WALLET</text>
+
+<!-- Subtitle -->
+<text x="320" y="255" text-anchor="middle" font-family="'JetBrains Mono', 'SF Mono', monospace" font-weight="400" font-size="11" letter-spacing="3" fill="#FF2D78" opacity="0.65">SECURE  SELF-CUSTODY  ON  MYTHIC  L2</text>
+
+<!-- Feature badges row -->
+<g transform="translate(320, 290)">
+  <!-- SWAP -->
+  <g transform="translate(-195, 0)">
+    <rect x="-35" y="-12" width="70" height="24" fill="url(#badge-bg)" stroke="#FF9500" stroke-width="0.5" opacity="0.8"/>
+    <text x="0" y="4" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="9" letter-spacing="1.5" fill="#FF9500" opacity="0.9">SWAP</text>
+  </g>
+  <!-- BRIDGE -->
+  <g transform="translate(-97, 0)">
+    <rect x="-40" y="-12" width="80" height="24" fill="url(#badge-bg)" stroke="#39FF14" stroke-width="0.5" opacity="0.8"/>
+    <text x="0" y="4" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="9" letter-spacing="1.5" fill="#39FF14" opacity="0.9">BRIDGE</text>
+  </g>
+  <!-- SEND -->
+  <g transform="translate(0, 0)">
+    <rect x="-32" y="-12" width="64" height="24" fill="url(#badge-bg)" stroke="#FF2D78" stroke-width="0.5" opacity="0.8"/>
+    <text x="0" y="4" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="9" letter-spacing="1.5" fill="#FF2D78" opacity="0.9">SEND</text>
+  </g>
+  <!-- EARN -->
+  <g transform="translate(97, 0)">
+    <rect x="-32" y="-12" width="64" height="24" fill="url(#badge-bg)" stroke="#7B2FFF" stroke-width="0.5" opacity="0.8"/>
+    <text x="0" y="4" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="9" letter-spacing="1.5" fill="#7B2FFF" opacity="0.9">EARN</text>
+  </g>
+  <!-- KEYS -->
+  <g transform="translate(195, 0)">
+    <rect x="-32" y="-12" width="64" height="24" fill="url(#badge-bg)" stroke="white" stroke-width="0.5" opacity="0.6"/>
+    <text x="0" y="4" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="9" letter-spacing="1.5" fill="white" opacity="0.6">KEYS</text>
+  </g>
+</g>
+
+<!-- Bottom tagline -->
+<text x="320" y="335" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-weight="300" font-size="8" letter-spacing="4" fill="white" opacity="0.2">MYTHIC  ━  INTELLIGENCE  FORGED  ON-CHAIN</text>
+
+<!-- Floating particles -->
+<circle cx="80" cy="60" r="1" fill="#FF2D78" opacity="0.2"/>
+<circle cx="560" cy="80" r="1.2" fill="#7B2FFF" opacity="0.2"/>
+<circle cx="100" cy="280" r="0.8" fill="#FF5A9A" opacity="0.15"/>
+<circle cx="540" cy="300" r="1" fill="#FF2D78" opacity="0.15"/>
+<circle cx="180" cy="40" r="0.6" fill="#7B2FFF" opacity="0.2"/>
+<circle cx="460" cy="50" r="0.8" fill="#FF2D78" opacity="0.18"/>
+<circle cx="60" cy="180" r="1.2" fill="#39FF14" opacity="0.1"/>
+<circle cx="580" cy="200" r="0.8" fill="#39FF14" opacity="0.1"/>
+</svg>

@@ -30,7 +30,11 @@ const FEE_CONFIG_SEED: &[u8] = b"fee_config";
 const VALIDATOR_SEED: &[u8] = b"validator";
 const FEE_POOL_SEED: &[u8] = b"fee_pool";
 const REWARD_VAULT_SEED: &[u8] = b"reward_vault";
+const PENDING_FEE_UPDATE_SEED: &[u8] = b"pending_fee_update";
 const BPS_DENOMINATOR: u16 = 10_000;
+
+/// Timelock delay for fee config updates: ~24 hours at 400ms slots
+const TIMELOCK_DELAY: u64 = 216_000;
 
 // ---------------------------------------------------------------------------
 // Entrypoint
@@ -63,6 +67,9 @@ pub fn process_instruction(
         10 => process_unpause(program_id, accounts),
         11 => process_burn_foundation_fees(program_id, accounts, data),
         12 => process_get_supply_stats(program_id, accounts),
+        13 => process_propose_fee_update(program_id, accounts, data),
+        14 => process_execute_fee_update(program_id, accounts, data),
+        15 => process_burn_tokens(program_id, accounts, data),
         _ => Err(MythTokenError::InvalidInstruction.into()),
     }
 }
@@ -113,6 +120,12 @@ pub enum MythTokenError {
     InvalidBurnPercentage,
     #[error("Insufficient foundation balance for burn")]
     InsufficientFoundationBalance,
+    #[error("Pending fee update already exists")]
+    PendingUpdateExists,
+    #[error("Timelock delay has not passed")]
+    TimelockNotExpired,
+    #[error("No pending fee update to execute")]
+    NoPendingUpdate,
 }
 
 impl From<MythTokenError> for ProgramError {
@@ -266,6 +279,29 @@ impl ValidatorFeeAccount {
 }
 
 // ---------------------------------------------------------------------------
+// State: PendingFeeUpdate (timelock)
+// ---------------------------------------------------------------------------
+
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
+pub struct PendingFeeUpdate {
+    pub is_initialized: bool,                // 1
+    pub proposer: Pubkey,                    // 32
+    pub gas_split: Option<FeeSplit>,         // 1 + 6 = 7
+    pub compute_split: Option<FeeSplit>,     // 7
+    pub inference_split: Option<FeeSplit>,   // 7
+    pub bridge_split: Option<FeeSplit>,      // 7
+    pub foundation_wallet: Option<Pubkey>,   // 1 + 32 = 33
+    pub propose_slot: u64,                   // 8
+    pub execution_slot: u64,                 // 8 (propose_slot + TIMELOCK_DELAY)
+    pub bump: u8,                            // 1
+}
+
+impl PendingFeeUpdate {
+    // 1 + 32 + 7*4 + 33 + 8 + 8 + 1 = 111
+    pub const SIZE: usize = 111;
+}
+
+// ---------------------------------------------------------------------------
 // Instruction data structs
 // ---------------------------------------------------------------------------
 
@@ -309,6 +345,21 @@ pub struct UpdateFeeConfigArgs {
 pub struct BurnFoundationFeesArgs {
     /// Basis points (1-10000) of accumulated foundation fees to burn.
     pub burn_bps: u16,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct BurnTokensArgs {
+    /// Amount of MYTH tokens to burn (in base units).
+    pub amount: u64,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct ProposeFeeUpdateArgs {
+    pub gas_split: Option<FeeSplit>,
+    pub compute_split: Option<FeeSplit>,
+    pub inference_split: Option<FeeSplit>,
+    pub bridge_split: Option<FeeSplit>,
+    pub foundation_wallet: Option<Pubkey>,
 }
 
 // ---------------------------------------------------------------------------
@@ -1388,6 +1439,320 @@ fn process_get_supply_stats(
         config.inference_burned,
         config.bridge_burned,
         config.subnet_burned,
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: ProposeFeeUpdate (admin-only, timelocked)
+// ---------------------------------------------------------------------------
+// Creates a PendingFeeUpdate PDA. The update cannot be applied until
+// TIMELOCK_DELAY slots have passed.
+//
+// Accounts:
+//   0. [signer, writable] admin
+//   1. []                  config PDA
+//   2. [writable]          pending_fee_update PDA (seeds: ["pending_fee_update"])
+//   3. []                  system_program
+
+fn process_propose_fee_update(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let args = ProposeFeeUpdateArgs::try_from_slice(data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    // Validate any provided fee splits
+    if let Some(ref split) = args.gas_split {
+        split.validate()?;
+    }
+    if let Some(ref split) = args.compute_split {
+        split.validate()?;
+    }
+    if let Some(ref split) = args.inference_split {
+        split.validate()?;
+    }
+    if let Some(ref split) = args.bridge_split {
+        split.validate()?;
+    }
+
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+    let pending_account = next_account_info(account_iter)?;
+    let system_program = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(admin)?;
+    assert_writable(pending_account)?;
+    assert_owned_by(config_account, program_id)?;
+
+    // Validate config PDA
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[FEE_CONFIG_SEED], program_id);
+    if config_account.key != &config_pda {
+        return Err(MythTokenError::InvalidPDA.into());
+    }
+
+    let config = FeeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(MythTokenError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(MythTokenError::Unauthorized.into());
+    }
+
+    // Derive pending update PDA
+    let (pending_pda, pending_bump) =
+        Pubkey::find_program_address(&[PENDING_FEE_UPDATE_SEED], program_id);
+    if pending_account.key != &pending_pda {
+        return Err(MythTokenError::InvalidPDA.into());
+    }
+
+    // Must not already have a pending update
+    if !pending_account.data_is_empty() {
+        return Err(MythTokenError::PendingUpdateExists.into());
+    }
+
+    create_pda_account(
+        admin,
+        PendingFeeUpdate::SIZE,
+        program_id,
+        system_program,
+        pending_account,
+        &[PENDING_FEE_UPDATE_SEED, &[pending_bump]],
+    )?;
+
+    let clock = Clock::get()?;
+    let propose_slot = clock.slot;
+    let execution_slot = propose_slot
+        .checked_add(TIMELOCK_DELAY)
+        .ok_or(MythTokenError::Overflow)?;
+
+    let pending = PendingFeeUpdate {
+        is_initialized: true,
+        proposer: *admin.key,
+        gas_split: args.gas_split,
+        compute_split: args.compute_split,
+        inference_split: args.inference_split,
+        bridge_split: args.bridge_split,
+        foundation_wallet: args.foundation_wallet,
+        propose_slot,
+        execution_slot,
+        bump: pending_bump,
+    };
+
+    pending.serialize(&mut &mut pending_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:FeeUpdateProposed:{{\"admin\":\"{}\",\"propose_slot\":{},\"execution_slot\":{}}}",
+        admin.key,
+        propose_slot,
+        execution_slot,
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: ExecuteFeeUpdate (admin-only, after timelock)
+// ---------------------------------------------------------------------------
+// Applies the pending fee update after TIMELOCK_DELAY has passed. Closes
+// the PendingFeeUpdate PDA and refunds rent to admin.
+//
+// Accounts:
+//   0. [signer, writable] admin
+//   1. [writable]          config PDA
+//   2. [writable]          pending_fee_update PDA
+
+fn process_execute_fee_update(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    _data: &[u8],
+) -> ProgramResult {
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+    let pending_account = next_account_info(account_iter)?;
+
+    assert_signer(admin)?;
+    assert_writable(admin)?;
+    assert_writable(config_account)?;
+    assert_writable(pending_account)?;
+    assert_owned_by(config_account, program_id)?;
+    assert_owned_by(pending_account, program_id)?;
+
+    // Validate config PDA
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[FEE_CONFIG_SEED], program_id);
+    if config_account.key != &config_pda {
+        return Err(MythTokenError::InvalidPDA.into());
+    }
+
+    // Validate pending PDA
+    let (pending_pda, _) =
+        Pubkey::find_program_address(&[PENDING_FEE_UPDATE_SEED], program_id);
+    if pending_account.key != &pending_pda {
+        return Err(MythTokenError::InvalidPDA.into());
+    }
+
+    let mut config = FeeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(MythTokenError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(MythTokenError::Unauthorized.into());
+    }
+
+    if pending_account.data_is_empty() {
+        return Err(MythTokenError::NoPendingUpdate.into());
+    }
+
+    let pending = PendingFeeUpdate::try_from_slice(&pending_account.data.borrow())?;
+    if !pending.is_initialized {
+        return Err(MythTokenError::NoPendingUpdate.into());
+    }
+
+    // Check timelock has expired
+    let clock = Clock::get()?;
+    if clock.slot < pending.execution_slot {
+        return Err(MythTokenError::TimelockNotExpired.into());
+    }
+
+    // Apply the updates
+    if let Some(split) = pending.gas_split {
+        config.gas_split = split;
+    }
+    if let Some(split) = pending.compute_split {
+        config.compute_split = split;
+    }
+    if let Some(split) = pending.inference_split {
+        config.inference_split = split;
+    }
+    if let Some(split) = pending.bridge_split {
+        config.bridge_split = split;
+    }
+    if let Some(wallet) = pending.foundation_wallet {
+        config.foundation_wallet = wallet;
+    }
+
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    // Close PendingFeeUpdate PDA: zero data, return lamports to admin
+    let data_len = pending_account.data_len();
+    let mut pdata = pending_account.data.borrow_mut();
+    for byte in pdata[..data_len].iter_mut() {
+        *byte = 0;
+    }
+    drop(pdata);
+
+    let lamports = pending_account.lamports();
+    **pending_account.try_borrow_mut_lamports()? = 0;
+    **admin.try_borrow_mut_lamports()? = admin
+        .lamports()
+        .checked_add(lamports)
+        .ok_or(MythTokenError::Overflow)?;
+
+    msg!(
+        "EVENT:FeeUpdateExecuted:{{\"admin\":\"{}\",\"proposed_at\":{},\"executed_at\":{}}}",
+        admin.key,
+        pending.propose_slot,
+        clock.slot,
+    );
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Instruction: BurnTokens (discriminant 15)
+// Admin can burn arbitrary amounts of MYTH tokens from a specified token
+// account. The token account owner/authority must co-sign.
+// Accounts:
+//   0 = [signer]    admin
+//   1 = [writable]  config PDA
+//   2 = [writable]  token_account (SPL token account to burn from)
+//   3 = [writable]  mint (MYTH mint)
+//   4 = [signer]    authority (token account owner/delegate)
+//   5 = []          token_program
+// ---------------------------------------------------------------------------
+
+fn process_burn_tokens(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let args = BurnTokensArgs::try_from_slice(data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    if args.amount == 0 {
+        msg!("BurnTokens: amount must be greater than zero");
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let account_iter = &mut accounts.iter();
+    let admin = next_account_info(account_iter)?;
+    let config_account = next_account_info(account_iter)?;
+    let token_account = next_account_info(account_iter)?;
+    let myth_mint = next_account_info(account_iter)?;
+    let authority = next_account_info(account_iter)?;
+    let token_program = next_account_info(account_iter)?;
+
+    // Validate signers and writability
+    assert_signer(admin)?;
+    assert_writable(config_account)?;
+    assert_writable(token_account)?;
+    assert_writable(myth_mint)?;
+    assert_signer(authority)?;
+    assert_owned_by(config_account, program_id)?;
+
+    // Validate config PDA
+    let (config_pda, _) =
+        Pubkey::find_program_address(&[FEE_CONFIG_SEED], program_id);
+    if config_account.key != &config_pda {
+        return Err(MythTokenError::InvalidPDA.into());
+    }
+
+    // Load and validate config
+    let mut config = FeeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(MythTokenError::NotInitialized.into());
+    }
+    if admin.key != &config.admin {
+        return Err(MythTokenError::Unauthorized.into());
+    }
+
+    // Verify the mint matches the configured MYTH mint
+    if myth_mint.key != &config.myth_mint {
+        msg!("BurnTokens: mint does not match configured MYTH mint");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    // Burn tokens via CPI — authority is a direct signer (not a PDA)
+    burn_spl_tokens(
+        token_account,
+        myth_mint,
+        authority,
+        token_program,
+        args.amount,
+        &[], // authority is a direct signer, no PDA seeds needed
+    )?;
+
+    // Update total_burned in config
+    config.total_burned = config
+        .total_burned
+        .checked_add(args.amount)
+        .ok_or(MythTokenError::Overflow)?;
+    config.serialize(&mut &mut config_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:TokensBurned:{{\"admin\":\"{}\",\"authority\":\"{}\",\"token_account\":\"{}\",\"amount\":{},\"total_burned\":{}}}",
+        admin.key,
+        authority.key,
+        token_account.key,
+        args.amount,
+        config.total_burned,
     );
 
     Ok(())

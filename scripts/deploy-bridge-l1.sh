@@ -4,9 +4,9 @@
 # Program:  oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ
 set -e
 
-KEYPAIR="${DEPLOYER_KEYPAIR:-./keys/deployer.json}"
-PROGRAM_KEYPAIR="./target/deploy/mythic_bridge-keypair.json"
-SO_FILE="./target/deploy/mythic_bridge.so"
+KEYPAIR="/mnt/data/mythic-l2/keys/deployer.json"
+PROGRAM_KEYPAIR="/mnt/data/mythic-l2/target/deploy/mythic_bridge-keypair.json"
+SO_FILE="/mnt/data/mythic-l2/target/deploy/mythic_bridge.so"
 RPC="${HELIUS_RPC_URL:?Set HELIUS_RPC_URL env var}"
 
 export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"

@@ -1,5 +1,5 @@
 // Mythic L2 — Staking Program
-// Synthetix-style reward-per-token accumulator for MYTH token staking.
+// Fixed per-token reward model: 1 MYTH per 100 MYTH staked per day, always.
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
@@ -33,8 +33,13 @@ const STAKING_VAULT_SEED: &[u8] = b"staking_vault";
 /// Default unbonding period: ~7 days at 400ms slots.
 const DEFAULT_UNBONDING_SLOTS: u64 = 120_960;
 
-/// Precision multiplier for reward_per_token calculations (1e18).
-const PRECISION: u128 = 1_000_000_000_000_000_000;
+/// Slots per day at ~400ms/slot.
+const SLOTS_PER_DAY: u128 = 216_000;
+
+/// Fixed reward denominator: 100 * SLOTS_PER_DAY = 21_600_000.
+/// Formula: reward_lamports = staked_lamports * elapsed_slots / FIXED_RATE_DENOM
+/// This gives exactly 1 MYTH per 100 MYTH staked per day (1% daily).
+const FIXED_RATE_DENOM: u128 = 21_600_000;
 
 // ---------------------------------------------------------------------------
 // Entrypoint
@@ -141,8 +146,10 @@ impl StakingConfig {
 pub struct StakeAccount {
     pub owner: Pubkey,
     pub staked_amount: u64,
-    /// Snapshot of reward_per_token at last interaction.
-    pub reward_per_token_paid: u128,
+    /// Slot when rewards were last computed for this account.
+    pub last_update_slot: u64,
+    /// Lifetime total claimed rewards (never resets).
+    pub total_claimed: u64,
     pub rewards_earned: u64,
     pub unbonding_amount: u64,
     pub unbonding_start_slot: u64,
@@ -150,7 +157,8 @@ pub struct StakeAccount {
 }
 
 impl StakeAccount {
-    // 32 + 8 + 16 + 8 + 8 + 8 + 1 = 81
+    // 32 + 8 + 8 + 8 + 8 + 8 + 8 + 1 = 81
+    // (last_update_slot:u64 + total_claimed:u64 = 16 bytes, same as old reward_per_token_paid:u128)
     pub const SIZE: usize = 81;
 }
 
@@ -230,72 +238,50 @@ fn transfer_lamports_from_vault<'a>(
 }
 
 // ---------------------------------------------------------------------------
-// Reward accumulator math (Synthetix pattern)
+// Reward math — Fixed 1:100 per-token rate (no pool-share dependency)
 // ---------------------------------------------------------------------------
+// Every staker earns exactly 1 MYTH per 100 MYTH staked per day, always,
+// regardless of how many other stakers exist or the total pool size.
 
-/// Compute current reward_per_token based on elapsed slots since last update.
-fn current_reward_per_token(config: &StakingConfig, current_slot: u64) -> Result<u128, ProgramError> {
-    if config.total_staked == 0 {
-        return Ok(config.reward_per_token_stored);
+/// Compute pending rewards since last update using fixed per-token rate.
+fn compute_pending_rewards(stake: &StakeAccount, current_slot: u64) -> Result<u64, ProgramError> {
+    if stake.staked_amount == 0 || stake.last_update_slot >= current_slot {
+        return Ok(0);
     }
 
     let elapsed = current_slot
-        .checked_sub(config.last_update_slot)
+        .checked_sub(stake.last_update_slot)
         .ok_or(StakingError::Overflow)?;
 
-    let additional = (elapsed as u128)
-        .checked_mul(config.reward_rate as u128)
+    // reward = staked_amount * elapsed_slots / (100 * SLOTS_PER_DAY)
+    let reward = (stake.staked_amount as u128)
+        .checked_mul(elapsed as u128)
         .ok_or(StakingError::Overflow)?
-        .checked_mul(PRECISION)
-        .ok_or(StakingError::Overflow)?
-        / (config.total_staked as u128);
+        / FIXED_RATE_DENOM;
 
-    config
-        .reward_per_token_stored
-        .checked_add(additional)
-        .ok_or_else(|| StakingError::Overflow.into())
+    Ok(u64::try_from(reward).map_err(|_| StakingError::Overflow)?)
 }
 
-/// Compute pending rewards for a single stake account given current reward_per_token.
-fn earned(stake: &StakeAccount, rpt: u128) -> Result<u64, ProgramError> {
-    let delta = rpt
-        .checked_sub(stake.reward_per_token_paid)
-        .ok_or(StakingError::Overflow)?;
+/// Accrue pending rewards into rewards_earned and update last_update_slot.
+/// Handles migration from old Synthetix-format accounts automatically:
+/// if last_update_slot is impossibly large (garbage from old u128 field),
+/// reset to current slot with no accrual.
+fn update_reward(stake: &mut StakeAccount, current_slot: u64) -> ProgramResult {
+    // Migration: old-format accounts have u128 reward_per_token_paid bytes
+    // in the last_update_slot + total_claimed fields — detect and reset.
+    if stake.last_update_slot > current_slot {
+        stake.last_update_slot = current_slot;
+        stake.total_claimed = 0;
+        return Ok(());
+    }
 
-    let pending = (stake.staked_amount as u128)
-        .checked_mul(delta)
-        .ok_or(StakingError::Overflow)?
-        / PRECISION;
-
-    let pending_u64 = u64::try_from(pending).map_err(|_| StakingError::Overflow)?;
-
-    stake
+    let pending = compute_pending_rewards(stake, current_slot)?;
+    stake.rewards_earned = stake
         .rewards_earned
-        .checked_add(pending_u64)
-        .ok_or_else(|| StakingError::Overflow.into())
-}
+        .checked_add(pending)
+        .ok_or(StakingError::Overflow)?;
+    stake.last_update_slot = current_slot;
 
-/// Update config and stake account reward state. Returns updated (config, stake).
-fn update_reward(
-    config: &mut StakingConfig,
-    stake: &mut StakeAccount,
-    current_slot: u64,
-) -> ProgramResult {
-    let rpt = current_reward_per_token(config, current_slot)?;
-    config.reward_per_token_stored = rpt;
-    config.last_update_slot = current_slot;
-
-    stake.rewards_earned = earned(stake, rpt)?;
-    stake.reward_per_token_paid = rpt;
-
-    Ok(())
-}
-
-/// Update only the global config reward state (used when no stake account yet).
-fn update_reward_global(config: &mut StakingConfig, current_slot: u64) -> ProgramResult {
-    let rpt = current_reward_per_token(config, current_slot)?;
-    config.reward_per_token_stored = rpt;
-    config.last_update_slot = current_slot;
     Ok(())
 }
 
@@ -460,9 +446,6 @@ fn process_stake(
 
     // Create stake account if first time
     let mut stake = if stake_account.data_is_empty() {
-        // Update global reward state before creating new account
-        update_reward_global(&mut config, clock.slot)?;
-
         create_pda_account(
             user,
             StakeAccount::SIZE,
@@ -475,7 +458,8 @@ fn process_stake(
         StakeAccount {
             owner: *user.key,
             staked_amount: 0,
-            reward_per_token_paid: config.reward_per_token_stored,
+            last_update_slot: clock.slot,
+            total_claimed: 0,
             rewards_earned: 0,
             unbonding_amount: 0,
             unbonding_start_slot: 0,
@@ -487,7 +471,7 @@ fn process_stake(
         if s.owner != *user.key {
             return Err(StakingError::Unauthorized.into());
         }
-        update_reward(&mut config, &mut s, clock.slot)?;
+        update_reward(&mut s, clock.slot)?;
         s
     };
 
@@ -569,7 +553,7 @@ fn process_unstake(
     }
 
     let clock = Clock::get()?;
-    update_reward(&mut config, &mut stake, clock.slot)?;
+    update_reward(&mut stake, clock.slot)?;
 
     // Move from staked to unbonding
     stake.staked_amount = stake
@@ -723,7 +707,7 @@ fn process_claim_rewards(
     }
 
     let clock = Clock::get()?;
-    update_reward(&mut config, &mut stake, clock.slot)?;
+    update_reward(&mut stake, clock.slot)?;
 
     let reward_amount = stake.rewards_earned;
     if reward_amount == 0 {
@@ -734,6 +718,12 @@ fn process_claim_rewards(
     if config.reward_pool_balance < reward_amount {
         return Err(StakingError::InsufficientStake.into());
     }
+
+    // Track lifetime claimed amount
+    stake.total_claimed = stake
+        .total_claimed
+        .checked_add(reward_amount)
+        .ok_or(StakingError::Overflow)?;
 
     // Transfer reward SOL from vault PDA to user
     transfer_lamports_from_vault(vault_account, user, reward_amount)?;

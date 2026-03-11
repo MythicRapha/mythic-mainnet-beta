@@ -20,7 +20,7 @@ use solana_program::{
 // Program ID
 // ---------------------------------------------------------------------------
 
-solana_program::declare_id!("7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf");
+solana_program::declare_id!("MythToken1111111111111111111111111111111111");
 
 // ---------------------------------------------------------------------------
 // Constants

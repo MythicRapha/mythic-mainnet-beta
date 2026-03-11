@@ -42,7 +42,7 @@ const TOKEN_DECIMALS: u8 = 6;
 
 /// MYTH Token program ID — fees are routed here for unified burn/distribute.
 const MYTH_TOKEN_PROGRAM_ID: Pubkey =
-    solana_program::pubkey!("7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf");
+    solana_program::pubkey!("MythToken1111111111111111111111111111111111");
 const FEE_CONFIG_SEED_MT: &[u8] = b"fee_config";
 
 /// Fee type discriminators for myth-token CollectFee
@@ -1251,18 +1251,6 @@ fn process_buy(
         &[],
     )?;
 
-    // Transfer protocol fee portion to foundation
-    if protocol_fee_share > 0 {
-        transfer_spl_tokens(
-            buyer_myth_ata,
-            foundation_myth_ata,
-            buyer,
-            token_program,
-            protocol_fee_share,
-            &[],
-        )?;
-    }
-
     // Transfer creator fee share to curve vault (stored for creator)
     if creator_fee_share > 0 {
         transfer_spl_tokens(
@@ -1275,8 +1263,10 @@ fn process_buy(
         )?;
     }
 
-    // Optional myth-token CPI for unified fee tracking/burning
-    if fee > 0 {
+    // Route protocol fee: try myth-token CPI first (burn/distribute), fall back to foundation.
+    if protocol_fee_share > 0 {
+        let mut cpi_succeeded = false;
+
         let myth_token_program = next_account_info(account_iter);
         if let Ok(myth_prog) = myth_token_program {
             if myth_prog.key == &MYTH_TOKEN_PROGRAM_ID {
@@ -1285,21 +1275,38 @@ fn process_buy(
                 let myth_mint_info = next_account_info(account_iter)?;
                 let fee_pool_token_info = next_account_info(account_iter)?;
 
-                let _ = cpi_collect_fee(
+                // CPI routes fee directly from buyer's token account
+                let result = cpi_collect_fee(
                     buyer,
                     myth_prog,
                     fee_config_info,
                     fee_pool_info,
-                    foundation_myth_ata,
+                    buyer_myth_ata,        // payer_token_account = buyer's MYTH ATA
                     foundation_myth_ata,
                     myth_mint_info,
                     fee_pool_token_info,
                     token_program,
                     system_program,
                     FEE_TYPE_COMPUTE,
-                    fee,
+                    protocol_fee_share,
                 );
+                cpi_succeeded = result.is_ok();
+                if !cpi_succeeded {
+                    msg!("WARN: myth-token CPI failed, falling back to foundation transfer");
+                }
             }
+        }
+
+        // Fallback: send protocol fee to foundation if CPI didn't handle it
+        if !cpi_succeeded {
+            transfer_spl_tokens(
+                buyer_myth_ata,
+                foundation_myth_ata,
+                buyer,
+                token_program,
+                protocol_fee_share,
+                &[],
+            )?;
         }
     }
 
@@ -1552,33 +1559,12 @@ fn process_sell(
 
     // Creator fee share stays in vault (tracked in creator_fee_lamports)
 
-    // Optional myth-token CPI for unified fee tracking/burning
-    if fee > 0 {
-        let myth_token_program = next_account_info(account_iter);
-        if let Ok(myth_prog) = myth_token_program {
-            if myth_prog.key == &MYTH_TOKEN_PROGRAM_ID {
-                let fee_config_info = next_account_info(account_iter)?;
-                let fee_pool_info = next_account_info(account_iter)?;
-                let myth_mint_info = next_account_info(account_iter)?;
-                let fee_pool_token_info = next_account_info(account_iter)?;
-                let system_prog = next_account_info(account_iter)?;
-
-                let _ = cpi_collect_fee(
-                    seller,
-                    myth_prog,
-                    fee_config_info,
-                    fee_pool_info,
-                    foundation_myth_ata,
-                    foundation_myth_ata,
-                    myth_mint_info,
-                    fee_pool_token_info,
-                    token_program,
-                    system_prog,
-                    FEE_TYPE_COMPUTE,
-                    fee,
-                );
-            }
-        }
+    // NOTE: Sell CPI to myth-token is not feasible here because the protocol fee
+    // originates from the curve vault PDA, and CollectFee requires the payer to sign
+    // as authority on the source token account. The protocol fee has already been
+    // sent to foundation above. Consume any optional trailing CPI accounts.
+    if protocol_fee_share > 0 {
+        let _ = next_account_info(account_iter); // myth_token_program (optional)
     }
 
     // Update launch state
@@ -1772,33 +1758,12 @@ fn process_graduate(
         )?;
     }
 
-    // Optional myth-token CPI for unified fee tracking/burning on foundation share
+    // NOTE: Migrate CPI to myth-token is not feasible here because the foundation share
+    // originates from the curve vault PDA. CollectFee requires the payer to sign as authority
+    // on the source token account. The foundation share has already been transferred above.
+    // Consume any optional trailing CPI accounts.
     if foundation_share > 0 {
-        let myth_token_program = next_account_info(account_iter);
-        if let Ok(myth_prog) = myth_token_program {
-            if myth_prog.key == &MYTH_TOKEN_PROGRAM_ID {
-                let fee_config_info = next_account_info(account_iter)?;
-                let fee_pool_info = next_account_info(account_iter)?;
-                let myth_mint_info = next_account_info(account_iter)?;
-                let fee_pool_token_info = next_account_info(account_iter)?;
-                let system_prog = next_account_info(account_iter)?;
-
-                let _ = cpi_collect_fee(
-                    cranker,
-                    myth_prog,
-                    fee_config_info,
-                    fee_pool_info,
-                    foundation_myth_ata,
-                    foundation_myth_ata,
-                    myth_mint_info,
-                    fee_pool_token_info,
-                    token_program,
-                    system_prog,
-                    FEE_TYPE_COMPUTE,
-                    foundation_share,
-                );
-            }
-        }
+        let _ = next_account_info(account_iter); // myth_token_program (optional)
     }
 
     // Mint remaining tokens (max_supply - tokens_sold) to the DEX token ATA

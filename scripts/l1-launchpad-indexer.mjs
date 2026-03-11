@@ -27,11 +27,31 @@ const DB_PATH = process.env.DB_PATH || join(__dirname, '..', 'data', 'launchpad.
 const METEORA_DBC_PROGRAM = new PublicKey('dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN');
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
+// MythicPad config account — monitor ONLY our launchpad's transactions
+const MYTHICPAD_CONFIG = new PublicKey('3qmRYAJycnRJEVtinC687CXbqTBZTUkPCcsNQzwUhx7K');
+
 // Graduation threshold in SOL (matches MythicPad partner config: 20 SOL)
 const GRADUATION_THRESHOLD_SOL = 20;
 
+// Known tokens that should NEVER be indexed as launchpad tokens
+const EXCLUDED_MINTS = new Set([
+  SOL_MINT,
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+  '7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj', // stSOL
+  'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So',  // mSOL
+  'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // BONK
+  'So11111111111111111111111111111111111111112',      // Wrapped SOL
+  'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',   // JUP
+  '5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump',  // MYTH L1
+]);
+
 // Polling interval for getSignaturesForAddress fallback (ms)
-const POLL_INTERVAL = 5_000;
+const POLL_INTERVAL = 15_000;
+
+// On-chain sync runs every N poll cycles (quoteReserve reads)
+const SYNC_EVERY_N_POLLS = 3;
+let pollCycleCount = 0;
 
 // ═══════════════════════════════════════════════════════════════
 // Database Setup
@@ -301,14 +321,45 @@ async function parseTransaction(conn, signature) {
     // Signer is the trader
     const trader = accountKeys[0] || 'unknown';
 
-    // Find token mint that isn't SOL (the launched token)
+    // Find DBC instruction account indices to identify which tokens are from our launchpad
+    const dbcProgramId = METEORA_DBC_PROGRAM.toBase58();
+    const dbcAccountIndices = new Set();
+    const compiledIxs = msg.compiledInstructions || msg.instructions || [];
+    for (const ix of compiledIxs) {
+      const progIdx = ix.programIdIndex;
+      if (accountKeys[progIdx] === dbcProgramId) {
+        // All accounts referenced by this DBC instruction
+        const ixAccounts = ix.accountKeyIndexes || ix.accounts || [];
+        for (const idx of ixAccounts) {
+          dbcAccountIndices.add(idx);
+        }
+      }
+    }
+
+    // Collect token mints that appear in DBC instruction accounts
+    const dbcMints = new Set();
+    for (const post of postTokenBalances) {
+      if (dbcAccountIndices.has(post.accountIndex)) {
+        dbcMints.add(post.mint);
+      }
+    }
+
+    // Find token mint that isn't SOL and IS part of a DBC instruction
     let tokenMint = null;
     let tokenChange = 0;
     let solChange = 0;
 
+    // Require at least one DBC instruction found — if none, this tx isn't relevant
+    if (dbcMints.size === 0) {
+      return null;
+    }
+
     for (const post of postTokenBalances) {
       const mint = post.mint;
       if (mint === SOL_MINT) continue;
+      if (EXCLUDED_MINTS.has(mint)) continue;
+      // Only consider mints involved in DBC instructions (skip unrelated swaps in same tx)
+      if (!dbcMints.has(mint)) continue;
 
       const pre = preTokenBalances.find(p => p.accountIndex === post.accountIndex);
       const preAmount = pre ? parseFloat(pre.uiTokenAmount?.uiAmountString || '0') : 0;
@@ -325,31 +376,39 @@ async function parseTransaction(conn, signature) {
     // Calculate SOL change for trader (index 0)
     if (preBalances.length > 0 && postBalances.length > 0) {
       solChange = (preBalances[0] - postBalances[0]) / 1e9; // lamports to SOL
-      // Subtract estimated tx fee (~0.000005 SOL)
-      solChange = Math.max(0, solChange - 0.00001);
     }
 
-    // Determine trade type
+    // Determine trade type from token balance change direction
     let tradeType = 'buy';
     if (tokenChange < 0) {
       tradeType = 'sell';
+      // For sells: trader gained SOL (solChange is negative = post > pre), flip to positive
       solChange = Math.abs(solChange);
       tokenChange = Math.abs(tokenChange);
+    } else {
+      // For buys: trader spent SOL (solChange is positive = pre > post), subtract tx fee estimate
+      solChange = Math.max(0, solChange - 0.00001);
     }
 
     // Calculate price (SOL per token)
     const price = tokenChange > 0 ? Math.abs(solChange) / tokenChange : 0;
 
-    // Find pool address (look for Meteora DBC account in the tx)
+    // Find pool address from DBC instruction accounts
+    // The pool is the first writable account in a DBC instruction (not the program, config, or system accounts)
     let poolAddress = null;
-    for (let i = 1; i < accountKeys.length; i++) {
-      if (accountKeys[i] !== METEORA_DBC_PROGRAM.toBase58() && accountKeys[i] !== trader) {
-        // Heuristic: pool is usually one of the first few accounts
-        if (i <= 5) {
-          poolAddress = accountKeys[i];
-          break;
-        }
-      }
+    const skipSet = new Set([
+      METEORA_DBC_PROGRAM.toBase58(), MYTHICPAD_CONFIG.toBase58(), trader,
+      '11111111111111111111111111111111', 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+      'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL', 'SysvarRent111111111111111111111111111111111',
+      'ComputeBudget111111111111111111111111111111', SOL_MINT,
+    ]);
+    // Check writable accounts in DBC instructions
+    for (const idx of dbcAccountIndices) {
+      const key = accountKeys[idx];
+      if (!key || skipSet.has(key)) continue;
+      // Skip token mints and known non-pool accounts
+      if (key === tokenMint) continue;
+      if (!poolAddress) poolAddress = key;
     }
 
     return {
@@ -375,8 +434,56 @@ async function parseTransaction(conn, signature) {
 // Event Processing
 // ═══════════════════════════════════════════════════════════════
 
-function processPoolCreated(db, parsed) {
+// Known invalid config addresses to filter out
+const INVALID_CONFIGS = new Set([
+  '11111111111111111111111111111111',  // System Program
+  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',  // Token Program
+  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',  // ATA Program
+]);
+
+// Known MythicPad pool configs — check transaction account keys for these FIRST (no RPC needed)
+const KNOWN_CONFIGS = new Set([
+  '3qmRYAJycnRJEVtinC687CXbqTBZTUkPCcsNQzwUhx7K', // MythicPad production
+]);
+
+// Resolve config_address for a pool — fast path checks account keys first, slow path reads on-chain
+async function resolveConfigAddress(conn, poolAddress, accountKeys, skipRpc = false) {
+  let configAddress = null;
+
+  // Method 1 (FAST): Check known configs in transaction account keys — no RPC call needed
+  if (accountKeys) {
+    for (const key of accountKeys) {
+      if (KNOWN_CONFIGS.has(key)) {
+        configAddress = key;
+        return configAddress;
+      }
+    }
+  }
+
+  // Method 2 (SLOW): Read on-chain pool account data (config pubkey at offset 8 after discriminator)
+  if (!skipRpc && poolAddress) {
+    try {
+      const poolPk = new PublicKey(poolAddress);
+      const acct = await conn.getAccountInfo(poolPk);
+      if (acct && acct.data.length >= 40 && acct.owner.toBase58() === METEORA_DBC_PROGRAM.toBase58()) {
+        const candidate = new PublicKey(acct.data.subarray(8, 40)).toBase58();
+        if (!INVALID_CONFIGS.has(candidate)) {
+          configAddress = candidate;
+        }
+      }
+    } catch (e) {
+      // Fall through — rate limited or network error
+    }
+  }
+
+  return configAddress;
+}
+
+async function processPoolCreated(db, parsed, conn) {
   if (!parsed.tokenMint) return;
+
+  // We only monitor our config account, so all events are MythicPad
+  const configAddress = MYTHICPAD_CONFIG.toBase58();
 
   stmts.upsertToken.run({
     mint: parsed.tokenMint,
@@ -386,20 +493,21 @@ function processPoolCreated(db, parsed) {
     image_url: null,
     creator: parsed.trader,
     pool_address: parsed.poolAddress,
-    config_address: null,
+    config_address: configAddress,
     created_at: parsed.blockTime,
   });
 
-  console.log(`[${ts()}] New token: ${parsed.tokenMint} by ${parsed.trader}`);
+  console.log(`[${ts()}] New token: ${parsed.tokenMint} by ${parsed.trader} config=${configAddress}`);
   broadcastWs({ type: 'new_token', mint: parsed.tokenMint, creator: parsed.trader, timestamp: parsed.blockTime });
 }
 
-function processTrade(db, parsed, tradeType) {
+async function processTrade(db, parsed, tradeType, conn) {
   if (!parsed.tokenMint) return;
 
   const type = tradeType || parsed.tradeType;
 
-  // Ensure token exists
+  // Ensure token exists — we only monitor our config, so all events are MythicPad
+  const configAddress = MYTHICPAD_CONFIG.toBase58();
   const existing = stmts.getToken.get(parsed.tokenMint);
   if (!existing) {
     stmts.upsertToken.run({
@@ -407,9 +515,12 @@ function processTrade(db, parsed, tradeType) {
       name: null, symbol: null, uri: null, image_url: null,
       creator: null,
       pool_address: parsed.poolAddress,
-      config_address: null,
+      config_address: configAddress,
       created_at: parsed.blockTime,
     });
+  } else if (!existing.config_address) {
+    db.prepare('UPDATE tokens SET config_address = ? WHERE mint = ? AND config_address IS NULL')
+      .run(configAddress, parsed.tokenMint);
   }
 
   const result = stmts.insertTrade.run({
@@ -473,10 +584,10 @@ let lastProcessedSignature = null;
 
 async function startWebSocketSubscription(conn, db) {
   try {
-    console.log(`[${ts()}] Subscribing to Meteora DBC logs via WebSocket...`);
+    console.log(`[${ts()}] Subscribing to MythicPad config logs via WebSocket...`);
 
     wsSubscriptionId = conn.onLogs(
-      METEORA_DBC_PROGRAM,
+      MYTHICPAD_CONFIG,
       async (logInfo) => {
         try {
           const { signature, logs } = logInfo;
@@ -490,12 +601,12 @@ async function startWebSocketSubscription(conn, db) {
           for (const event of events) {
             switch (event.type) {
               case 'pool_created':
-                processPoolCreated(db, parsed);
+                await processPoolCreated(db, parsed, conn);
                 break;
               case 'swap':
               case 'buy':
               case 'sell':
-                processTrade(db, parsed, event.type === 'swap' ? undefined : event.type);
+                await processTrade(db, parsed, event.type === 'swap' ? undefined : event.type, conn);
                 break;
               case 'graduated':
                 processGraduation(db, parsed);
@@ -531,7 +642,7 @@ async function pollForTransactions(conn, db) {
       opts.until = lastProcessedSignature;
     }
 
-    const signatures = await conn.getSignaturesForAddress(METEORA_DBC_PROGRAM, opts);
+    const signatures = await conn.getSignaturesForAddress(MYTHICPAD_CONFIG, opts);
 
     if (signatures.length === 0) return;
 
@@ -553,12 +664,12 @@ async function pollForTransactions(conn, db) {
       for (const event of events) {
         switch (event.type) {
           case 'pool_created':
-            processPoolCreated(db, tx);
+            await processPoolCreated(db, tx, conn);
             break;
           case 'swap':
           case 'buy':
           case 'sell':
-            processTrade(db, tx, event.type === 'swap' ? undefined : event.type);
+            await processTrade(db, tx, event.type === 'swap' ? undefined : event.type, conn);
             break;
           case 'graduated':
             processGraduation(db, tx);
@@ -602,19 +713,29 @@ function createAPI(db) {
     next();
   });
 
-  // GET /api/launches — all tokens, filterable by status
+  // GET /api/launches — all tokens, filterable by status and config
   app.get('/api/launches', (req, res) => {
-    const { status, limit, offset } = req.query;
+    const { status, config, limit, offset } = req.query;
     const lim = Math.min(parseInt(limit) || 50, 200);
     const off = parseInt(offset) || 0;
 
     let rows;
-    if (status) {
+    if (config && status) {
+      rows = db.prepare('SELECT * FROM tokens WHERE config_address = ? AND status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?').all(config, status, lim, off);
+    } else if (config) {
+      rows = db.prepare('SELECT * FROM tokens WHERE config_address = ? ORDER BY created_at DESC LIMIT ? OFFSET ?').all(config, lim, off);
+    } else if (status) {
       rows = db.prepare('SELECT * FROM tokens WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?').all(status, lim, off);
     } else {
       rows = db.prepare('SELECT * FROM tokens ORDER BY created_at DESC LIMIT ? OFFSET ?').all(lim, off);
     }
-    res.json({ tokens: rows, count: rows.length });
+    // Enrich each token with current_price from latest trade
+    const enriched = rows.map(t => {
+      const lastTrade = db.prepare('SELECT price FROM trades WHERE mint = ? AND price > 0 ORDER BY timestamp DESC LIMIT 1').get(t.mint);
+      const tradeCount = db.prepare('SELECT COUNT(*) as count FROM trades WHERE mint = ?').get(t.mint);
+      return { ...t, current_price: lastTrade?.price || 0, total_trades: tradeCount?.count || 0 };
+    });
+    res.json({ tokens: enriched, count: enriched.length });
   });
 
   // GET /api/launches/trending — sorted by 24h volume
@@ -635,7 +756,7 @@ function createAPI(db) {
     const since24h = Math.floor(Date.now() / 1000) - 86400;
     const vol24h = db.prepare('SELECT COALESCE(SUM(sol_amount), 0) as vol FROM trades WHERE mint = ? AND timestamp > ?')
       .get(req.params.mint, since24h);
-    const lastTrade = db.prepare('SELECT * FROM trades WHERE mint = ? ORDER BY timestamp DESC LIMIT 1')
+    const lastTrade = db.prepare('SELECT * FROM trades WHERE mint = ? AND price > 0 ORDER BY timestamp DESC LIMIT 1')
       .get(req.params.mint);
 
     res.json({
@@ -737,6 +858,21 @@ function createAPI(db) {
     res.json({ ok: true });
   });
 
+  // POST /api/update-metadata — manually set token metadata (for fixes)
+  app.post('/api/update-metadata', express.json(), (req, res) => {
+    const { mint, name, symbol, image_url, uri } = req.body;
+    if (!mint) return res.status(400).json({ error: 'mint required' });
+    const token = stmts.getToken.get(mint);
+    if (!token) return res.status(404).json({ error: 'Token not found' });
+
+    db.prepare('UPDATE tokens SET name = COALESCE(?, name), symbol = COALESCE(?, symbol), image_url = COALESCE(?, image_url), uri = COALESCE(?, uri) WHERE mint = ?')
+      .run(name || null, symbol || null, image_url || null, uri || null, mint);
+
+    console.log(`[${ts()}] Manual metadata update: ${mint.slice(0, 8)}.. name=${name} symbol=${symbol}`);
+    broadcastWs({ type: 'metadata_updated', mint, name, symbol, image_url });
+    res.json({ ok: true });
+  });
+
   // Health check
   app.get('/health', (req, res) => {
     const stats = stmts.getGlobalStats.get();
@@ -760,53 +896,59 @@ function createAPI(db) {
 async function fetchTokenMetadata(conn, db, mint) {
   try {
     const token = stmts.getToken.get(mint);
-    if (!token || token.name) return; // Already has metadata
+    if (!token) return;
+    // Skip if we already have complete metadata (name + image)
+    if (token.name && token.image_url) return;
 
-    // Try to get token metadata from Metaplex
-    const METADATA_PROGRAM = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
-    const [metadataPDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from('metadata'), METADATA_PROGRAM.toBuffer(), new PublicKey(mint).toBuffer()],
-      METADATA_PROGRAM
-    );
+    // Use Helius DAS API (getAsset) for reliable metadata resolution
+    const response = await fetch(HELIUS_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'meta-' + mint.slice(0, 8),
+        method: 'getAsset',
+        params: { id: mint },
+      }),
+    });
 
-    const metaInfo = await conn.getAccountInfo(metadataPDA);
-    if (!metaInfo) return;
+    if (!response.ok) return;
+    const json = await response.json();
+    const asset = json.result;
+    if (!asset) return;
 
-    // Parse Metaplex metadata (simplified)
-    const data = metaInfo.data;
-    // Skip: key(1) + update_authority(32) + mint(32) = 65
-    // name: 4-byte length prefix + string (max 32 chars)
-    const nameLen = data.readUInt32LE(65);
-    const name = data.subarray(69, 69 + Math.min(nameLen, 32)).toString('utf8').replace(/\0/g, '').trim();
+    const name = asset.content?.metadata?.name || null;
+    const symbol = asset.content?.metadata?.symbol || null;
+    const uri = asset.content?.json_uri || null;
+    let imageUrl = asset.content?.links?.image || null;
 
-    // symbol: after name (padded to 36 bytes from offset 69)
-    const symbolStart = 69 + 36; // 105
-    const symbolLen = data.readUInt32LE(symbolStart);
-    const symbol = data.subarray(symbolStart + 4, symbolStart + 4 + Math.min(symbolLen, 10)).toString('utf8').replace(/\0/g, '').trim();
+    // Try to get image from files array if links.image is missing
+    if (!imageUrl && asset.content?.files?.length > 0) {
+      imageUrl = asset.content.files[0].uri || asset.content.files[0].cdn_uri || null;
+    }
 
-    // uri: after symbol (padded to 14 bytes from symbolStart+4)
-    const uriStart = symbolStart + 4 + 14; // 123
-    const uriLen = data.readUInt32LE(uriStart);
-    const uri = data.subarray(uriStart + 4, uriStart + 4 + Math.min(uriLen, 200)).toString('utf8').replace(/\0/g, '').trim();
-
-    let imageUrl = null;
-    if (uri && (uri.startsWith('http') || uri.startsWith('ipfs'))) {
+    // If we have a URI but no image, fetch the JSON metadata to get image
+    if (!imageUrl && uri && (uri.startsWith('http') || uri.startsWith('ipfs'))) {
       try {
         const fetchUrl = uri.startsWith('ipfs://') ? `https://ipfs.io/ipfs/${uri.slice(7)}` : uri;
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
         const resp = await fetch(fetchUrl, { signal: controller.signal });
         clearTimeout(timeout);
-        const json = await resp.json();
-        imageUrl = json.image || null;
-      } catch (_) { /* ignore metadata fetch failures */ }
+        if (resp.ok) {
+          const meta = await resp.json();
+          imageUrl = meta.image || null;
+        }
+      } catch (_) { /* ignore */ }
     }
 
-    db.prepare('UPDATE tokens SET name = ?, symbol = ?, uri = ?, image_url = ? WHERE mint = ?')
-      .run(name || null, symbol || null, uri || null, imageUrl, mint);
+    if (name || symbol || uri || imageUrl) {
+      db.prepare('UPDATE tokens SET name = ?, symbol = ?, uri = ?, image_url = ? WHERE mint = ?')
+        .run(name, symbol, uri, imageUrl, mint);
 
-    if (name) {
-      console.log(`[${ts()}] Metadata: ${mint.slice(0, 8)}.. = ${name} (${symbol})`);
+      if (name) {
+        console.log(`[${ts()}] Metadata: ${mint.slice(0, 8)}.. = ${name} (${symbol}) img=${imageUrl ? 'yes' : 'no'}`);
+      }
     }
   } catch (err) {
     // Non-critical, silently ignore
@@ -850,18 +992,53 @@ async function main() {
   // WebSocket server on same port
   wss = new WebSocketServer({ server, path: '/ws' });
 
+  // Per-IP connection tracking to prevent ghost storms
+  const ipConnections = new Map(); // ip -> count
+  const MAX_CONNECTIONS_PER_IP = 5;
+
   wss.on('connection', (ws, req) => {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim();
+
+    // Rate limit per IP
+    const count = ipConnections.get(ip) || 0;
+    if (count >= MAX_CONNECTIONS_PER_IP) {
+      ws.close(4429, 'Too many connections');
+      return;
+    }
+    ipConnections.set(ip, count + 1);
+
+    ws.isAlive = true;
+    ws.clientIp = ip;
     console.log(`[${ts()}] WS client connected from ${ip} (total: ${wss.clients.size})`);
 
+    ws.on('pong', () => { ws.isAlive = true; });
+
     ws.on('close', () => {
+      const c = ipConnections.get(ip) || 1;
+      if (c <= 1) ipConnections.delete(ip);
+      else ipConnections.set(ip, c - 1);
       console.log(`[${ts()}] WS client disconnected (total: ${wss.clients.size})`);
     });
 
     // Send current stats on connect
-    const stats = stmts.getGlobalStats.get();
-    ws.send(JSON.stringify({ type: 'stats', ...stats }));
+    try {
+      const stats = stmts.getGlobalStats.get();
+      ws.send(JSON.stringify({ type: 'stats', ...stats }));
+    } catch (e) { /* ignore */ }
   });
+
+  // Heartbeat — kill stale connections every 30s
+  setInterval(() => {
+    if (!wss) return;
+    for (const client of wss.clients) {
+      if (!client.isAlive) {
+        client.terminate();
+        continue;
+      }
+      client.isAlive = false;
+      client.ping();
+    }
+  }, 30_000);
 
   server.listen(API_PORT, '0.0.0.0', () => {
     console.log(`[${ts()}] API server listening on port ${API_PORT}`);
@@ -874,19 +1051,53 @@ async function main() {
     wsEndpoint: HELIUS_WS,
   });
 
-  // Try WebSocket subscription first
-  const wsOk = await startWebSocketSubscription(conn, db);
+  // Skip Helius WS subscription — causes 429 rate-limit storms
+  // Polling fallback (every 15s) is reliable and sufficient
+  const wsOk = false;
 
-  // Always run polling as well (catches missed events, backfills)
+  // Poll loop: fetches new trades + syncs on-chain state
   console.log(`[${ts()}] Starting poll loop (every ${POLL_INTERVAL / 1000}s)...`);
 
   async function pollLoop() {
+    pollCycleCount++;
     await pollForTransactions(conn, db);
 
-    // Fetch metadata for tokens missing name/symbol
-    const missingMeta = db.prepare("SELECT mint FROM tokens WHERE name IS NULL LIMIT 5").all();
+    // Fetch metadata for tokens missing name/symbol (limit to 2 per cycle)
+    const missingMeta = db.prepare("SELECT mint FROM tokens WHERE name IS NULL LIMIT 2").all();
     for (const { mint } of missingMeta) {
       await fetchTokenMetadata(conn, db, mint);
+    }
+
+    // Sync sol_raised from on-chain pool quoteReserve every Nth cycle (reduce RPC calls)
+    if (pollCycleCount % SYNC_EVERY_N_POLLS === 0) {
+      const activeTokens = db.prepare("SELECT mint, pool_address, creator FROM tokens WHERE status = 'active' AND pool_address IS NOT NULL").all();
+      // Batch read pool accounts in one RPC call
+      const poolKeys = activeTokens.map(t => new PublicKey(t.pool_address));
+      if (poolKeys.length > 0) {
+        try {
+          const accounts = await conn.getMultipleAccountsInfo(poolKeys);
+          for (let i = 0; i < accounts.length; i++) {
+            const acct = accounts[i];
+            if (acct && acct.data.length >= 248 && acct.owner.toBase58() === METEORA_DBC_PROGRAM.toBase58()) {
+              const quoteReserveLamports = Number(acct.data.readBigUInt64LE(240));
+              const solCollected = quoteReserveLamports / 1e9;
+              db.prepare('UPDATE tokens SET sol_raised = ? WHERE mint = ?').run(solCollected, activeTokens[i].mint);
+              // Backfill creator from on-chain pool data if missing (creator pubkey at offset 104)
+              if (!activeTokens[i].creator && acct.data.length >= 136) {
+                try {
+                  const creatorPk = new PublicKey(acct.data.subarray(104, 136)).toBase58();
+                  if (creatorPk !== PublicKey.default.toBase58()) {
+                    db.prepare('UPDATE tokens SET creator = ? WHERE mint = ? AND creator IS NULL').run(creatorPk, activeTokens[i].mint);
+                    console.log(`[${ts()}] Backfilled creator for ${activeTokens[i].mint}: ${creatorPk}`);
+                  }
+                } catch { /* ignore parse errors */ }
+              }
+            }
+          }
+        } catch (e) {
+          // Rate limited or RPC error — skip this sync cycle
+        }
+      }
     }
   }
 

@@ -27,11 +27,11 @@ const RPC = 'https://api.mainnet-beta.solana.com';
 const BRIDGE_PROGRAM = new PublicKey('oEQfREm4FQkaVeRoxJHkJLB1feHprrntY6eJuW2zbqQ');
 const MYTH_MINT = new PublicKey('5UP2iL9DefXC3yovX9b4XG2EiCnyxuVo3S2F6ik5pump');
 
-const WITHDRAW_AMOUNT = 5_000_000n * 1_000_000n; // 5M MYTH at 6 decimals
-const WITHDRAW_NONCE = 99991n; // Incremented to avoid collision with previous withdrawal
+const WITHDRAW_AMOUNT = 2_900_000n * 1_000_000n; // 2.9M MYTH at 6 decimals
+const WITHDRAW_NONCE = 99992n; // Fresh nonce (nonce 40 already initiated by relayer with 24h deadline)
 const RESTORE_CHALLENGE_PERIOD = 86400; // 24h
 
-const RECIPIENT = new PublicKey('4g3i1w75VGXDqjoWbUrUy1HRWXvpVb2zrW9kx6cTgH7p');
+const RECIPIENT = new PublicKey('ESvzBBuAGKE4VATpFYbkx6qRUY8RYzv2X5Zp9d1BXvHZ');
 
 // Seeds
 const CONFIG_SEED = Buffer.from('bridge_config');
@@ -45,11 +45,12 @@ const IX_UPDATE_CONFIG = 6;
 
 // ── Keypairs ────────────────────────────────────────────────────────────────
 
+const KEY_BASE = process.env.KEY_BASE || '/mnt/data/mythic-l2/keys';
 const deployer = Keypair.fromSecretKey(
-  Uint8Array.from(JSON.parse(fs.readFileSync('/Users/raphaelcardona/mythic-l2/keys/deployer.json', 'utf8')))
+  Uint8Array.from(JSON.parse(fs.readFileSync(`${KEY_BASE}/deployer.json`, 'utf8')))
 );
 const sequencer = Keypair.fromSecretKey(
-  Uint8Array.from(JSON.parse(fs.readFileSync('/Users/raphaelcardona/mythic-l2/keys/sequencer-identity.json', 'utf8')))
+  Uint8Array.from(JSON.parse(fs.readFileSync(`${KEY_BASE}/sequencer-identity.json`, 'utf8')))
 );
 
 console.log('Deployer (admin):', deployer.publicKey.toBase58());

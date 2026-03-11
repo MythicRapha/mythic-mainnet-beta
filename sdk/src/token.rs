@@ -1,7 +1,7 @@
 //! MYTH Token instruction builders — fee distribution, burn, and config management.
 //!
 //! Matches: programs/myth-token/src/lib.rs
-//! Program ID: MythToken1111111111111111111111111111111111
+//! Program ID: 7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf
 //!
 //! Instructions:
 //!   0 = Initialize

@@ -62,7 +62,7 @@ async function updateLaunchpad() {
 // 2. MYTH Token - UpdateFeeConfig (instruction 7)
 // ============================================================================
 async function updateMythToken() {
-  const PROGRAM = new PublicKey('MythToken1111111111111111111111111111111111');
+  const PROGRAM = new PublicKey('7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf');
   const [configPDA] = PublicKey.findProgramAddressSync(
     [Buffer.from('fee_config')],
     PROGRAM

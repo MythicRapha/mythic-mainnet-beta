@@ -180,8 +180,7 @@ async function main() {
 
   const rawTx = tx.serialize();
   const sig = await connection.sendRawTransaction(rawTx, {
-    skipPreflight: false,
-    preflightCommitment: 'confirmed',
+    skipPreflight: true,
   });
 
   console.log('  TX Signature:', sig);

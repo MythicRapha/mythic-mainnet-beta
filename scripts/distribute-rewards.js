@@ -14,7 +14,7 @@ const fs = require('fs');
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const L2_RPC = 'http://127.0.0.1:8899';
-const MYTH_TOKEN_PROGRAM_ID = new PublicKey('MythToken1111111111111111111111111111111111');
+const MYTH_TOKEN_PROGRAM_ID = new PublicKey('7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf');
 
 const FEE_CONFIG_SEED = Buffer.from('fee_config');
 const FEE_POOL_SEED = Buffer.from('fee_pool');

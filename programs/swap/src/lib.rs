@@ -43,7 +43,7 @@ const MIN_LIQUIDITY: u64 = 1_000; // minimum LP tokens locked on first deposit
 
 /// MYTH Token program ID — fees are routed here for unified burn/distribute.
 const MYTH_TOKEN_PROGRAM_ID: Pubkey =
-    solana_program::pubkey!("7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf");
+    solana_program::pubkey!("MythToken1111111111111111111111111111111111");
 const FEE_CONFIG_SEED: &[u8] = b"fee_config";
 
 /// Fee type discriminators for myth-token CollectFee
@@ -1588,20 +1588,11 @@ fn process_swap(
         &[],
     )?;
 
-    // 2. Transfer protocol fee from trader to protocol fee vault
+    // 2. Route protocol fee: try myth-token CPI first (burn/distribute), fall back to protocol vault.
     if protocol_fee > 0 {
-        transfer_spl_tokens(
-            trader_token_in,
-            protocol_fee_vault,
-            trader,
-            token_program,
-            protocol_fee,
-            &[],
-        )?;
-    }
+        let mut cpi_succeeded = false;
 
-    // 2b. If myth-token CPI accounts are provided, route fee through unified collection
-    if protocol_fee > 0 {
+        // Check if myth-token CPI accounts are appended
         let myth_token_program = next_account_info(iter);
         if let Ok(myth_prog) = myth_token_program {
             if myth_prog.key == &MYTH_TOKEN_PROGRAM_ID {
@@ -1612,13 +1603,16 @@ fn process_swap(
                 let fee_pool_token_info = next_account_info(iter)?;
                 let system_prog = next_account_info(iter)?;
 
-                // Best-effort CPI — if it fails we still completed the swap
-                let _ = cpi_collect_fee(
+                // CPI routes fee directly from trader's token account:
+                // - validator portion → fee_pool_token_account
+                // - foundation portion → foundation_token_account
+                // - burn portion → spl_token::burn (permanent supply reduction)
+                let result = cpi_collect_fee(
                     trader,
                     myth_prog,
                     fee_config_info,
                     fee_pool_info,
-                    protocol_fee_vault, // payer_token_account = protocol fee vault (already funded)
+                    trader_token_in,       // payer_token_account = trader's input token account
                     foundation_token_info,
                     myth_mint_info,
                     fee_pool_token_info,
@@ -1627,7 +1621,23 @@ fn process_swap(
                     FEE_TYPE_GAS,
                     protocol_fee,
                 );
+                cpi_succeeded = result.is_ok();
+                if !cpi_succeeded {
+                    msg!("WARN: myth-token CPI failed, falling back to protocol vault");
+                }
             }
+        }
+
+        // Fallback: send protocol fee to protocol vault if CPI didn't handle it
+        if !cpi_succeeded {
+            transfer_spl_tokens(
+                trader_token_in,
+                protocol_fee_vault,
+                trader,
+                token_program,
+                protocol_fee,
+                &[],
+            )?;
         }
     }
 

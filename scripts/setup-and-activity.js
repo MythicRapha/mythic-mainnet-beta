@@ -14,7 +14,7 @@ const WBTC = { mint: new PublicKey("2AjMd8PP1wfVvsNXFzpxMGHzdfpbQSyxFzxeVA7odsb3
 const WETH = { mint: new PublicKey("3XtvX1qJA27UEoreVrxuPmv9zDY9xYRbmZiRJxJxQuUF"), decimals: 8, symbol: "wETH" };
 const ALL_TOKENS = [MYTH, WSOL, USDC, WBTC, WETH];
 
-const SWAP_PROGRAM = new PublicKey("E5KLCYQ9MoUQhHvHNvHbKK8YjWEp5y2eqpW84UHVj4iu");
+const SWAP_PROGRAM = new PublicKey("DFRp7heAMPAydgX7H9N8YrsfZg7ysZXQtpADci6zAksx");
 
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 

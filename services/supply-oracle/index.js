@@ -17,6 +17,9 @@
  *   GET /api/supply          -> {totalSupply, burned, circulating, burnRate24h}
  *   GET /api/supply/stats    -> {feeBreakdown, validatorRewards, foundationTreasury}
  *   GET /api/supply/history  -> burn history over time
+ *   GET /api/supply/validators         -> all validators with tier classification
+ *   GET /api/supply/validators/:pubkey -> single validator detail
+ *   GET /api/supply/fee-oracle         -> recommended fee + price data
  *   GET /health              -> health check
  */
 
@@ -57,7 +60,7 @@ const MYTH_TOKEN_PROGRAM = process.env.MYTH_TOKEN_PROGRAM || "7Hmyi9v4itEt49xo1f
 
 // Fixed canonical total supply: 1 billion MYTH
 const TOTAL_SUPPLY = 1_000_000_000;
-const MYTH_DECIMALS = 9;
+const MYTH_DECIMALS = 6;
 
 // Foundation wallet
 const FOUNDATION_WALLET = process.env.FOUNDATION_WALLET || "AnVqSYE3ArJX9ZCbiReFcNa2JdLyri3GGGt34j63hT9e";
@@ -484,7 +487,7 @@ async function updateSupplyData() {
 
   if (feeConfigResult.config) {
     feeConfig = feeConfigResult.config;
-    totalBurnedMYTH = feeConfig.totalBurned / 1e9;
+    totalBurnedMYTH = feeConfig.totalBurned / 1e6;
   }
 
   const circulatingSupply = TOTAL_SUPPLY - totalBurnedMYTH;
@@ -634,12 +637,12 @@ app.get("/api/v1/supply", (_req, res) => {
 app.get("/api/supply", (_req, res) => {
   const fc = supplyData.feeConfig;
   const totalBurnedLamports = fc ? fc.totalBurned : 0;
-  const totalBurnedMYTH = totalBurnedLamports / 1e9;
+  const totalBurnedMYTH = totalBurnedLamports / 1e6;
 
   // Compute burn rates
   const nowBurned = totalBurnedLamports;
-  const burnRate24h = (nowBurned - last24hBurnSnapshot.totalBurned) / 1e9;
-  const burnRateWeek = (nowBurned - last7dBurnSnapshot.totalBurned) / 1e9;
+  const burnRate24h = (nowBurned - last24hBurnSnapshot.totalBurned) / 1e6;
+  const burnRateWeek = (nowBurned - last7dBurnSnapshot.totalBurned) / 1e6;
 
   res.json({
     totalSupply: TOTAL_SUPPLY,
@@ -657,7 +660,7 @@ app.get("/api/supply", (_req, res) => {
 app.get("/api/supply/stats", (_req, res) => {
   const fc = supplyData.feeConfig;
 
-  const toMYTH = (lamports) => (lamports || 0) / 1e9;
+  const toMYTH = (raw) => (raw || 0) / 1e6;
 
   const feeBreakdown = {
     gas: { burned: toMYTH(fc?.gasBurned), split: fc?.gasSplit || null },
@@ -702,12 +705,12 @@ app.get("/api/supply/history", (req, res) => {
     .slice(-limit)
     .map((e) => ({
       timestamp: new Date(e.timestamp).toISOString(),
-      totalBurned: e.totalBurned / 1e9,
-      gasBurned: e.gasBurned / 1e9,
-      computeBurned: e.computeBurned / 1e9,
-      inferenceBurned: e.inferenceBurned / 1e9,
-      bridgeBurned: e.bridgeBurned / 1e9,
-      subnetBurned: e.subnetBurned / 1e9,
+      totalBurned: e.totalBurned / 1e6,
+      gasBurned: e.gasBurned / 1e6,
+      computeBurned: e.computeBurned / 1e6,
+      inferenceBurned: e.inferenceBurned / 1e6,
+      bridgeBurned: e.bridgeBurned / 1e6,
+      subnetBurned: e.subnetBurned / 1e6,
     }));
 
   res.json({
@@ -717,12 +720,18 @@ app.get("/api/supply/history", (req, res) => {
   });
 });
 
-// --- NEW: /api/supply/validators ---------------------------------------------
+// --- Validator tier classification -------------------------------------------
 
-app.get("/api/supply/validators", (_req, res) => {
-  const toMYTH = (lamports) => (lamports || 0) / 1e9;
+function classifyTier(v) {
+  const stakeMYTH = (v.stakeAmount || 0) / 1e6;
+  if (v.aiCapable && stakeMYTH >= 500_000) return "ai";
+  if (stakeMYTH >= 100_000) return "validator";
+  return "mini";
+}
 
-  const validators = validatorCache.map((v) => ({
+function formatValidator(v) {
+  const toMYTH = (raw) => (raw || 0) / 1e6;
+  return {
     address: v.address,
     validator: v.validator,
     stakeAmount: toMYTH(v.stakeAmount),
@@ -732,7 +741,14 @@ app.get("/api/supply/validators", (_req, res) => {
     totalClaimed: toMYTH(v.totalClaimed),
     registeredAt: new Date(v.registeredAt * 1000).toISOString(),
     isActive: v.isActive,
-  }));
+    tier: classifyTier(v),
+  };
+}
+
+// --- /api/supply/validators --------------------------------------------------
+
+app.get("/api/supply/validators", (_req, res) => {
+  const validators = validatorCache.map(formatValidator);
 
   const active = validators.filter((v) => v.isActive);
   const totalStake = active.reduce((s, v) => s + v.stakeAmount, 0);
@@ -748,6 +764,76 @@ app.get("/api/supply/validators", (_req, res) => {
     validators,
     lastUpdated: supplyData.lastUpdated,
   });
+});
+
+// --- /api/supply/validators/:pubkey ------------------------------------------
+
+app.get("/api/supply/validators/:pubkey", async (req, res) => {
+  const { pubkey } = req.params;
+
+  let validatorPubkey;
+  try {
+    validatorPubkey = new PublicKey(pubkey);
+  } catch {
+    return res.status(400).json({ error: "Invalid public key" });
+  }
+
+  // Check cache first
+  const cached = validatorCache.find((v) => v.validator === pubkey);
+  if (cached) {
+    return res.json(formatValidator(cached));
+  }
+
+  // Not in cache — derive PDA and fetch on-chain
+  try {
+    const programId = new PublicKey(MYTH_TOKEN_PROGRAM);
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("validator"), validatorPubkey.toBuffer()],
+      programId,
+    );
+    const conn = new Connection(L2_RPC_URL, "confirmed");
+    const accountInfo = await withTimeout(conn.getAccountInfo(pda), 8000);
+    if (!accountInfo || !accountInfo.data) {
+      return res.status(404).json({ error: "Validator not registered" });
+    }
+    const vfa = deserializeValidatorFeeAccount(accountInfo.data);
+    if (!vfa) {
+      return res.status(404).json({ error: "Could not deserialize validator account" });
+    }
+    return res.json(formatValidator({ address: pda.toBase58(), ...vfa }));
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// --- NEW: /api/supply/fee-oracle ----------------------------------------------
+// Reads shared data written by the fee-oracle-crank service
+
+app.get("/api/supply/fee-oracle", (_req, res) => {
+  try {
+    const oracleFile = path.join(__dirname, "data", "fee-oracle.json");
+    if (!fs.existsSync(oracleFile)) {
+      return res.status(503).json({
+        error: "Fee oracle data not available yet",
+        hint: "The fee-oracle-crank service may not be running",
+      });
+    }
+    const raw = fs.readFileSync(oracleFile, "utf-8");
+    const data = JSON.parse(raw);
+
+    // Check staleness (>5 minutes = stale)
+    const age = data.lastUpdate
+      ? Date.now() - new Date(data.lastUpdate).getTime()
+      : Infinity;
+    if (age > 5 * 60 * 1000) {
+      data.stale = true;
+      data.ageMs = age;
+    }
+
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to read fee oracle data", details: err.message });
+  }
 });
 
 // Health check

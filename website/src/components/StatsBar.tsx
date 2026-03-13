@@ -42,6 +42,7 @@ async function rpcCall(method: string, params: unknown[] = []) {
 export default function StatsBar() {
   const [stats, setStats] = useState<LiveStats | null>(null)
   const [l1Supply, setL1Supply] = useState<L1Supply | null>(null)
+  const [registeredValidators, setRegisteredValidators] = useState<number | null>(null)
   const [visible, setVisible] = useState(false)
 
   const fetchStats = useCallback(async () => {
@@ -80,6 +81,20 @@ export default function StatsBar() {
     }
   }, [])
 
+  const fetchRegisteredValidators = useCallback(async () => {
+    try {
+      const res = await fetch('/api/supply/validators')
+      if (res.ok) {
+        const data = await res.json()
+        if (typeof data.active === 'number') {
+          setRegisteredValidators(data.active)
+        }
+      }
+    } catch {
+      // keep previous data
+    }
+  }, [])
+
   const fetchL1Supply = useCallback(async () => {
     try {
       // Server-side route — no CORS, no client env issues
@@ -96,15 +111,18 @@ export default function StatsBar() {
   useEffect(() => {
     fetchStats()
     fetchL1Supply()
+    fetchRegisteredValidators()
     const statsInterval = setInterval(fetchStats, 5000)
     const burnInterval = setInterval(fetchL1Supply, 30000)
+    const validatorInterval = setInterval(fetchRegisteredValidators, 60000)
     const timer = setTimeout(() => setVisible(true), 300)
     return () => {
       clearInterval(statsInterval)
       clearInterval(burnInterval)
+      clearInterval(validatorInterval)
       clearTimeout(timer)
     }
-  }, [fetchStats, fetchL1Supply])
+  }, [fetchStats, fetchL1Supply, fetchRegisteredValidators])
 
   const items = [
     {
@@ -120,7 +138,9 @@ export default function StatsBar() {
     },
     {
       label: 'Validators',
-      value: stats?.online ? (stats.validatorCount > 0 ? String(stats.validatorCount) : '...') : '...',
+      value: stats?.online
+        ? (stats.validatorCount > 0 ? String(stats.validatorCount) : '1')
+        : '...',
       accent: 'text-mythic-violet',
     },
     {

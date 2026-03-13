@@ -106,6 +106,7 @@ const IX_SET_LIMITS: u8 = 9;
 const IX_FINALIZE_SOL_WITHDRAWAL: u8 = 10;
 const IX_CREATE_VAULT: u8 = 11;
 const IX_SEQUENCER_WITHDRAW_SOL: u8 = 12;
+const IX_ADMIN_CANCEL_WITHDRAWAL: u8 = 13;
 
 // ── Error Codes ──────────────────────────────────────────────────────────────
 
@@ -131,6 +132,8 @@ pub enum BridgeError {
     InvalidMerkleProof,
     #[error("Invalid nonce")]
     InvalidNonce,
+    #[error("Withdrawal is not in Pending status")]
+    WithdrawalNotPending,
 }
 
 impl From<BridgeError> for ProgramError {
@@ -265,6 +268,11 @@ pub struct SetLimitsParams {
     pub daily_limit_lamports: u64,
 }
 
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct AdminCancelWithdrawalParams {
+    pub withdrawal_nonce: u64,
+}
+
 // ResolveChallengeParams, ProposeUpdateParams, CloseWithdrawalParams removed to reduce binary size
 
 // ── Entrypoint ───────────────────────────────────────────────────────────────
@@ -296,6 +304,7 @@ pub fn process_instruction(
         IX_FINALIZE_SOL_WITHDRAWAL => process_finalize_sol_withdrawal(program_id, accounts, data),
         IX_CREATE_VAULT => process_create_vault(program_id, accounts),
         IX_SEQUENCER_WITHDRAW_SOL => process_sequencer_withdraw_sol(program_id, accounts, data),
+        IX_ADMIN_CANCEL_WITHDRAWAL => process_admin_cancel_withdrawal(program_id, accounts, data),
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
@@ -1473,6 +1482,90 @@ fn process_sequencer_withdraw_sol(
     msg!(
         "EVENT:SequencerWithdrawSOL:{{\"sequencer\":\"{}\",\"amount\":{}}}",
         sequencer.key, amount
+    );
+
+    Ok(())
+}
+
+// ── Admin Cancel Withdrawal ──────────────────────────────────────────────────
+// Emergency admin instruction to cancel a pending withdrawal (e.g. duplicate
+// nonce, fraudulent proof). Only the bridge admin can invoke this. The
+// withdrawal must be in Pending status — already-finalized or already-
+// cancelled withdrawals are rejected.
+//
+// Accounts:
+//   0. [signer] admin
+//   1. [writable] withdrawal_request PDA
+//   2. [] bridge_config PDA
+
+fn process_admin_cancel_withdrawal(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    data: &[u8],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let admin = next_account_info(accounts_iter)?;
+    let withdrawal_account = next_account_info(accounts_iter)?;
+    let config_account = next_account_info(accounts_iter)?;
+
+    // ── Signer check ────────────────────────────────────────────────────────
+    if !admin.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    // ── Writable check ──────────────────────────────────────────────────────
+    if !withdrawal_account.is_writable {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    // ── Validate bridge_config PDA ──────────────────────────────────────────
+    let (config_pda, _) = Pubkey::find_program_address(&[BRIDGE_CONFIG_SEED], program_id);
+    if config_pda != *config_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if config_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    let config = BridgeConfig::try_from_slice(&config_account.data.borrow())?;
+    if !config.is_initialized {
+        return Err(BridgeError::UninitializedAccount.into());
+    }
+
+    // ── Admin authority check ───────────────────────────────────────────────
+    if *admin.key != config.admin {
+        return Err(BridgeError::InvalidAuthority.into());
+    }
+
+    // ── Parse params ────────────────────────────────────────────────────────
+    let params = AdminCancelWithdrawalParams::try_from_slice(data)?;
+
+    // ── Validate withdrawal_request PDA ─────────────────────────────────────
+    let nonce_bytes = params.withdrawal_nonce.to_le_bytes();
+    let (withdrawal_pda, _) =
+        Pubkey::find_program_address(&[WITHDRAWAL_SEED, &nonce_bytes], program_id);
+    if withdrawal_pda != *withdrawal_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+    if withdrawal_account.owner != program_id {
+        return Err(ProgramError::IllegalOwner);
+    }
+
+    // ── Deserialize and validate status ─────────────────────────────────────
+    let mut withdrawal =
+        WithdrawalRequest::try_from_slice(&withdrawal_account.data.borrow())?;
+
+    if withdrawal.status != WithdrawalStatus::Pending {
+        return Err(BridgeError::WithdrawalNotPending.into());
+    }
+
+    // ── Cancel the withdrawal ───────────────────────────────────────────────
+    withdrawal.status = WithdrawalStatus::Cancelled;
+    withdrawal.serialize(&mut &mut withdrawal_account.data.borrow_mut()[..])?;
+
+    msg!(
+        "EVENT:AdminCancelWithdrawal:{{\"admin\":\"{}\",\"nonce\":{},\"recipient\":\"{}\",\"amount\":{}}}",
+        admin.key, params.withdrawal_nonce, withdrawal.recipient, withdrawal.amount
     );
 
     Ok(())

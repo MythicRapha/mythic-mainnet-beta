@@ -11,10 +11,10 @@ export const metadata: Metadata = {
     url: 'https://mythic.sh/proof',
     siteName: 'Mythic',
     images: [{
-      url: '/brand/og.svg',
+      url: '/brand/og.png',
       width: 1200,
       height: 630,
-      alt: 'Mythic L2 — On-Chain Proof',
+      alt: 'Mythic L2 — On-Chain Proof. Verify Everything.',
     }],
   },
   twitter: {
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     title: 'Mythic L2 — On-Chain Proof. Verify Everything.',
     description: '11 programs deployed on L2, bridge and settlement on Solana mainnet. All infrastructure live and verified on-chain.',
     creator: '@Mythic_L2',
-    images: ['/brand/og.svg'],
+    images: ['/brand/og.png'],
   },
 }
 

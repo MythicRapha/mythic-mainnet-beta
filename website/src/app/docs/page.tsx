@@ -718,27 +718,92 @@ function ValidatorsSection() {
         </table>
       </div>
 
-      <SubHeading>Validator Setup</SubHeading>
-      <CodeBlock>{`# Clone the Mythic validator repository
-git clone https://github.com/MythicFoundation/mythic-validator.git
-cd mythic-validator
+      <SubHeading>Validator Tiers</SubHeading>
+      <div className="bg-[#08080C] border border-white/[0.06] overflow-hidden mb-6">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Tier</th>
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Stake</th>
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">AI Required</th>
+              <th className="text-left py-3.5 px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase text-mythic-text-muted font-medium">Multiplier</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-[#39FF14] text-[0.82rem] font-bold">AI</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">500,000+ MYTH</td>
+              <td className="py-3.5 px-4 text-[#39FF14] text-[0.82rem]">Yes (GPU)</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">2x</td>
+            </tr>
+            <tr className="border-b border-white/[0.04]">
+              <td className="py-3.5 px-4 text-mythic-violet-bright text-[0.82rem] font-bold">Validator</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">100,000+ MYTH</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">No</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">1x</td>
+            </tr>
+            <tr>
+              <td className="py-3.5 px-4 text-mythic-text-dim text-[0.82rem] font-bold">Mini</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">&lt;100,000 MYTH</td>
+              <td className="py-3.5 px-4 text-mythic-text text-[0.82rem]">No</td>
+              <td className="py-3.5 px-4 text-mythic-violet text-[0.82rem]">1x</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-# Install dependencies (requires Rust 1.93+ and Solana CLI 3.0+)
-cargo build --release
+      <SubHeading>Validator Setup (Firedancer)</SubHeading>
+      <Paragraph>
+        Mythic L2 runs on Firedancer (fdctl), the high-performance Solana validator client by Jump Crypto. Follow these steps to join the network.
+      </Paragraph>
+      <CodeBlock>{`# 1. Install Firedancer
+git clone https://github.com/firedancer-io/firedancer.git
+cd firedancer
+./deps.sh
+make -j fdctl
 
-# Generate validator identity
-solana-keygen new -o validator-keypair.json
+# 2. Generate validator identity
+solana-keygen new -o identity.json
 
-# Start the validator (connects to Mythic L2 network)
-solana-test-validator \\
-  --identity validator-keypair.json \\
-  --rpc-url https://rpc.mythic.sh \\
-  --log`}</CodeBlock>
+# 3. Create config (mythic-validator.toml)
+cat > mythic-validator.toml << 'EOF'
+[gossip]
+  entrypoints = ["rpc.mythic.sh:8001"]
+[rpc]
+  port = 8899
+  transaction_history = true
+[consensus]
+  identity_path = "identity.json"
+  expected_genesis_hash = "<genesis-hash>"
+EOF
+
+# 4. Start the validator
+sudo fdctl run --config mythic-validator.toml
+
+# 5. Register as a validator on-chain
+node scripts/register-sequencer-validator.mjs --execute --server`}</CodeBlock>
+
+      <SubHeading>CLI Commands</SubHeading>
+      <CodeBlock>{`# Check validator status
+solana -u https://rpc.mythic.sh validators
+
+# View your validator's fee account
+solana -u https://rpc.mythic.sh account <VALIDATOR_PDA>
+
+# Check network slot
+solana -u https://rpc.mythic.sh slot
+
+# View epoch info
+solana -u https://rpc.mythic.sh epoch-info`}</CodeBlock>
 
       <SubHeading>Rewards</SubHeading>
       <Paragraph>
-        Validators earn rewards from two sources: transaction fee distribution (60% of gas fees go to validators) and AI compute payments (for serving inference requests). Higher-staked validators are selected more frequently for block production.
+        Validators earn rewards from two sources: transaction fee distribution (50% of all fees go to validators) and AI compute payments (for serving inference requests). AI-capable validators receive a 2x reward multiplier. Rewards are distributed automatically every epoch (~1000 slots) by the reward distributor crank.
       </Paragraph>
+
+      <InfoBox title="Live Dashboard">
+        View all registered validators, their tiers, stakes, and rewards in real-time on the <a href="/validators" className="text-mythic-violet hover:underline">Validator Dashboard</a>.
+      </InfoBox>
     </section>
   )
 }

@@ -407,7 +407,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* mythic.sh — Main */}
             <a href="https://mythic.sh" className="group bg-[#08080C] border border-white/[0.06] p-8 hover:border-[#7B2FFF]/30 transition-colors">
               <div className="w-10 h-10 bg-[#7B2FFF]/10 border border-[#7B2FFF]/20 flex items-center justify-center mb-5">
@@ -454,6 +454,18 @@ export default function HomePage() {
               <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Foundation</div>
               <h4 className="font-display text-white font-semibold text-[1rem] mb-2 group-hover:text-[#A855F7] transition-colors">mythic.foundation</h4>
               <p className="text-mythic-text text-[0.75rem] leading-relaxed">Grants, governance, and ecosystem development. A Wyoming DUNA.</p>
+            </a>
+
+            {/* mythiclabs.io — Developer Docs */}
+            <a href="https://mythiclabs.io" target="_blank" rel="noopener noreferrer" className="group bg-[#08080C] border border-white/[0.06] p-8 hover:border-[#39FF14]/30 transition-colors">
+              <div className="w-10 h-10 bg-[#39FF14]/10 border border-[#39FF14]/20 flex items-center justify-center mb-5">
+                <svg className="w-5 h-5 text-[#39FF14]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+                </svg>
+              </div>
+              <div className="font-mono text-[0.55rem] tracking-[0.15em] uppercase text-mythic-text-muted mb-2">Developer</div>
+              <h4 className="font-display text-white font-semibold text-[1rem] mb-2 group-hover:text-[#39FF14] transition-colors">mythiclabs.io</h4>
+              <p className="text-mythic-text text-[0.75rem] leading-relaxed">Developer docs, RPC API reference, validator setup, and CLI tools.</p>
             </a>
           </div>
         </div>

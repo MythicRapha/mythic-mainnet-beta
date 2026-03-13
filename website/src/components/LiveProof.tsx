@@ -65,10 +65,10 @@ const L1_CONTRACTS = [
 
 const L2_PROGRAMS = [
   { label: 'Bridge L2', address: 'MythBrdgL2111111111111111111111111111111111' },
-  { label: 'MYTH Token', address: 'MythToken1111111111111111111111111111111111' },
-  { label: 'Swap (AMM)', address: 'MythSwap11111111111111111111111111111111111' },
-  { label: 'Launchpad', address: 'MythPad111111111111111111111111111111111111' },
-  { label: 'Staking', address: 'MythStak11111111111111111111111111111111111' },
+  { label: 'MYTH Token', address: '7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf' },
+  { label: 'Swap (AMM)', address: 'E5KLCYQ9MoUQhHvHNvHbKK8YjWEp5y2eqpW84UHVj4iu' },
+  { label: 'Launchpad', address: '62dVNKTPhChmGVzQu7YzK19vVtTk371Zg7iHfNzk635c' },
+  { label: 'Staking', address: '3J5rESPt79TyqkQ3cjBZCKNmVqBRYNHWEPKWg3dmW2wL' },
   { label: 'Governance', address: 'MythGov111111111111111111111111111111111111' },
   { label: 'Settlement', address: 'MythSett1ement11111111111111111111111111111' },
   { label: 'AI Precompiles', address: 'CT1yUSX8n5uid5PyrPYnoG5H6Pp2GoqYGEKmMehq3uWJ' },

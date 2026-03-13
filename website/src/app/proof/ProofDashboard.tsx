@@ -397,10 +397,10 @@ export default function ProofDashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[
             { name: 'Bridge L2', addr: 'MythBrdgL2111111111111111111111111111111111', chain: 'l2' },
-            { name: 'MYTH Token', addr: 'MythToken1111111111111111111111111111111111', chain: 'l2' },
-            { name: 'Swap (AMM)', addr: 'MythSwap11111111111111111111111111111111111', chain: 'l2' },
-            { name: 'Launchpad', addr: 'MythPad111111111111111111111111111111111111', chain: 'l2' },
-            { name: 'Staking', addr: 'MythStak11111111111111111111111111111111111', chain: 'l2' },
+            { name: 'MYTH Token', addr: '7Hmyi9v4itEt49xo1fpTgHk1ytb8MZft7RBATBgb1pnf', chain: 'l2' },
+            { name: 'Swap (AMM)', addr: 'E5KLCYQ9MoUQhHvHNvHbKK8YjWEp5y2eqpW84UHVj4iu', chain: 'l2' },
+            { name: 'Launchpad', addr: '62dVNKTPhChmGVzQu7YzK19vVtTk371Zg7iHfNzk635c', chain: 'l2' },
+            { name: 'Staking', addr: '3J5rESPt79TyqkQ3cjBZCKNmVqBRYNHWEPKWg3dmW2wL', chain: 'l2' },
             { name: 'Governance', addr: 'MythGov111111111111111111111111111111111111', chain: 'l2' },
             { name: 'Settlement', addr: 'MythSett1ement11111111111111111111111111111', chain: 'l2' },
             { name: 'AI Precompiles', addr: 'CT1yUSX8n5uid5PyrPYnoG5H6Pp2GoqYGEKmMehq3uWJ', chain: 'l2' },

@@ -1,13 +1,16 @@
 # ============================================================================
-# Frankendancer Config — Server 2 L2 Mainnet (Joining Validator)
+# Frankendancer Config — Server 2 L2 Mainnet (Joining Validator, AI Tier)
 # Server: 20.49.10.158
-# Role: Secondary validator joining via gossip from Server 1
+# Role: Secondary validator joining via gossip from Server 1, AI-capable
+# Specs: 48 cores, 377GB RAM, 10TB RAID0 at /mnt/data
 # ============================================================================
 
 [name]
   name = "mythic-l2-mainnet-s2"
 
-# ── Identity ───────────────────────────────────────────────────────────────
+# -- Identity ------------------------------------------------------------------
+# Identity and vote keypairs are generated during deployment.
+# These paths are written by deploy-s2-validator.sh.
 [consensus]
   identity_path       = "/mnt/data/mythic-l2/keys/server2-identity.json"
   vote_account_path   = "/mnt/data/mythic-l2/keys/server2-vote.json"
@@ -18,13 +21,14 @@
   genesis_fetch       = true
   snapshot_interval_slots = 100
 
-# ── Ledger ─────────────────────────────────────────────────────────────────
+# -- Ledger --------------------------------------------------------------------
 [ledger]
   path                = "/mnt/data/mythic-l2/mainnet-ledger"
-  limit_size          = 50000000
+  limit_size          = 200000000
+  accounts_path       = "/mnt/data/mythic-l2/mainnet-ledger/accounts"
   require_tower       = false
 
-# ── RPC ────────────────────────────────────────────────────────────────────
+# -- RPC -----------------------------------------------------------------------
 [rpc]
   port                = 8899
   bind_address        = "0.0.0.0"
@@ -32,38 +36,41 @@
   full_api            = true
   private_rpc         = false
   transaction_history = true
+  extended_tx_metadata_storage = true
 
   enable_rpc_pubsub_block_subscription = true
   enable_rpc_pubsub_vote_subscription  = true
   account_indexes     = ["program-id", "spl-token-owner", "spl-token-mint"]
 
-# ── Gossip ─────────────────────────────────────────────────────────────────
+# -- Gossip --------------------------------------------------------------------
+# Joins the network via S1 bootstrap validator
 [gossip]
   port                = 8001
   entrypoints         = ["20.96.180.64:8001"]
   host                = "20.49.10.158"
 
-# ── Network ────────────────────────────────────────────────────────────────
+# -- Network -------------------------------------------------------------------
 [net]
   dynamic_port_range  = "8100-8200"
 
-# ── Log ────────────────────────────────────────────────────────────────────
+# -- Log -----------------------------------------------------------------------
 [log]
   path                = "/mnt/data/mythic-l2/logs/fdancer-mainnet.log"
   level_logfile       = "INFO"
   level_stderr        = "WARN"
 
-# ── Tiles ──────────────────────────────────────────────────────────────────
+# -- Tiles (AI tier: 48+ cores) -----------------------------------------------
+# Heavier tile layout matching S1 specs for full performance
 [tiles]
-  layout = "1 net, 1 quic, 2 verify, 1 dedup, 1 resolv, 1 pack, 4 bank, 1 poh, 1 shred, 1 store, 1 metric, 1 sign, 1 plugin"
+  layout = "2 net, 2 quic, 4 verify, 1 dedup, 2 resolv, 2 pack, 8 bank, 1 poh, 2 shred, 2 store, 1 metric, 1 sign, 1 plugin"
 
-# ── Snapshots ──────────────────────────────────────────────────────────────
+# -- Snapshots -----------------------------------------------------------------
 [snapshots]
   incremental_path    = "/mnt/data/mythic-l2/mainnet-ledger/snapshots"
   full_snapshot_interval_slots     = 25000
   incremental_snapshot_interval_slots = 100
 
-# ── BPF Programs ───────────────────────────────────────────────────────────
+# -- BPF Programs (loaded from genesis snapshot) -------------------------------
 # Programs are in genesis state; these paths are for reference / fresh init.
 
 [[bpf_program]]
@@ -109,3 +116,20 @@
 [[bpf_program]]
   program_id = "MythDrop11111111111111111111111111111111111"
   so_path    = "/mnt/data/mythic-l2/target/deploy/mythic_airdrop.so"
+
+# -- AI Gateway (configure after deployment) -----------------------------------
+# The AI sidecar runs as a separate process alongside the validator.
+# It listens for on-chain inference requests from the AI precompiles program
+# and routes them to local GPU inference engines (vLLM, Ollama, etc.).
+#
+# Configure the AI gateway after installation:
+#   /etc/mythic/ai-gateway.toml
+#
+# [ai_gateway]
+#   enabled          = true
+#   socket_path      = "/run/mythic/ai-gateway.sock"
+#   gpu_devices      = ["0"]
+#   inference_engine = "vllm"
+#   model_cache_path = "/mnt/data/mythic-l2/models"
+#   max_batch_size   = 32
+#   timeout_ms       = 5000

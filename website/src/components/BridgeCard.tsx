@@ -908,9 +908,9 @@ function BridgeProgressTracker({
   }, [direction, currentStep])
 
   const l2ExplorerLink = l2TxSignature
-    ? `https://explorer.mythic.sh/tx/${l2TxSignature}`
+    ? `https://explorer.mythic.sh/mainnet/tx/${l2TxSignature}`
     : walletAddress
-      ? `https://explorer.mythic.sh/address/${walletAddress}`
+      ? `https://explorer.mythic.sh/mainnet/address/${walletAddress}`
       : undefined
 
   const depositSteps: BridgeStep[] = [
@@ -938,7 +938,7 @@ function BridgeProgressTracker({
       description: `~${mythReceived > 1000 ? mythReceived.toLocaleString(undefined, { maximumFractionDigits: 0 }) : mythReceived.toFixed(4)} MYTH available at your same wallet address`,
       status: currentStep >= 3 ? 'complete' : 'pending',
       txLink: currentStep >= 3
-        ? (l2TxSignature ? `https://explorer.mythic.sh/tx/${l2TxSignature}` : `https://solscan.io/tx/${txSignature}`)
+        ? (l2TxSignature ? `https://explorer.mythic.sh/mainnet/tx/${l2TxSignature}` : `https://solscan.io/tx/${txSignature}`)
         : undefined,
       txLabel: l2TxSignature ? 'View L2 transaction' : 'View deposit on Solscan',
     },
@@ -949,7 +949,7 @@ function BridgeProgressTracker({
       label: 'L2 Withdrawal Submitted',
       description: `Withdrawing ${amount.toFixed(4)} MYTH from Mythic L2`,
       status: currentStep > 0 ? 'complete' : 'active',
-      txLink: `https://explorer.mythic.sh/tx/${txSignature}`,
+      txLink: `https://explorer.mythic.sh/mainnet/tx/${txSignature}`,
       txLabel: 'View on Explorer',
     },
     {
@@ -972,7 +972,7 @@ function BridgeProgressTracker({
       label: 'L2 Withdrawal Submitted',
       description: `Withdrawing ${amount.toFixed(4)} MYTH from Mythic L2`,
       status: currentStep > 0 ? 'complete' : 'active',
-      txLink: `https://explorer.mythic.sh/tx/${txSignature}`,
+      txLink: `https://explorer.mythic.sh/mainnet/tx/${txSignature}`,
       txLabel: 'View on Explorer',
     },
     {

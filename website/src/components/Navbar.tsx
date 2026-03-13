@@ -48,6 +48,12 @@ export default function Navbar() {
           >
             Bridge
           </Link>
+          <Link
+            href="/staking"
+            className="px-[18px] py-[19px] font-mono text-[0.6rem] tracking-[0.12em] uppercase font-medium text-[#39FF14] hover:text-[#66FF47] transition-colors border-b border-transparent"
+          >
+            Staking
+          </Link>
           <a
             href="https://mythicswap.app"
             target="_blank"
@@ -126,6 +132,16 @@ export default function Navbar() {
                   </svg>
                   Whitepaper
                 </Link>
+                <Link
+                  href="/validators"
+                  onClick={() => setResourcesOpen(false)}
+                  className="flex items-center gap-3 px-5 py-3 font-mono text-[0.6rem] tracking-[0.1em] uppercase font-medium text-mythic-text-dim hover:text-white hover:bg-[#7B2FFF]/10 transition-colors"
+                >
+                  <svg className="w-4 h-4 text-[#39FF14]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7" />
+                  </svg>
+                  Validators
+                </Link>
               </div>
             </div>
           </div>
@@ -201,6 +217,13 @@ export default function Navbar() {
             >
               Bridge
             </Link>
+            <Link
+              href="/staking"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2.5 font-mono text-[0.65rem] tracking-[0.1em] uppercase font-medium text-[#39FF14] hover:text-[#66FF47] transition-colors"
+            >
+              Staking
+            </Link>
             <a
               href="https://mythicswap.app"
               target="_blank"
@@ -256,6 +279,13 @@ export default function Navbar() {
                   className="block px-3 py-2 font-mono text-[0.6rem] tracking-[0.1em] uppercase font-medium text-mythic-text-dim hover:text-white transition-colors"
                 >
                   Whitepaper
+                </Link>
+                <Link
+                  href="/validators"
+                  onClick={() => { setMobileMenuOpen(false); setMobileResourcesOpen(false) }}
+                  className="block px-3 py-2 font-mono text-[0.6rem] tracking-[0.1em] uppercase font-medium text-[#39FF14] hover:text-white transition-colors"
+                >
+                  Validators
                 </Link>
               </div>
             )}

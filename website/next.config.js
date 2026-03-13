@@ -33,6 +33,20 @@ const nextConfig = {
     }
     return config
   },
+  async rewrites() {
+    return [
+      // Vanity curl downloads: curl -sSf mythic.sh/cli | bash
+      { source: '/cli', destination: '/mythic-cli.sh' },
+      // curl -sSf mythic.sh/install | bash (validator installer)
+      { source: '/install', destination: '/validator-install.sh' },
+      // curl -sSf mythic.sh/wizard | bash (wizard CLI installer)
+      { source: '/wizard', destination: '/wizard-install.sh' },
+      // Validator registration script (downloaded by installer)
+      { source: '/register-validator.js', destination: '/api/scripts/register-validator' },
+      // CLI version check endpoint
+      { source: '/cli-version', destination: '/api/cli-version' },
+    ]
+  },
   async headers() {
     return [
       {
@@ -42,6 +56,14 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+      {
+        // Serve shell scripts as plain text for curl downloads
+        source: '/:path*.sh',
+        headers: [
+          { key: 'Content-Type', value: 'text/plain; charset=utf-8' },
+          { key: 'Cache-Control', value: 'public, max-age=300' },
         ],
       },
     ]
